@@ -1,99 +1,142 @@
 import { prisma } from "../lib/prisma.js";
 
 /**
- * Servicio de notificaciones al cliente final.
+ * Servicio de notificaciones B2B.
  *
- * En Colombia el canal dominante es WhatsApp: la interfaz está diseñada para
- * conectar WhatsApp Business API en producción. En desarrollo se usa el
- * adaptador de consola y todo evento queda registrado en NotificationLog
- * (visible en el dashboard).
+ * MoveOS es software B2B: cuando un envío cambia de estado (despachado, en
+ * camino, entregado, fallido), se notifica al NEGOCIO CLIENTE que originó el
+ * envío — no al consumidor final que recibe el paquete.
+ *
+ * El canal lo define cada cliente (`Client.notifyChannel`):
+ *  - WEBHOOK: POST a su sistema (la integración B2B estándar).
+ *  - WHATSAPP: mensaje a un contacto operativo del negocio.
+ *  - EMAIL: correo de confirmación (esqueleto).
+ *  - IN_APP / CONSOLE: solo queda registrado y visible en el dashboard.
  */
 
-export type NotificationChannel = "WHATSAPP" | "SMS" | "EMAIL" | "CONSOLE";
+export type NotificationChannel =
+  | "WEBHOOK"
+  | "WHATSAPP"
+  | "EMAIL"
+  | "CONSOLE";
 
-export interface NotificationMessage {
+/** Datos mínimos del cliente necesarios para notificar. */
+export interface ClientTarget {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  notifyChannel: string;
+  webhookUrl: string | null;
+}
+
+export interface ClientNotification {
   tenantId: string;
-  orderId?: string;
-  recipient: string; // teléfono o email
-  template: string; // p. ej. "pedido_asignado", "pedido_en_camino"
+  orderId: string;
+  client: ClientTarget | null;
+  template: string; // p. ej. "envio_entregado", "envio_fallido"
   payload: Record<string, unknown>;
 }
 
-export interface NotificationAdapter {
+interface SendResult {
   channel: NotificationChannel;
-  send(message: NotificationMessage): Promise<void>;
+  recipient: string;
+  ok: boolean;
 }
 
-class ConsoleAdapter implements NotificationAdapter {
-  channel: NotificationChannel = "CONSOLE";
-  async send(message: NotificationMessage): Promise<void> {
+/** Envía por el canal del cliente y devuelve el resultado para auditar. */
+async function dispatchToChannel(
+  client: ClientTarget,
+  message: ClientNotification,
+): Promise<SendResult> {
+  const channel = client.notifyChannel as NotificationChannel;
+
+  try {
+    if (channel === "WEBHOOK" && client.webhookUrl) {
+      await fetch(client.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: message.template,
+          orderId: message.orderId,
+          data: message.payload,
+          sentAt: new Date().toISOString(),
+        }),
+      });
+      return { channel: "WEBHOOK", recipient: client.webhookUrl, ok: true };
+    }
+
+    if (channel === "WHATSAPP" && client.phone) {
+      const token = process.env.WHATSAPP_BUSINESS_TOKEN;
+      const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+      if (token && phoneId) {
+        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: client.phone,
+            type: "template",
+            template: { name: message.template, language: { code: "es_CO" } },
+          }),
+        });
+        return { channel: "WHATSAPP", recipient: client.phone, ok: true };
+      }
+      // Sin credenciales: cae a consola.
+    }
+
+    // EMAIL e IN_APP por ahora solo se registran (visibles en el dashboard).
+    const recipient =
+      channel === "EMAIL" && client.email ? client.email : client.name;
     console.log(
-      `[notificación → ${message.recipient}] ${message.template}`,
+      `[notificación B2B → ${client.name}] ${message.template}`,
       JSON.stringify(message.payload),
     );
+    return { channel: channel === "EMAIL" ? "EMAIL" : "CONSOLE", recipient, ok: true };
+  } catch (err) {
+    console.error("Error notificando al cliente:", err);
+    return {
+      channel,
+      recipient: client.webhookUrl ?? client.phone ?? client.name,
+      ok: false,
+    };
   }
 }
 
 /**
- * Esqueleto del adaptador WhatsApp Business API (Cloud API de Meta).
- * Requiere WHATSAPP_BUSINESS_TOKEN y WHATSAPP_PHONE_NUMBER_ID.
+ * Notifica al negocio cliente del envío. Si el pedido no tiene cliente
+ * asociado, se registra como evento de bitácora pero no se envía nada
+ * (el envío no pertenece a ningún negocio que deba enterarse).
  */
-class WhatsAppAdapter implements NotificationAdapter {
-  channel: NotificationChannel = "WHATSAPP";
-  async send(message: NotificationMessage): Promise<void> {
-    const token = process.env.WHATSAPP_BUSINESS_TOKEN;
-    const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    if (!token || !phoneId) {
-      throw new Error("WhatsApp Business API no configurada");
-    }
-    await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: message.recipient,
-        type: "template",
-        template: {
-          name: message.template,
-          language: { code: "es_CO" },
-        },
-      }),
-    });
+export async function notifyClient(message: ClientNotification): Promise<void> {
+  if (!message.client) {
+    // Sin negocio cliente: nada que notificar en B2B.
+    return;
   }
-}
 
-function pickAdapter(): NotificationAdapter {
-  if (process.env.WHATSAPP_BUSINESS_TOKEN) return new WhatsAppAdapter();
-  return new ConsoleAdapter();
-}
+  const result = await dispatchToChannel(message.client, message);
 
-export async function notify(message: NotificationMessage): Promise<void> {
-  const adapter = pickAdapter();
-  try {
-    await adapter.send(message);
-  } catch (err) {
-    console.error("Error enviando notificación:", err);
-  }
   await prisma.notificationLog.create({
     data: {
       tenantId: message.tenantId,
+      clientId: message.client.id,
       orderId: message.orderId,
-      channel: adapter.channel,
-      recipient: message.recipient,
+      channel: result.channel,
+      recipient: result.recipient,
       template: message.template,
       payload: message.payload as object,
+      status: result.ok ? "SENT" : "FAILED",
     },
   });
-  if (message.orderId) {
-    await prisma.orderEvent.create({
-      data: {
-        orderId: message.orderId,
-        type: "NOTIFIED",
-        details: `${message.template} → ${message.recipient}`,
-      },
-    });
-  }
+
+  await prisma.orderEvent.create({
+    data: {
+      orderId: message.orderId,
+      type: "NOTIFIED",
+      details: `${message.template} → ${message.client.name} (${result.channel})`,
+    },
+  });
 }

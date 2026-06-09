@@ -26,7 +26,10 @@ export default async function ordersRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: "desc" },
       take: query.take,
-      include: { stop: { select: { routeId: true, sequence: true, etaMin: true, status: true } } },
+      include: {
+        stop: { select: { routeId: true, sequence: true, etaMin: true, status: true } },
+        client: { select: { id: true, name: true, notifyChannel: true } },
+      },
     });
   });
 
@@ -76,9 +79,21 @@ async function createOrder(
     geocodeSource = geo.source;
   }
 
+  // Validar que el negocio cliente (si se indica) pertenezca al tenant.
+  if (input.clientId) {
+    const client = await prisma.client.findFirst({
+      where: { id: input.clientId, tenantId },
+      select: { id: true },
+    });
+    if (!client) {
+      throw Object.assign(new Error("Cliente no encontrado"), { statusCode: 400 });
+    }
+  }
+
   const order = await prisma.order.create({
     data: {
       tenantId,
+      clientId: input.clientId,
       trackingNumber: generateTrackingNumber(),
       externalRef: input.externalRef,
       customerName: input.customerName,

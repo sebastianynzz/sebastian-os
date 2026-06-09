@@ -154,7 +154,39 @@ async function main() {
     ],
   });
 
+  // Negocios cliente del tenant (B2B): originan los envíos y reciben las
+  // confirmaciones de entrega por distintos canales.
+  const tiendaModa = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Tienda Moda Express",
+      contactName: "Carolina Ríos",
+      email: "logistica@modaexpress.co",
+      notifyChannel: "EMAIL",
+    },
+  });
+  const distribuidora = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Distribuidora La 80",
+      contactName: "Operaciones",
+      webhookUrl: "https://webhook.site/demo-la80",
+      notifyChannel: "WEBHOOK",
+    },
+  });
+  const farmacia = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Farmacia Salud Total",
+      contactName: "Despacho",
+      phone: "+573009990000",
+      notifyChannel: "IN_APP",
+    },
+  });
+
   // Pedidos demo alrededor de Bogotá (coordenadas reales aproximadas).
+  // customerName/customerPhone = destinatario final; client = negocio que envía.
+  const clientIds = [tiendaModa.id, distribuidora.id, farmacia.id];
   const orders: Array<{
     customerName: string;
     customerPhone: string;
@@ -179,11 +211,12 @@ async function main() {
     { customerName: "Mateo Díaz", customerPhone: "+573101000012", addressRaw: "Cra 24 # 85-30, Polo Club", lat: 4.6705, lng: -74.0581, weightKg: 1.9 },
   ];
 
-  for (const o of orders) {
+  for (const [i, o] of orders.entries()) {
     const trackingNumber = generateTrackingNumber();
     const created = await prisma.order.create({
       data: {
         tenantId: tenant.id,
+        clientId: clientIds[i % clientIds.length],
         trackingNumber,
         customerName: o.customerName,
         customerPhone: o.customerPhone,

@@ -4,8 +4,18 @@ import { failStopSchema, submitPodSchema, haversineKm } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
-import { notify } from "../../services/notifications.js";
+import { notifyClient } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
+
+/** Selección de campos del cliente necesarios para notificar (B2B). */
+const clientSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  notifyChannel: true,
+  webhookUrl: true,
+} as const;
 
 const GEOFENCE_RADIUS_KM = 0.3; // 300 m para validar POD georreferenciado
 
@@ -55,7 +65,9 @@ export default async function routesRoutes(app: FastifyInstance) {
 
       const route = await prisma.route.findFirst({
         where: { id, tenantId: request.user.tenantId, status: "PLANNED" },
-        include: { stops: { include: { order: true } } },
+        include: {
+          stops: { include: { order: { include: { client: { select: clientSelect } } } } },
+        },
       });
       if (!route) return reply.code(404).send({ error: "Ruta no encontrada o ya despachada" });
 
@@ -77,14 +89,16 @@ export default async function routesRoutes(app: FastifyInstance) {
         })),
       );
 
+      // B2B: avisar al negocio cliente que su envío salió a reparto.
       for (const stop of route.stops) {
-        await notify({
+        await notifyClient({
           tenantId: request.user.tenantId,
           orderId: stop.orderId,
-          recipient: stop.order.customerPhone,
-          template: "pedido_asignado",
+          client: stop.order.client,
+          template: "envio_en_reparto",
           payload: {
-            cliente: stop.order.customerName,
+            guia: stop.order.trackingNumber,
+            destinatario: stop.order.customerName,
             etaMin: stop.etaMin,
             conductor: driver.name,
           },
@@ -99,7 +113,7 @@ export default async function routesRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const route = await prisma.route.findFirst({
       where: { id, tenantId: request.user.tenantId, status: "DISPATCHED" },
-      include: { stops: { include: { order: true } } },
+      include: { stops: true },
     });
     if (!route) return reply.code(404).send({ error: "Ruta no encontrada o no despachada" });
     if (request.user.role === "DRIVER" && route.driverId !== request.user.driverId) {
@@ -118,16 +132,8 @@ export default async function routesRoutes(app: FastifyInstance) {
         details: "El conductor inició la ruta",
       })),
     );
-
-    for (const stop of route.stops) {
-      await notify({
-        tenantId: request.user.tenantId,
-        orderId: stop.orderId,
-        recipient: stop.order.customerPhone,
-        template: "pedido_en_camino",
-        payload: { cliente: stop.order.customerName, etaMin: stop.etaMin },
-      });
-    }
+    // En B2B no se notifica "en camino" por cada parada (sería ruido): el
+    // negocio ya fue avisado al despachar y se le confirma al entregar.
     return { ok: true };
   });
 
@@ -233,12 +239,18 @@ export default async function routesRoutes(app: FastifyInstance) {
       );
     }
 
-    await notify({
+    // B2B: confirmar la entrega AL NEGOCIO CLIENTE (no al consumidor final).
+    await notifyClient({
       tenantId,
       orderId: order.id,
-      recipient: order.customerPhone,
-      template: "pedido_entregado",
-      payload: { cliente: order.customerName, recibidoPor: input.receivedBy ?? null },
+      client: order.client,
+      template: "envio_entregado",
+      payload: {
+        guia: order.trackingNumber,
+        destinatario: order.customerName,
+        recibidoPor: input.receivedBy ?? null,
+        geocercaOk: geofenceOk,
+      },
     });
 
     await maybeCompleteRoute(stop.route.id);
@@ -267,12 +279,17 @@ export default async function routesRoutes(app: FastifyInstance) {
     ]);
     await logOrderEvent(stop.orderId, "FAILED", `Motivo: ${input.reason}`);
 
-    await notify({
+    // B2B: avisar al negocio cliente que su envío no se pudo entregar.
+    await notifyClient({
       tenantId: request.user.tenantId,
       orderId: stop.orderId,
-      recipient: stop.order.customerPhone,
-      template: "pedido_fallido",
-      payload: { cliente: stop.order.customerName, motivo: input.reason },
+      client: stop.order.client,
+      template: "envio_fallido",
+      payload: {
+        guia: stop.order.trackingNumber,
+        destinatario: stop.order.customerName,
+        motivo: input.reason,
+      },
     });
 
     await maybeCompleteRoute(stop.route.id);
@@ -286,7 +303,10 @@ async function findStopForUser(
 ) {
   const stop = await prisma.routeStop.findFirst({
     where: { id: stopId, route: { tenantId: request.user.tenantId } },
-    include: { order: true, route: true },
+    include: {
+      order: { include: { client: { select: clientSelect } } },
+      route: true,
+    },
   });
   if (!stop) return null;
   if (

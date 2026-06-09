@@ -22,7 +22,36 @@ export const registerTenantSchema = z.object({
   password: z.string().min(8),
 });
 
+export const NOTIFY_CHANNELS = [
+  "IN_APP",
+  "EMAIL",
+  "WHATSAPP",
+  "WEBHOOK",
+] as const;
+export type NotifyChannel = (typeof NOTIFY_CHANNELS)[number];
+
+/** Negocio cliente del tenant (origina los envíos; recibe las confirmaciones). */
+export const clientFields = z.object({
+  name: z.string().min(2),
+  contactName: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  notifyChannel: z.enum(NOTIFY_CHANNELS).default("IN_APP"),
+  webhookUrl: z.string().url().optional().or(z.literal("")),
+});
+
+const requireWebhookUrl = (c: { notifyChannel?: string; webhookUrl?: string }) =>
+  c.notifyChannel !== "WEBHOOK" || !!c.webhookUrl;
+const webhookMsg = {
+  message: "El canal WEBHOOK requiere webhookUrl",
+  path: ["webhookUrl"],
+};
+
+export const createClientSchema = clientFields.refine(requireWebhookUrl, webhookMsg);
+export const updateClientSchema = clientFields.partial().refine(requireWebhookUrl, webhookMsg);
+
 export const createOrderSchema = z.object({
+  clientId: z.string().optional(),
   externalRef: z.string().optional(),
   customerName: z.string().min(2),
   customerPhone: z.string().min(7),
@@ -130,6 +159,7 @@ export const failStopSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type CreateClientInput = z.infer<typeof createClientSchema>;
 export type CreateDriverInput = z.infer<typeof createDriverSchema>;
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type PlanRoutesInput = z.infer<typeof planRoutesSchema>;

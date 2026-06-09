@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-do
 import { AuthProvider, useAuth } from "./auth";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
+import Clientes from "./pages/Clientes";
 import Planificacion from "./pages/Planificacion";
 import Rutas from "./pages/Rutas";
 import Conductores from "./pages/Conductores";
@@ -14,6 +15,7 @@ import Analitica from "./pages/Analitica";
 
 const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/pedidos", label: "Pedidos" },
+  { to: "/clientes", label: "Clientes" },
   { to: "/planificacion", label: "Planificación", module: "ROUTE_OPTIMIZATION" },
   { to: "/rutas", label: "Rutas" },
   { to: "/mapa", label: "Mapa en vivo", module: "TELEMATICS" },
@@ -76,6 +78,7 @@ function Shell() {
         <Routes>
           <Route path="/" element={<Navigate to="/pedidos" replace />} />
           <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/clientes" element={<Clientes />} />
           <Route path="/planificacion" element={<Planificacion />} />
           <Route path="/rutas" element={<Rutas />} />
           <Route path="/conductores" element={<Conductores />} />
