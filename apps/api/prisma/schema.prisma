@@ -6,6 +6,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Operador de la plataforma MoveOS (NO pertenece a ningún tenant). Gestiona
+/// tenants, planes, módulos y salud desde el panel de administración.
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -16,6 +26,8 @@ model Tenant {
   name      String
   nit       String?
   city      String   @default("Bogotá")
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
+  plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]

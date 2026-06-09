@@ -178,7 +178,13 @@ value evolution.
   `JWT_SECRET` (<32 chars). *(closed)*
 - **Engine-immobilization safety interlock**: `ENGINE_OFF` rejected unless the
   vehicle's last known speed is 0 (422 `VEHICLE_IN_MOTION`); every command is
-  audit-logged. *(new)*
+  audit-logged.
+- **Cross-plane isolation** (platform admin): tenant tokens carry `typ:"tenant"`,
+  platform tokens `typ:"platform"`. `authenticate` rejects platform tokens and
+  tokens missing `tenantId` (prevents the Prisma `undefined`-filter cross-tenant
+  leak); `requirePlatformAdmin` rejects tenant tokens. Both directions tested.
+- **Tenant suspension** enforced at login and per-request via a 60 s TTL cache
+  (immediate in-process on suspend), returning 403 `TENANT_SUSPENDED`.
 
 **Gaps remaining before production:**
 - No refresh-token rotation; a 12 h token can't be revoked before expiry.

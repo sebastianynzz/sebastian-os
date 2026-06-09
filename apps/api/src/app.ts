@@ -18,6 +18,7 @@ import telematicsRoutes from "./modules/telematics/routes.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import evRoutes from "./modules/ev/routes.js";
 import analyticsRoutes from "./modules/analytics/routes.js";
+import platformRoutes from "./modules/platform/routes.js";
 
 /**
  * Monolito modular: el núcleo (auth, pedidos, conductores, vehículos, rutas,
@@ -98,6 +99,9 @@ export async function buildApp() {
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
+
+  // Plano del operador de plataforma (autenticación separada).
+  await app.register(platformRoutes, { prefix: "/platform" });
 
   return app;
 }

@@ -45,6 +45,12 @@ export type StopStatus = (typeof STOP_STATUSES)[number];
 export const USER_ROLES = ["ADMIN", "DISPATCHER", "DRIVER"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+export const TENANT_STATUSES = ["ACTIVE", "SUSPENDED"] as const;
+export type TenantStatus = (typeof TENANT_STATUSES)[number];
+
+export const TENANT_PLANS = ["FREE", "PRO", "ENTERPRISE"] as const;
+export type TenantPlan = (typeof TENANT_PLANS)[number];
+
 export const SAFETY_ALERT_TYPES = [
   "ROUTE_DEVIATION",
   "PANIC",

@@ -40,6 +40,7 @@ export default async function authRoutes(app: FastifyInstance) {
     });
 
     const token = app.jwt.sign({
+      typ: "tenant",
       sub: user.id,
       tenantId: tenant.id,
       role: "ADMIN",
@@ -63,8 +64,16 @@ export default async function authRoutes(app: FastifyInstance) {
     if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
       return reply.code(401).send({ error: "Credenciales inválidas" });
     }
+    // Bloquear acceso a tenants suspendidos (el include ya está cargado).
+    if (user.tenant.status === "SUSPENDED") {
+      return reply.code(403).send({
+        error: "Cuenta suspendida. Contacte al administrador de la plataforma.",
+        code: "TENANT_SUSPENDED",
+      });
+    }
 
     const token = app.jwt.sign({
+      typ: "tenant",
       sub: user.id,
       tenantId: user.tenantId,
       role: user.role as "ADMIN" | "DISPATCHER" | "DRIVER",

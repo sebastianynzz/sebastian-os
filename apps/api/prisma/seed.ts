@@ -18,21 +18,79 @@ import { generateTrackingNumber } from "../src/services/orderEvents.js";
 const prisma = new PrismaClient();
 
 async function main() {
+  const passwordHash = await bcrypt.hash("moveos123", 10);
+
+  // Operador de plataforma (idempotente).
+  await prisma.platformAdmin.upsert({
+    where: { email: "ops@moveos.co" },
+    create: { email: "ops@moveos.co", passwordHash, name: "Operador MoveOS" },
+    update: {},
+  });
+
+  // Segundo tenant demo (plan FREE, solo módulos por defecto) para que el
+  // panel de plataforma tenga una lista con datos distintos.
+  const medellin = await prisma.tenant.findFirst({
+    where: { name: "Demo Express Medellín" },
+  });
+  if (!medellin) {
+    const t2 = await prisma.tenant.create({
+      data: {
+        name: "Demo Express Medellín",
+        nit: "900.111.222-3",
+        city: "Medellín",
+        plan: "FREE",
+        entitlements: {
+          create: MODULE_CATALOG.map((m) => ({
+            moduleKey: m.key,
+            enabled: m.defaultEnabled,
+          })),
+        },
+      },
+    });
+    await prisma.user.create({
+      data: {
+        tenantId: t2.id,
+        email: "admin@expressmed.co",
+        passwordHash,
+        name: "Admin Medellín",
+        role: "ADMIN",
+      },
+    });
+    const d2 = await prisma.driver.create({
+      data: { tenantId: t2.id, name: "Luis Mejía", phone: "+573015550000", documentId: "71234567" },
+    });
+    for (let i = 0; i < 4; i++) {
+      await prisma.order.create({
+        data: {
+          tenantId: t2.id,
+          trackingNumber: generateTrackingNumber(),
+          customerName: `Cliente Medellín ${i + 1}`,
+          customerPhone: `+57301555000${i}`,
+          addressRaw: `Cra ${30 + i} # 10-${20 + i}, El Poblado`,
+          lat: 6.21 + i * 0.002,
+          lng: -75.57,
+          geocodeSource: "CLIENT",
+          status: "GEOCODED",
+        },
+      });
+    }
+    void d2;
+  }
+
   const existing = await prisma.tenant.findFirst({
     where: { name: "Demo Logística Bogotá" },
   });
   if (existing) {
-    console.log("Seed ya aplicado, nada que hacer.");
+    console.log("Tenant Bogotá ya existe; operador y 2º tenant verificados.");
     return;
   }
-
-  const passwordHash = await bcrypt.hash("moveos123", 10);
 
   const tenant = await prisma.tenant.create({
     data: {
       name: "Demo Logística Bogotá",
       nit: "901.234.567-8",
       city: "Bogotá",
+      plan: "PRO",
       entitlements: {
         create: MODULE_CATALOG.map((m) => ({
           moduleKey: m.key,
@@ -244,6 +302,8 @@ async function main() {
   console.log("  despacho@demo.moveos.co / moveos123 (DISPATCHER)");
   console.log("  carlos@demo.moveos.co / moveos123 (DRIVER)");
   console.log("  maria@demo.moveos.co / moveos123 (DRIVER)");
+  console.log("  --- Panel de plataforma ---");
+  console.log("  ops@moveos.co / moveos123 (OPERADOR)");
 }
 
 main()

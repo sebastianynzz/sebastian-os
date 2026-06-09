@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   POD_TYPES,
   TELEMETRY_SOURCES,
+  TENANT_PLANS,
+  TENANT_STATUSES,
   VEHICLE_COMMAND_TYPES,
   VEHICLE_TYPES,
 } from "./enums.js";
@@ -168,3 +170,15 @@ export type SubmitPodInput = z.infer<typeof submitPodSchema>;
 export type FailStopInput = z.infer<typeof failStopSchema>;
 export type TelemetryIngestInput = z.infer<typeof telemetryIngestSchema>;
 export type VehicleCommandInput = z.infer<typeof vehicleCommandSchema>;
+
+/** Panel del operador de plataforma: actualización de un tenant. */
+export const updateTenantSchema = z
+  .object({
+    status: z.enum(TENANT_STATUSES).optional(),
+    plan: z.enum(TENANT_PLANS).optional(),
+  })
+  .refine((b) => b.status !== undefined || b.plan !== undefined, {
+    message: "Indique status y/o plan",
+  });
+
+export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
