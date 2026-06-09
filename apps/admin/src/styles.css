@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* Tema oscuro del panel de plataforma (marca Move). */
+@theme {
+  --color-navy: #1b365d;
+  --color-navydeep: #122440;
+  --color-cielo: #a2b2c8;
+  --color-lima: #d0de81;
+  --color-niebla: #f2f3f4;
+}
+
+body {
+  @apply bg-navydeep text-niebla;
+}

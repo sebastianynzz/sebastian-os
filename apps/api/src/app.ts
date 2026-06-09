@@ -8,6 +8,7 @@ import { registerAuth } from "./plugins/auth.js";
 import authRoutes from "./modules/auth/routes.js";
 import modulesRoutes from "./modules/admin/modules.js";
 import ordersRoutes from "./modules/orders/routes.js";
+import clientsRoutes from "./modules/clients/routes.js";
 import driversRoutes from "./modules/drivers/routes.js";
 import vehiclesRoutes from "./modules/vehicles/routes.js";
 import optimizationRoutes from "./modules/optimization/routes.js";
@@ -17,6 +18,7 @@ import telematicsRoutes from "./modules/telematics/routes.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import evRoutes from "./modules/ev/routes.js";
 import analyticsRoutes from "./modules/analytics/routes.js";
+import platformRoutes from "./modules/platform/routes.js";
 
 /**
  * Monolito modular: el núcleo (auth, pedidos, conductores, vehículos, rutas,
@@ -85,6 +87,7 @@ export async function buildApp() {
   await app.register(authRoutes, { prefix: "/auth" });
   await app.register(modulesRoutes, { prefix: "/modules" });
   await app.register(ordersRoutes, { prefix: "/orders" });
+  await app.register(clientsRoutes, { prefix: "/clients" });
   await app.register(driversRoutes, { prefix: "/drivers" });
   await app.register(vehiclesRoutes, { prefix: "/vehicles" });
   await app.register(routesRoutes, { prefix: "/routes" });
@@ -96,6 +99,9 @@ export async function buildApp() {
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
+
+  // Plano del operador de plataforma (autenticación separada).
+  await app.register(platformRoutes, { prefix: "/platform" });
 
   return app;
 }

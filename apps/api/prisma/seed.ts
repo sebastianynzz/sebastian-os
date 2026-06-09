@@ -18,21 +18,79 @@ import { generateTrackingNumber } from "../src/services/orderEvents.js";
 const prisma = new PrismaClient();
 
 async function main() {
+  const passwordHash = await bcrypt.hash("moveos123", 10);
+
+  // Operador de plataforma (idempotente).
+  await prisma.platformAdmin.upsert({
+    where: { email: "ops@moveos.co" },
+    create: { email: "ops@moveos.co", passwordHash, name: "Operador MoveOS" },
+    update: {},
+  });
+
+  // Segundo tenant demo (plan FREE, solo módulos por defecto) para que el
+  // panel de plataforma tenga una lista con datos distintos.
+  const medellin = await prisma.tenant.findFirst({
+    where: { name: "Demo Express Medellín" },
+  });
+  if (!medellin) {
+    const t2 = await prisma.tenant.create({
+      data: {
+        name: "Demo Express Medellín",
+        nit: "900.111.222-3",
+        city: "Medellín",
+        plan: "FREE",
+        entitlements: {
+          create: MODULE_CATALOG.map((m) => ({
+            moduleKey: m.key,
+            enabled: m.defaultEnabled,
+          })),
+        },
+      },
+    });
+    await prisma.user.create({
+      data: {
+        tenantId: t2.id,
+        email: "admin@expressmed.co",
+        passwordHash,
+        name: "Admin Medellín",
+        role: "ADMIN",
+      },
+    });
+    const d2 = await prisma.driver.create({
+      data: { tenantId: t2.id, name: "Luis Mejía", phone: "+573015550000", documentId: "71234567" },
+    });
+    for (let i = 0; i < 4; i++) {
+      await prisma.order.create({
+        data: {
+          tenantId: t2.id,
+          trackingNumber: generateTrackingNumber(),
+          customerName: `Cliente Medellín ${i + 1}`,
+          customerPhone: `+57301555000${i}`,
+          addressRaw: `Cra ${30 + i} # 10-${20 + i}, El Poblado`,
+          lat: 6.21 + i * 0.002,
+          lng: -75.57,
+          geocodeSource: "CLIENT",
+          status: "GEOCODED",
+        },
+      });
+    }
+    void d2;
+  }
+
   const existing = await prisma.tenant.findFirst({
     where: { name: "Demo Logística Bogotá" },
   });
   if (existing) {
-    console.log("Seed ya aplicado, nada que hacer.");
+    console.log("Tenant Bogotá ya existe; operador y 2º tenant verificados.");
     return;
   }
-
-  const passwordHash = await bcrypt.hash("moveos123", 10);
 
   const tenant = await prisma.tenant.create({
     data: {
       name: "Demo Logística Bogotá",
       nit: "901.234.567-8",
       city: "Bogotá",
+      plan: "PRO",
       entitlements: {
         create: MODULE_CATALOG.map((m) => ({
           moduleKey: m.key,
@@ -154,7 +212,39 @@ async function main() {
     ],
   });
 
+  // Negocios cliente del tenant (B2B): originan los envíos y reciben las
+  // confirmaciones de entrega por distintos canales.
+  const tiendaModa = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Tienda Moda Express",
+      contactName: "Carolina Ríos",
+      email: "logistica@modaexpress.co",
+      notifyChannel: "EMAIL",
+    },
+  });
+  const distribuidora = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Distribuidora La 80",
+      contactName: "Operaciones",
+      webhookUrl: "https://webhook.site/demo-la80",
+      notifyChannel: "WEBHOOK",
+    },
+  });
+  const farmacia = await prisma.client.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Farmacia Salud Total",
+      contactName: "Despacho",
+      phone: "+573009990000",
+      notifyChannel: "IN_APP",
+    },
+  });
+
   // Pedidos demo alrededor de Bogotá (coordenadas reales aproximadas).
+  // customerName/customerPhone = destinatario final; client = negocio que envía.
+  const clientIds = [tiendaModa.id, distribuidora.id, farmacia.id];
   const orders: Array<{
     customerName: string;
     customerPhone: string;
@@ -179,11 +269,12 @@ async function main() {
     { customerName: "Mateo Díaz", customerPhone: "+573101000012", addressRaw: "Cra 24 # 85-30, Polo Club", lat: 4.6705, lng: -74.0581, weightKg: 1.9 },
   ];
 
-  for (const o of orders) {
+  for (const [i, o] of orders.entries()) {
     const trackingNumber = generateTrackingNumber();
     const created = await prisma.order.create({
       data: {
         tenantId: tenant.id,
+        clientId: clientIds[i % clientIds.length],
         trackingNumber,
         customerName: o.customerName,
         customerPhone: o.customerPhone,
@@ -211,6 +302,8 @@ async function main() {
   console.log("  despacho@demo.moveos.co / moveos123 (DISPATCHER)");
   console.log("  carlos@demo.moveos.co / moveos123 (DRIVER)");
   console.log("  maria@demo.moveos.co / moveos123 (DRIVER)");
+  console.log("  --- Panel de plataforma ---");
+  console.log("  ops@moveos.co / moveos123 (OPERADOR)");
 }
 
 main()

@@ -59,7 +59,7 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 ### (c) Platform admin panel — stakeholder: platform operator (you)
 | Phase | Items |
 |---|---|
-| **Now (Round 2)** | Auth (separate JWT plane with cross-plane leak guard), tenant list/detail, suspend/reactivate, plan label, module entitlement overrides, platform metrics, second demo tenant |
+| **Now ✓ (built)** | Separate JWT plane with cross-plane leak guard, tenant list/detail, suspend/reactivate (immediate, TTL-cached), plan label, module entitlement overrides, platform metrics (orders/day, module adoption), second demo tenant. `apps/admin` on :5175 |
 | **Next** | **Impersonation** ("enter as tenant") with mandatory audit trail; `PlatformAuditLog`; plan quotas (orders/seats) with soft enforcement + upgrade prompts (**usage reports only — invoicing stays outside the product**); tenant health/activation scores; feature flags decoupled from commercial modules; registration approval flow; entitlement `lockedByPlatform` |
 | **Later** | Reseller/partner management (telematics channel); per-tenant data residency; usage anomaly detection; compliance evidence automation |
 

@@ -6,6 +6,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Operador de la plataforma MoveOS (NO pertenece a ningún tenant). Gestiona
+/// tenants, planes, módulos y salud desde el panel de administración.
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -16,12 +26,15 @@ model Tenant {
   name      String
   nit       String?
   city      String   @default("Bogotá")
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
+  plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]
   users         User[]
   drivers       Driver[]
   vehicles      Vehicle[]
+  clients       Client[]
   orders        Order[]
   routes        Route[]
   addressPins   AddressPin[]
@@ -96,12 +109,38 @@ model Vehicle {
   @@unique([tenantId, plate])
 }
 
+/// Cliente empresarial del tenant: el NEGOCIO que origina los envíos (tienda,
+/// distribuidor, e-commerce). MoveOS es B2B: cuando un paquete se entrega, la
+/// confirmación se notifica a este negocio cliente, NO al consumidor final que
+/// recibe el paquete en la puerta.
+model Client {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String // razón social / nombre del negocio
+  contactName   String?
+  email         String?
+  phone         String?
+  // Canal por el que el negocio recibe las confirmaciones de entrega.
+  notifyChannel String   @default("IN_APP") // IN_APP | EMAIL | WHATSAPP | WEBHOOK
+  webhookUrl    String?
+  createdAt     DateTime @default(now())
+  orders        Order[]
+  notifications NotificationLog[]
+
+  @@index([tenantId])
+}
+
 model Order {
   id              String    @id @default(cuid())
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
   trackingNumber  String?
   externalRef     String?
+  // Consumidor final / destino de la entrega (el conductor entrega aquí).
+  // NO recibe notificaciones: en B2B se notifica al negocio cliente.
   customerName    String
   customerPhone   String
   addressRaw      String
@@ -271,14 +310,20 @@ model SafetyAlert {
   @@index([tenantId, status])
 }
 
+/// Registro de notificaciones enviadas al negocio cliente (no al consumidor).
 model NotificationLog {
   id        String   @id @default(cuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
   orderId   String?
-  channel   String // WHATSAPP | SMS | EMAIL | CONSOLE
+  channel   String // WEBHOOK | WHATSAPP | EMAIL | CONSOLE
   recipient String
   template  String
   payload   Json
+  status    String   @default("SENT") // SENT | FAILED
   createdAt DateTime @default(now())
+
+  @@index([tenantId, clientId, createdAt])
 }

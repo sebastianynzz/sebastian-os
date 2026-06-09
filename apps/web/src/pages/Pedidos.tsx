@@ -23,7 +23,13 @@ interface Order {
   status: string;
   weightKg: number;
   geocodeSource: string | null;
+  client: { id: string; name: string } | null;
   createdAt: string;
+}
+
+interface ClientOption {
+  id: string;
+  name: string;
 }
 
 interface OrderEvent {
@@ -42,7 +48,7 @@ const EVENT_LABELS: Record<string, string> = {
   ARRIVED: "Conductor en el punto",
   DELIVERED: "Entregado",
   FAILED: "Entrega fallida",
-  NOTIFIED: "Cliente notificado",
+  NOTIFIED: "Negocio notificado",
 };
 
 const CSV_TEMPLATE =
@@ -86,6 +92,7 @@ export default function Pedidos() {
   const [notice, setNotice] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -97,6 +104,7 @@ export default function Pedidos() {
   }
   useEffect(() => {
     void load();
+    void api<ClientOption[]>("GET", "/clients").then(setClients);
   }, []);
 
   async function toggleBitacora(orderId: string) {
@@ -145,6 +153,7 @@ export default function Pedidos() {
     const data = new FormData(e.currentTarget);
     try {
       await api("POST", "/orders", {
+        clientId: data.get("clientId") || undefined,
         customerName: data.get("customerName"),
         customerPhone: data.get("customerPhone"),
         addressRaw: data.get("addressRaw"),
@@ -201,10 +210,22 @@ export default function Pedidos() {
       {showForm && (
         <Card title="Nuevo pedido">
           <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Cliente">
+            <div className="sm:col-span-2">
+              <Field label="Negocio cliente (quién envía)">
+                <select name="clientId" className={inputClass}>
+                  <option value="">— Sin negocio asignado —</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <Field label="Destinatario (quién recibe)">
               <input name="customerName" className={inputClass} required />
             </Field>
-            <Field label="Teléfono (WhatsApp)">
+            <Field label="Teléfono del destinatario">
               <input name="customerPhone" className={inputClass} required placeholder="+57..." />
             </Field>
             <div className="sm:col-span-2">
@@ -241,7 +262,8 @@ export default function Pedidos() {
           <thead>
             <tr className={theadRowClass}>
               <th className="py-2">Guía</th>
-              <th>Cliente</th>
+              <th>Negocio cliente</th>
+              <th>Destinatario</th>
               <th>Dirección</th>
               <th>Peso</th>
               <th>Estado</th>
@@ -275,6 +297,7 @@ export default function Pedidos() {
                     </span>
                     {o.trackingNumber ?? "—"}
                   </td>
+                  <td className="text-sm">{o.client?.name ?? "—"}</td>
                   <td>
                     <div className="font-medium">{o.customerName}</div>
                     <div className="text-xs text-navy/50">{o.customerPhone}</div>
@@ -287,7 +310,7 @@ export default function Pedidos() {
                 </tr>
                 {expanded === o.id && (
                   <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={5} className="px-4 py-3">
+                    <td colSpan={6} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
                       </div>
@@ -319,7 +342,7 @@ export default function Pedidos() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <EmptyState
                     action={
                       <Button onClick={() => setShowForm(true)}>Nuevo pedido</Button>

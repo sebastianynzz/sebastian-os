@@ -71,8 +71,9 @@ pnpm --filter @moveos/api db:push
 pnpm db:seed                          # demo tenant with Bogotá data
 
 pnpm dev:api      # API on :3000
-pnpm dev:web      # dashboard on :5173
+pnpm dev:web      # tenant dashboard on :5173
 pnpm dev:driver   # driver app on :5174
+pnpm dev:admin    # platform admin panel on :5175
 
 # Telemetry demo (no hardware): drives the seeded vehicles, streams GPS + CAN,
 # and executes engine on/off commands — watch the "Mapa en vivo" page.
@@ -94,6 +95,11 @@ Demo credentials (seed):
 | `despacho@demo.moveos.co` | `moveos123` | DISPATCHER |
 | `carlos@demo.moveos.co` | `moveos123` | DRIVER (moto) |
 | `maria@demo.moveos.co` | `moveos123` | DRIVER (e-van) |
+| `ops@moveos.co` | `moveos123` | PLATFORM OPERATOR (admin panel :5175) |
+
+MoveOS is **B2B**: the driver confirms delivery to the **business client** that
+originated the shipment (via webhook / WhatsApp / email / in-app feed), not to
+the end consumer. Manage business clients under **Clientes** in the dashboard.
 
 ## Tests
 
