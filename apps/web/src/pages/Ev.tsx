@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
-import { Card } from "../components/ui";
+import {
+  Card,
+  EmptyState,
+  Loading,
+  ModuleDisabled,
+  PageHeader,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 interface EvVehicle {
   id: string;
@@ -22,6 +30,7 @@ interface Station {
 export default function Ev() {
   const [fleet, setFleet] = useState<EvVehicle[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
+  const [loading, setLoading] = useState(true);
   const [moduleOff, setModuleOff] = useState(false);
 
   useEffect(() => {
@@ -37,29 +46,28 @@ export default function Ev() {
         if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
           setModuleOff(true);
         }
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
 
   if (moduleOff) {
-    return (
-      <Card title="Flota eléctrica">
-        <p className="text-sm text-slate-500">
-          El módulo de gestión EV no está activo. Actívelo en Módulos.
-        </p>
-      </Card>
-    );
+    return <ModuleDisabled title="Flota eléctrica" moduleName="de gestión EV" />;
+  }
+  if (loading) {
+    return <Loading label="Cargando flota eléctrica…" />;
   }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Flota eléctrica</h1>
-      <p className="text-sm text-slate-500">
-        Autonomía útil estimada según estado de carga, con margen de seguridad.
-        Los EVs están exentos de pico y placa (Ley 1964 de 2019).
-      </p>
+      <PageHeader
+        title="Flota eléctrica"
+        subtitle="Autonomía útil estimada según estado de carga, con margen de seguridad.
+          Los EVs están exentos de pico y placa (Ley 1964 de 2019)."
+      />
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {fleet.map((v) => (
           <Card key={v.id}>
             <div className="flex items-center justify-between">
@@ -72,21 +80,21 @@ export default function Ev() {
             </div>
             <div className="mt-3 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-500">Estado de carga</span>
+                <span className="text-navy/50">Estado de carga</span>
                 <span className="font-medium">{v.socPercent ?? "—"}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-2 overflow-hidden rounded-full bg-niebla">
                 <div
                   className={`h-full rounded-full ${(v.socPercent ?? 0) < 25 ? "bg-red-500" : "bg-emerald-500"}`}
                   style={{ width: `${v.socPercent ?? 0}%` }}
                 />
               </div>
               <div className="flex justify-between pt-1">
-                <span className="text-slate-500">Autonomía útil</span>
+                <span className="text-navy/50">Autonomía útil</span>
                 <span className="font-medium">{v.usableRangeKm ?? "—"} km</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Batería</span>
+                <span className="text-navy/50">Batería</span>
                 <span>{v.batteryKwh ?? "—"} kWh</span>
               </div>
             </div>
@@ -94,17 +102,19 @@ export default function Ev() {
         ))}
         {fleet.length === 0 && (
           <Card>
-            <p className="text-sm text-slate-400">
-              No hay vehículos eléctricos registrados.
-            </p>
+            <EmptyState>
+              No hay vehículos eléctricos registrados. Márquelos como eléctricos
+              al crearlos en Vehículos.
+            </EmptyState>
           </Card>
         )}
       </div>
 
       <Card title="Red de carga cercana (Bogotá)">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
+            <tr className={theadRowClass}>
               <th className="py-1">Estación</th>
               <th>Red</th>
               <th>Conectores</th>
@@ -113,7 +123,7 @@ export default function Ev() {
           </thead>
           <tbody>
             {stations.map((s) => (
-              <tr key={s.name} className="border-b border-slate-100">
+              <tr key={s.name} className={tableRowClass}>
                 <td className="py-1.5">{s.name}</td>
                 <td>{s.network}</td>
                 <td className="text-xs">{s.connectors.join(", ")}</td>
@@ -122,6 +132,7 @@ export default function Ev() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );

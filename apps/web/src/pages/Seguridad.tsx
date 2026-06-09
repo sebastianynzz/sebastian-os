@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
-import { Button, Card, StatusBadge } from "../components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Loading,
+  ModuleDisabled,
+  PageHeader,
+  StatusBadge,
+} from "../components/ui";
 
 interface Alert {
   id: string;
@@ -21,6 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function Seguridad() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
   const [moduleOff, setModuleOff] = useState(false);
 
   async function load() {
@@ -30,6 +39,8 @@ export default function Seguridad() {
       if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
         setModuleOff(true);
       }
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -44,38 +55,31 @@ export default function Seguridad() {
   }
 
   if (moduleOff) {
-    return (
-      <Card title="Seguridad">
-        <p className="text-sm text-slate-500">
-          El módulo de seguridad no está activo. Actívelo en Módulos.
-        </p>
-      </Card>
-    );
+    return <ModuleDisabled title="Seguridad de carga" moduleName="de seguridad" />;
   }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Seguridad de carga</h1>
-      <p className="text-sm text-slate-500">
-        Alertas de pánico y desviaciones de ruta (detección automática sobre la
-        telemetría). En producción se integra con central de monitoreo y PONAL.
-      </p>
+      <PageHeader
+        title="Seguridad de carga"
+        subtitle="Alertas de pánico y desviaciones de ruta (detección automática sobre la
+          telemetría). En producción se integra con central de monitoreo y PONAL."
+      />
 
       <Card>
-        {alerts.length === 0 && (
-          <p className="py-4 text-center text-sm text-slate-400">
-            Sin alertas. Operación tranquila ✓
-          </p>
+        {loading && <Loading label="Cargando alertas…" />}
+        {!loading && alerts.length === 0 && (
+          <EmptyState>Sin alertas. Operación tranquila ✓</EmptyState>
         )}
         <div className="space-y-2">
           {alerts.map((a) => (
             <div
               key={a.id}
-              className="flex items-center justify-between rounded-lg border border-slate-100 p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-niebla p-3"
             >
               <div>
                 <div className="font-medium">{TYPE_LABELS[a.type] ?? a.type}</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-navy/50">
                   {a.details}
                   {a.lat !== null && ` · (${a.lat.toFixed(4)}, ${a.lng?.toFixed(4)})`}
                   {" · "}
