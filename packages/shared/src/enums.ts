@@ -55,3 +55,17 @@ export type SafetyAlertType = (typeof SAFETY_ALERT_TYPES)[number];
 
 export const POD_TYPES = ["PHOTO", "SIGNATURE", "OTP", "GEOFENCE"] as const;
 export type PodType = (typeof POD_TYPES)[number];
+
+export const TELEMETRY_SOURCES = ["PHONE", "DEVICE", "SIMULATOR"] as const;
+export type TelemetrySource = (typeof TELEMETRY_SOURCES)[number];
+
+export const VEHICLE_COMMAND_TYPES = ["ENGINE_OFF", "ENGINE_ON"] as const;
+export type VehicleCommandType = (typeof VEHICLE_COMMAND_TYPES)[number];
+
+export const VEHICLE_COMMAND_STATUSES = [
+  "PENDING",
+  "SENT",
+  "ACK",
+  "REJECTED",
+] as const;
+export type VehicleCommandStatus = (typeof VEHICLE_COMMAND_STATUSES)[number];

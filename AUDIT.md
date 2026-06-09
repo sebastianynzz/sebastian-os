@@ -163,28 +163,31 @@ value evolution.
 ## 7. Security & multi-tenancy review
 
 **In place:**
-- JWT auth on every non-public route; tokens now expire in 12 h (fixed during
-  this audit — previously non-expiring).
+- JWT auth on every non-public route; tokens expire in 12 h.
 - Every Prisma query filters by `tenantId` from the verified JWT; cross-tenant
   reads return 404.
 - Role guards (`requireRole`): module toggles ADMIN-only; planning/dispatch
   ADMIN/DISPATCHER; drivers can only see and act on their own route
   (`findStopForUser` enforces ownership).
 - All input validated with Zod; structured 400 responses.
-- Passwords hashed with bcrypt (cost 10). Module gating enforced server-side
-  (the UI hiding is cosmetic only).
+- Passwords hashed with bcrypt (cost 10). Module gating enforced server-side.
+- **Rate limiting** (global 300/min; login throttled to 10/min). *(closed)*
+- **CORS allowlist** from `CORS_ORIGINS` env, no longer `origin: true`. *(closed)*
+- **Helmet** security headers. *(closed)*
+- **Fail-hard JWT secret**: production refuses to boot with a weak/default
+  `JWT_SECRET` (<32 chars). *(closed)*
+- **Engine-immobilization safety interlock**: `ENGINE_OFF` rejected unless the
+  vehicle's last known speed is 0 (422 `VEHICLE_IN_MOTION`); every command is
+  audit-logged. *(new)*
 
-**Gaps to close before production (flagged, not yet built):**
-- No rate limiting or login throttling (`@fastify/rate-limit` recommended).
-- CORS is permissive (`origin: true`) — restrict to known origins.
-- Default JWT secret fallback exists for dev; deployment must enforce a
-  strong `JWT_SECRET` (fail hard if unset in production).
-- No refresh-token rotation; a 12 h token revocation requires waiting for
-  expiry.
-- POD photos/signatures are stored as external URLs — an upload pipeline with
-  signed URLs (S3/R2) is pending.
-- App-level tenant isolation only; Postgres row-level security would add
-  defense in depth.
+**Gaps remaining before production:**
+- No refresh-token rotation; a 12 h token can't be revoked before expiry.
+- POD photos/signatures stored as external URLs — signed-URL upload pipeline
+  (S3/R2) pending.
+- App-level tenant isolation only; Postgres **RLS** would add defense in depth.
+  Note: the provisioned Supabase project has RLS disabled — mitigated because
+  MoveOS uses a direct Postgres connection (not the anon key / PostgREST), but
+  hardening is recommended (`docs/DEPLOYMENT.md`).
 
 ## 8. Payments removal (verified)
 
@@ -205,7 +208,9 @@ records *deliveries and evidence*, never money.
 | Dashboard refresh | Polling (15 s safety) | WebSockets/SSE for live ops |
 | Notifications | Console adapter unless WhatsApp env set | WhatsApp Business API credentials + retry queue |
 | Driver offline queue | localStorage | IndexedDB + idempotency keys |
-| RNDC / Telematics BYO / CX Pro / AI | Catalogued, gated, stubbed | Fase 2–3 (ROADMAP.md) |
+| Telemetry transport | HTTP ingest + simulator | Aggregator (Flespi/Wialon) for real Teltonika/Queclink hardware |
+| Engine immobilization | Command + simulated device ACK | Hardwired relay device + legal/insurer sign-off |
+| RNDC / CX Pro / AI / Platform admin | Catalogued / planned | See `docs/MASTER_ROADMAP.md` |
 
 ## 10. Test inventory
 

@@ -34,7 +34,7 @@ API layer — a disabled module returns `403 MODULE_NOT_ENABLED`:
 | Module key | What it does |
 |---|---|
 | `ROUTE_OPTIMIZATION` | Multi-stop VRP: capacity, time windows, **pico y placa** (plate/city/date), vehicle speed profiles (moto vs van), EV range budget |
-| `TELEMATICS` | Smartphone telemetry today; hardware-agnostic GPS-device ingestion (fase 2) |
+| `TELEMATICS` | **GPS + CAN-bus telemetry** (RPM/odometer/fuel/temp), live ops map, **engine on/off immobilization** (relay model, speed=0 safety interlock, audit log). Device simulator included; real hardware via aggregator (fase 2) |
 | `EV_MANAGEMENT` | SoC tracking, dynamic usable-range estimation (temp/payload/elevation), charging network map |
 | `SAFETY` | Panic button, automatic route-deviation alerts (piratería terrestre) |
 | `COMPLIANCE_RNDC` | RNDC/MEC manifest generation (fase 2) |
@@ -73,7 +73,18 @@ pnpm db:seed                          # demo tenant with Bogotá data
 pnpm dev:api      # API on :3000
 pnpm dev:web      # dashboard on :5173
 pnpm dev:driver   # driver app on :5174
+
+# Telemetry demo (no hardware): drives the seeded vehicles, streams GPS + CAN,
+# and executes engine on/off commands — watch the "Mapa en vivo" page.
+pnpm --filter @moveos/api sim
 ```
+
+The **Mapa en vivo** page shows vehicles moving in real time with per-vehicle
+telemetry (speed, RPM, fuel, SoC, engine state) and an **engine on/off**
+control. Try to immobilize a moving vehicle — the API refuses (speed=0 safety
+interlock); stop it in the simulator and the command goes through, with the
+device acknowledging back. See `docs/ARCHITECTURE_TARGET.md` for the
+phone-gateway vs hardwired-device vs aggregator design.
 
 Demo credentials (seed):
 
@@ -117,5 +128,14 @@ Captured from the running product with the seeded demo data:
 
 <img src="docs/capturas/driver.png" width="280" alt="App de conductor: paradas, entregas, fallos y botón SOS" />
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions and
-[ROADMAP.md](./ROADMAP.md) for the staged plan from the research brief.
+## Documentation
+
+- [docs/MASTER_ROADMAP.md](./docs/MASTER_ROADMAP.md) — full audit & roadmap by
+  surface (driver app / tenant SaaS / platform admin / telematics), engineering
+  lanes, security/compliance, integrations, stakeholders.
+- [docs/ARCHITECTURE_TARGET.md](./docs/ARCHITECTURE_TARGET.md) — target
+  architecture, the telemetry plane, GPS/CAN/engine hardware design, hosting.
+- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — how to deploy (Supabase DB is
+  already provisioned) and the security hardening notes.
+- [AUDIT.md](./AUDIT.md) — technical audit with process diagrams.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — original design decisions.

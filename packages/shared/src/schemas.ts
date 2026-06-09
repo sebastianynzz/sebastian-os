@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { POD_TYPES, VEHICLE_TYPES } from "./enums.js";
+import {
+  POD_TYPES,
+  TELEMETRY_SOURCES,
+  VEHICLE_COMMAND_TYPES,
+  VEHICLE_TYPES,
+} from "./enums.js";
 
 /** Esquemas de validación compartidos entre API, dashboard y app de conductor. */
 
@@ -82,6 +87,33 @@ export const submitPodSchema = z.object({
   lng: z.number().optional(),
 });
 
+/**
+ * Ping de telemetría desde un dispositivo, el smartphone del conductor o el
+ * simulador. Incluye datos CAN (moto / camión liviano) cuando el dispositivo
+ * los expone. Identifica el vehículo por placa para ser agnóstico del backend.
+ */
+export const telemetryIngestSchema = z.object({
+  plate: z.string().min(4),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  speedKmh: z.number().nonnegative().optional(),
+  heading: z.number().min(0).max(360).optional(),
+  batterySoc: z.number().min(0).max(100).optional(),
+  rpm: z.number().nonnegative().optional(),
+  odometerKm: z.number().nonnegative().optional(),
+  fuelLevelPct: z.number().min(0).max(100).optional(),
+  coolantTempC: z.number().optional(),
+  engineOn: z.boolean().optional(),
+  source: z.enum(TELEMETRY_SOURCES).default("DEVICE"),
+  routeId: z.string().optional(),
+  recordedAt: z.string().datetime().optional(),
+});
+
+export const vehicleCommandSchema = z.object({
+  type: z.enum(VEHICLE_COMMAND_TYPES),
+  reason: z.string().max(280).optional(),
+});
+
 export const failStopSchema = z.object({
   reason: z.enum([
     "CLIENTE_AUSENTE",
@@ -104,3 +136,5 @@ export type PlanRoutesInput = z.infer<typeof planRoutesSchema>;
 export type TrackingPingInput = z.infer<typeof trackingPingSchema>;
 export type SubmitPodInput = z.infer<typeof submitPodSchema>;
 export type FailStopInput = z.infer<typeof failStopSchema>;
+export type TelemetryIngestInput = z.infer<typeof telemetryIngestSchema>;
+export type VehicleCommandInput = z.infer<typeof vehicleCommandSchema>;

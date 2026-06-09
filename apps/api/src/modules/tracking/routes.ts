@@ -1,10 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { trackingPingSchema, haversineKm } from "@moveos/shared";
+import { trackingPingSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { isModuleEnabled } from "../../plugins/entitlements.js";
-
-/** Umbral de desviación de ruta para alerta de seguridad (km). */
-const DEVIATION_THRESHOLD_KM = 5;
+import { checkRouteDeviation } from "../../services/safety.js";
 
 /**
  * Tracking núcleo: telemetría por smartphone del conductor (cero hardware).
@@ -72,54 +70,5 @@ export default async function trackingRoutes(app: FastifyInstance) {
       if (last) positions.push({ driver, ping: last });
     }
     return positions;
-  });
-}
-
-/**
- * Heurística MVP de desviación: distancia a la parada pendiente más cercana y
- * al depósito. Si todo queda a más del umbral, se genera una alerta (una sola
- * alerta abierta por ruta para no inundar).
- */
-async function checkRouteDeviation(
-  tenantId: string,
-  driverId: string,
-  routeId: string,
-  lat: number,
-  lng: number,
-) {
-  const route = await prisma.route.findFirst({
-    where: { id: routeId, tenantId, status: "IN_PROGRESS" },
-    include: { stops: { where: { status: "PENDING" }, include: { order: true } } },
-  });
-  if (!route) return;
-
-  const candidates = [
-    { lat: route.depotLat, lng: route.depotLng },
-    ...route.stops
-      .filter((s) => s.order.lat !== null && s.order.lng !== null)
-      .map((s) => ({ lat: s.order.lat!, lng: s.order.lng! })),
-  ];
-  if (candidates.length === 0) return;
-
-  const minDistance = Math.min(
-    ...candidates.map((c) => haversineKm({ lat, lng }, c)),
-  );
-  if (minDistance <= DEVIATION_THRESHOLD_KM) return;
-
-  const existing = await prisma.safetyAlert.findFirst({
-    where: { tenantId, routeId, type: "ROUTE_DEVIATION", status: "OPEN" },
-  });
-  if (existing) return;
-
-  await prisma.safetyAlert.create({
-    data: {
-      tenantId,
-      driverId,
-      routeId,
-      type: "ROUTE_DEVIATION",
-      lat,
-      lng,
-      details: `Posición a ${minDistance.toFixed(1)} km de la ruta planificada`,
-    },
   });
 }

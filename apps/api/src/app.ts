@@ -1,6 +1,9 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import { ZodError } from "zod";
+import { config } from "./config.js";
 import { registerAuth } from "./plugins/auth.js";
 import authRoutes from "./modules/auth/routes.js";
 import modulesRoutes from "./modules/admin/modules.js";
@@ -10,6 +13,7 @@ import vehiclesRoutes from "./modules/vehicles/routes.js";
 import optimizationRoutes from "./modules/optimization/routes.js";
 import routesRoutes from "./modules/routes/routes.js";
 import trackingRoutes from "./modules/tracking/routes.js";
+import telematicsRoutes from "./modules/telematics/routes.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import evRoutes from "./modules/ev/routes.js";
 import analyticsRoutes from "./modules/analytics/routes.js";
@@ -28,7 +32,17 @@ export async function buildApp() {
     },
   });
 
-  await app.register(cors, { origin: true });
+  await app.register(helmet);
+  // CORS restringido a orígenes conocidos (allowlist por entorno).
+  await app.register(cors, {
+    origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+  });
+  // Límite de peticiones global; los endpoints sensibles lo endurecen aparte.
+  await app.register(rateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: "1 minute",
+  });
   await registerAuth(app);
 
   // Los clientes de navegador envían Content-Type: application/json incluso en
@@ -78,6 +92,7 @@ export async function buildApp() {
 
   // Módulos activables
   await app.register(optimizationRoutes, { prefix: "/optimization" });
+  await app.register(telematicsRoutes, { prefix: "/telematics" });
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });

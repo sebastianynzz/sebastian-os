@@ -26,6 +26,7 @@ model Tenant {
   routes        Route[]
   addressPins   AddressPin[]
   telemetry     TelemetryPing[]
+  commands      VehicleCommand[]
   safetyAlerts  SafetyAlert[]
   notifications NotificationLog[]
 }
@@ -82,7 +83,14 @@ model Vehicle {
   socPercent     Float? // último estado de carga conocido (EV)
   soatExpiresAt  DateTime?
   tecnoExpiresAt DateTime?
+  // Telemática: último estado conocido (alimentado por TelemetryPing).
+  engineOn       Boolean   @default(true)
+  immobilized    Boolean   @default(false) // motor bloqueado por comando (relé)
+  lastSpeedKmh   Float?    // fuente del interlock de seguridad (apagado solo si 0)
+  lastSeenAt     DateTime?
   routes         Route[]
+  telemetry      TelemetryPing[]
+  commands       VehicleCommand[]
   createdAt      DateTime  @default(now())
 
   @@unique([tenantId, plate])
@@ -203,17 +211,48 @@ model TelemetryPing {
   id         String   @id @default(cuid())
   tenantId   String
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  driverId   String
-  driver     Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  driverId   String?
+  driver     Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicleId  String?
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   routeId    String?
   lat        Float
   lng        Float
   speedKmh   Float?
   heading    Float?
   batterySoc Float?
-  recordedAt DateTime @default(now())
+  // Datos CAN bus (moto / camión liviano): nulos si el dispositivo no los expone.
+  rpm          Float?
+  odometerKm   Float?
+  fuelLevelPct Float?
+  coolantTempC Float?
+  engineOn     Boolean?
+  source       String   @default("PHONE") // PHONE | DEVICE | SIMULATOR
+  recordedAt   DateTime @default(now())
 
   @@index([tenantId, driverId, recordedAt])
+  @@index([tenantId, vehicleId, recordedAt])
+}
+
+/// Comando hacia el vehículo (encendido/apagado de motor vía relé del
+/// dispositivo telemático). Es un registro auditable: quién, cuándo, por qué,
+/// y el acuse del dispositivo. NO es una escritura al CAN bus.
+model VehicleCommand {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type            String // ENGINE_OFF | ENGINE_ON
+  status          String   @default("PENDING") // PENDING | SENT | ACK | REJECTED
+  requestedByUserId String?
+  reason          String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  ackAt           DateTime?
+
+  @@index([tenantId, vehicleId, createdAt])
+  @@index([vehicleId, status])
 }
 
 model SafetyAlert {

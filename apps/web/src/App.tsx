@@ -6,6 +6,7 @@ import Planificacion from "./pages/Planificacion";
 import Rutas from "./pages/Rutas";
 import Conductores from "./pages/Conductores";
 import Vehiculos from "./pages/Vehiculos";
+import MapaEnVivo from "./pages/MapaEnVivo";
 import Modulos from "./pages/Modulos";
 import Ev from "./pages/Ev";
 import Seguridad from "./pages/Seguridad";
@@ -15,6 +16,7 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/pedidos", label: "Pedidos" },
   { to: "/planificacion", label: "Planificación", module: "ROUTE_OPTIMIZATION" },
   { to: "/rutas", label: "Rutas" },
+  { to: "/mapa", label: "Mapa en vivo", module: "TELEMATICS" },
   { to: "/conductores", label: "Conductores" },
   { to: "/vehiculos", label: "Vehículos" },
   { to: "/ev", label: "Flota eléctrica", module: "EV_MANAGEMENT" },
@@ -78,6 +80,7 @@ function Shell() {
           <Route path="/rutas" element={<Rutas />} />
           <Route path="/conductores" element={<Conductores />} />
           <Route path="/vehiculos" element={<Vehiculos />} />
+          <Route path="/mapa" element={<MapaEnVivo />} />
           <Route path="/ev" element={<Ev />} />
           <Route path="/seguridad" element={<Seguridad />} />
           <Route path="/analitica" element={<Analitica />} />

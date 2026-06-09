@@ -48,7 +48,13 @@ export default async function authRoutes(app: FastifyInstance) {
     return reply.code(201).send({ token, tenant, user: publicUser(user) });
   });
 
-  app.post("/login", async (request, reply) => {
+  app.post(
+    "/login",
+    {
+      // Endurece el endpoint de credenciales contra fuerza bruta.
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
     const input = loginSchema.parse(request.body);
     const user = await prisma.user.findUnique({
       where: { email: input.email },
@@ -73,7 +79,8 @@ export default async function authRoutes(app: FastifyInstance) {
         .filter((e) => e.enabled)
         .map((e) => e.moduleKey),
     };
-  });
+    },
+  );
 
   app.get(
     "/me",
