@@ -15,7 +15,6 @@ export type OrderEventType =
   | "ARRIVED"
   | "DELIVERED"
   | "FAILED"
-  | "COD_COLLECTED"
   | "NOTIFIED";
 
 export async function logOrderEvent(

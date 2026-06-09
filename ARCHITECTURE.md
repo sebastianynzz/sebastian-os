@@ -17,7 +17,7 @@ apps/api/src/
   services/notifications.ts  adapter interface: WhatsApp Cloud API / console
   modules/
     auth, admin(modules), orders, drivers, vehicles, routes, tracking   ← core
-    optimization, cod, safety, ev, analytics                            ← gated
+    optimization, safety, ev, analytics                                 ← gated
 ```
 
 Every table carries `tenantId`; every query is scoped by the JWT's tenant.
@@ -56,10 +56,6 @@ constraint logic stays.
   keyed on normalized address) → external provider (Google/Lupap, pluggable
   `GeocodeProvider`) → deterministic mock for dev. `learnAddressPin` is
   called on every geo-stamped delivery: the address graph compounds.
-- **COD is a first-class ledger**, not an order flag: `CodPayment`
-  (COLLECTED → SETTLED/DISCREPANCY) linked to `CodSettlement` per driver.
-  Completing a COD stop without the COD module is rejected — collection is a
-  paid capability.
 - **POD**: photo/signature/OTP/geofence types; geofence auto-validates the
   delivery pin within 300 m of the order's coordinates and stores
   `geofenceOk` for dispute defense.
@@ -67,7 +63,9 @@ constraint logic stays.
   pending stop/depot > 5 km ⇒ one OPEN alert per route); panic endpoint for
   the driver app's SOS button. Designed to later plug into monitoring
   centers/PONAL.
-- **Money**: integer COP. No decimals exist in practice; avoids float bugs.
+- **No payments by design**: MoveOS is delivery software only; it records
+  deliveries and evidence, never money. Payment processing is explicitly out
+  of scope (product decision).
 - **Enums as strings** (validated by Zod/TS unions in `@moveos/shared`):
   keeps Prisma portable across DB engines and migration-free for new values.
 

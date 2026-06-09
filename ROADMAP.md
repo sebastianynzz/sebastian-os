@@ -8,12 +8,10 @@ Staged plan from the research brief. Checked items exist in this repo.
 - [x] Multi-tenant module entitlements with instant toggle (the packaging moat)
 - [x] Route optimization: VRP with pico y placa, capacity, time windows,
       moto/car/van/EV profiles
-- [x] COD module: collection methods, driver cash summary, settlements,
-      discrepancy + rejection analytics
 - [x] Informal-address handling: geocode cascade + learned AddressPin graph
 - [x] Safety module: panic button + route-deviation alerts
 - [x] EV module: SoC, dynamic usable range, charging stations (static list)
-- [x] Driver app: offline action queue, COD capture, SOS, telemetry pings
+- [x] Driver app: offline action queue, geo-stamped POD, SOS, telemetry pings
 - [x] Spanish-first dashboard with module toggles
 - [x] Tracking numbers (guía MV-XXXXXXXX) + bitácora auditable per order
 - [x] CSV order import UI with downloadable template
@@ -21,6 +19,7 @@ Staged plan from the research brief. Checked items exist in this repo.
 - [x] Move brand system applied (navy 534C / cielo 537C / lima 373C accent)
 - [ ] WhatsApp Business API credentials in production (adapter ready)
 - [ ] Per-order pricing + free tier billing (suggested: first 100 orders free)
+- [x] Payments removed by product decision: MoveOS is delivery software only
 - [ ] Pilot: 5–10 moto courier SMBs in Bogotá
 
 ## Stage 2 — Up-market: compliance, telematics, security (6–18 months)
@@ -41,18 +40,15 @@ Staged plan from the research brief. Checked items exist in this repo.
 
 ## Stage 3 — Differentiation & expansion (18+ months)
 
-- [ ] AI add-ons: predictive ETAs, COD-rejection prediction (data already
+- [ ] AI add-ons: predictive ETAs, failed-delivery prediction (data already
       accumulating in `failureReason`), theft anomaly detection,
       address-resolution ML over the AddressPin graph
 - [ ] EV: OCPP depot charging, charge scheduling vs time-of-use tariffs,
       live Terpel Voltex / Enel X availability
-- [ ] Mexico, Chile, Peru: per-country addressing, payments, compliance packs
-- [ ] Bre-B / PSE / Nequi payment rails for COD digital collection and
-      instant driver payouts
+- [ ] Mexico, Chile, Peru: per-country addressing and compliance packs
 
 ## Triggers to revisit (from the brief)
 
-- SimpliRoute or a global player localizes COD/RNDC aggressively → accelerate
+- SimpliRoute or a global player localizes RNDC aggressively → accelerate
   compliance + channel partnerships.
 - Ley 2486 e-moto registration formalizes → prioritize e-moto profiles.
-- COD share declines as Bre-B grows → shift weight to optimization/telematics.

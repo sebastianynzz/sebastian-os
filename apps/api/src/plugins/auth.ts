@@ -4,7 +4,10 @@ import type { UserRole } from "@moveos/shared";
 import { config } from "../config.js";
 
 export async function registerAuth(app: FastifyInstance) {
-  await app.register(fastifyJwt, { secret: config.jwtSecret });
+  await app.register(fastifyJwt, {
+    secret: config.jwtSecret,
+    sign: { expiresIn: "12h" }, // jornada operativa; sin tokens eternos
+  });
 
   app.decorate(
     "authenticate",

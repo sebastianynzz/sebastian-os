@@ -19,7 +19,6 @@ interface Order {
   addressRaw: string;
   status: string;
   weightKg: number;
-  paymentType: string;
   lat: number | null;
   lng: number | null;
 }
@@ -149,9 +148,6 @@ export default function Planificacion() {
                 />
                 <span className="truncate">
                   {o.customerName} — {o.addressRaw}
-                  {o.paymentType === "COD" && (
-                    <span className="ml-1 text-xs font-medium text-amber-600">COD</span>
-                  )}
                 </span>
               </label>
             ))}

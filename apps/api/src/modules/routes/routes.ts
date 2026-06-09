@@ -3,7 +3,6 @@ import { z } from "zod";
 import { failStopSchema, submitPodSchema, haversineKm } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
-import { isModuleEnabled } from "../../plugins/entitlements.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notify } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
@@ -166,8 +165,8 @@ export default async function routesRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Completar parada: registra POD, valida geocerca, recauda COD (si el módulo
-   * está activo) y aprende el pin GPS de la dirección (grafo de direcciones).
+   * Completar parada: registra POD, valida geocerca y aprende el pin GPS de
+   * la dirección (grafo de direcciones).
    */
   app.post("/stops/:stopId/complete", async (request, reply) => {
     const { stopId } = z.object({ stopId: z.string() }).parse(request.params);
@@ -180,21 +179,6 @@ export default async function routesRoutes(app: FastifyInstance) {
 
     const tenantId = request.user.tenantId;
     const order = stop.order;
-
-    // COD: el recaudo requiere el módulo activo.
-    if (order.paymentType === "COD") {
-      if (!input.cod) {
-        return reply.code(400).send({ error: "Pedido COD requiere registrar el recaudo" });
-      }
-      const codEnabled = await isModuleEnabled(tenantId, "COD");
-      if (!codEnabled) {
-        return reply.code(403).send({
-          error: "Módulo no activo: COD",
-          code: "MODULE_NOT_ENABLED",
-          moduleKey: "COD",
-        });
-      }
-    }
 
     let geofenceOk: boolean | null = null;
     if (input.lat !== undefined && input.lng !== undefined && order.lat !== null && order.lng !== null) {
@@ -230,18 +214,6 @@ export default async function routesRoutes(app: FastifyInstance) {
         where: { id: order.id },
         data: { status: "DELIVERED", deliveredAt: now },
       });
-      if (order.paymentType === "COD" && input.cod) {
-        await tx.codPayment.create({
-          data: {
-            tenantId,
-            orderId: order.id,
-            driverId: stop.route.driverId,
-            amount: input.cod.amount,
-            method: input.cod.method,
-            status: "COLLECTED",
-          },
-        });
-      }
     });
 
     await logOrderEvent(
@@ -249,13 +221,6 @@ export default async function routesRoutes(app: FastifyInstance) {
       "DELIVERED",
       input.receivedBy ? `Recibió: ${input.receivedBy}` : undefined,
     );
-    if (order.paymentType === "COD" && input.cod) {
-      await logOrderEvent(
-        order.id,
-        "COD_COLLECTED",
-        `$${input.cod.amount.toLocaleString("es-CO")} vía ${input.cod.method}`,
-      );
-    }
 
     // Aprender el pin GPS confirmado (mejora geocodificación futura).
     if (input.lat !== undefined && input.lng !== undefined) {

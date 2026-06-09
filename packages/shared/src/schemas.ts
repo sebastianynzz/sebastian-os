@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  COD_METHODS,
-  PAYMENT_TYPES,
-  POD_TYPES,
-  VEHICLE_TYPES,
-} from "./enums.js";
+import { POD_TYPES, VEHICLE_TYPES } from "./enums.js";
 
 /** Esquemas de validación compartidos entre API, dashboard y app de conductor. */
 
@@ -34,8 +29,6 @@ export const createOrderSchema = z.object({
   timeWindowEnd: z.string().datetime().optional(),
   weightKg: z.number().positive().optional(),
   volumeM3: z.number().positive().optional(),
-  paymentType: z.enum(PAYMENT_TYPES).default("PREPAID"),
-  codAmount: z.number().int().nonnegative().optional(),
   priority: z.number().int().min(0).max(10).default(0),
 });
 
@@ -87,19 +80,12 @@ export const submitPodSchema = z.object({
   notes: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
-  cod: z
-    .object({
-      amount: z.number().int().nonnegative(),
-      method: z.enum(COD_METHODS),
-    })
-    .optional(),
 });
 
 export const failStopSchema = z.object({
   reason: z.enum([
     "CLIENTE_AUSENTE",
     "DIRECCION_ERRADA",
-    "RECHAZO_COD",
     "RECHAZO_PRODUCTO",
     "ZONA_INSEGURA",
     "OTRO",

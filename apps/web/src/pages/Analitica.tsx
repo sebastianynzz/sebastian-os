@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
-import { Card, StatusBadge, formatCop } from "../components/ui";
+import { Card, StatusBadge } from "../components/ui";
 
 interface Summary {
   ordersByStatus: { status: string; count: number }[];
@@ -10,8 +10,6 @@ interface Summary {
   stopsPerHour: number | null;
   totalDistanceKm: number;
   estimatedCo2Kg: number;
-  codCollected: number;
-  codSettled: number;
 }
 
 export default function Analitica() {
@@ -60,8 +58,6 @@ export default function Analitica() {
     },
     { label: "Distancia total", value: `${summary.totalDistanceKm.toFixed(1)} km` },
     { label: "CO₂ estimado", value: `${summary.estimatedCo2Kg} kg` },
-    { label: "COD recaudado", value: formatCop(summary.codCollected) },
-    { label: "COD liquidado", value: formatCop(summary.codSettled) },
   ];
 
   return (

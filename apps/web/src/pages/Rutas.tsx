@@ -23,8 +23,6 @@ interface RouteData {
     order: {
       customerName: string;
       addressRaw: string;
-      paymentType: string;
-      codAmount: number | null;
     };
     pod: { geofenceOk: boolean | null; receivedBy: string | null } | null;
   }[];
@@ -113,7 +111,6 @@ export default function Rutas() {
                 <th>Cliente</th>
                 <th>Dirección</th>
                 <th>ETA</th>
-                <th>COD</th>
                 <th>POD</th>
                 <th>Estado</th>
               </tr>
@@ -125,11 +122,6 @@ export default function Rutas() {
                   <td>{s.order.customerName}</td>
                   <td className="max-w-xs truncate">{s.order.addressRaw}</td>
                   <td className="font-mono text-xs">{formatEta(s.etaMin)}</td>
-                  <td>
-                    {s.order.paymentType === "COD"
-                      ? `$${(s.order.codAmount ?? 0).toLocaleString("es-CO")}`
-                      : "—"}
-                  </td>
                   <td className="text-xs">
                     {s.pod
                       ? s.pod.geofenceOk === false

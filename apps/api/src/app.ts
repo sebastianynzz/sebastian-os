@@ -9,7 +9,6 @@ import driversRoutes from "./modules/drivers/routes.js";
 import vehiclesRoutes from "./modules/vehicles/routes.js";
 import optimizationRoutes from "./modules/optimization/routes.js";
 import routesRoutes from "./modules/routes/routes.js";
-import codRoutes from "./modules/cod/routes.js";
 import trackingRoutes from "./modules/tracking/routes.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import evRoutes from "./modules/ev/routes.js";
@@ -79,7 +78,6 @@ export async function buildApp() {
 
   // Módulos activables
   await app.register(optimizationRoutes, { prefix: "/optimization" });
-  await app.register(codRoutes, { prefix: "/cod" });
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });

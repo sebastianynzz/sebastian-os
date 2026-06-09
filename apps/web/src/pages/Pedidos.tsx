@@ -5,7 +5,6 @@ import {
   Card,
   Field,
   StatusBadge,
-  formatCop,
   inputClass,
 } from "../components/ui";
 
@@ -16,8 +15,6 @@ interface Order {
   customerPhone: string;
   addressRaw: string;
   status: string;
-  paymentType: string;
-  codAmount: number | null;
   weightKg: number;
   geocodeSource: string | null;
   createdAt: string;
@@ -39,14 +36,13 @@ const EVENT_LABELS: Record<string, string> = {
   ARRIVED: "Conductor en el punto",
   DELIVERED: "Entregado",
   FAILED: "Entrega fallida",
-  COD_COLLECTED: "Recaudo COD",
   NOTIFIED: "Cliente notificado",
 };
 
 const CSV_TEMPLATE =
-  "customerName,customerPhone,addressRaw,addressNotes,weightKg,paymentType,codAmount\n" +
-  'Laura Martínez,+573101000001,"Cra 13 # 54-20, Chapinero",Portón verde,2,COD,89000\n' +
-  'Pedro Sánchez,+573101000002,"Cl 72 # 10-34",,1.2,PREPAID,\n';
+  "customerName,customerPhone,addressRaw,addressNotes,weightKg\n" +
+  'Laura Martínez,+573101000001,"Cra 13 # 54-20, Chapinero",Portón verde,2\n' +
+  'Pedro Sánchez,+573101000002,"Cl 72 # 10-34",,1.2\n';
 
 /** Parser CSV mínimo con soporte de comillas (suficiente para la plantilla). */
 function parseCsv(text: string): Record<string, string>[] {
@@ -123,8 +119,6 @@ export default function Pedidos() {
         addressRaw: r.addressRaw,
         addressNotes: r.addressNotes || undefined,
         weightKg: r.weightKg ? Number(r.weightKg) : undefined,
-        paymentType: r.paymentType === "COD" ? "COD" : "PREPAID",
-        codAmount: r.codAmount ? Number(r.codAmount) : undefined,
       }));
       const res = await api<{ created: number }>("POST", "/orders/bulk", payload);
       setNotice(`${res.created} pedidos importados correctamente`);
@@ -138,7 +132,6 @@ export default function Pedidos() {
     e.preventDefault();
     setError(null);
     const data = new FormData(e.currentTarget);
-    const paymentType = data.get("paymentType") as string;
     try {
       await api("POST", "/orders", {
         customerName: data.get("customerName"),
@@ -146,9 +139,6 @@ export default function Pedidos() {
         addressRaw: data.get("addressRaw"),
         addressNotes: data.get("addressNotes") || undefined,
         weightKg: Number(data.get("weightKg") || 1),
-        paymentType,
-        codAmount:
-          paymentType === "COD" ? Number(data.get("codAmount")) : undefined,
       });
       setShowForm(false);
       await load();
@@ -214,15 +204,6 @@ export default function Pedidos() {
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
-            <Field label="Pago">
-              <select name="paymentType" className={inputClass}>
-                <option value="PREPAID">Prepagado</option>
-                <option value="COD">Contra-entrega (COD)</option>
-              </select>
-            </Field>
-            <Field label="Monto COD (COP)">
-              <input name="codAmount" type="number" className={inputClass} placeholder="0" />
-            </Field>
             <div className="col-span-2">
               <Button type="submit">Crear pedido</Button>
             </div>
@@ -237,7 +218,6 @@ export default function Pedidos() {
               <th className="py-2">Guía</th>
               <th>Cliente</th>
               <th>Dirección</th>
-              <th>Pago</th>
               <th>Peso</th>
               <th>Estado</th>
             </tr>
@@ -257,15 +237,6 @@ export default function Pedidos() {
                     <div className="text-xs text-navy/50">{o.customerPhone}</div>
                   </td>
                   <td className="max-w-xs truncate">{o.addressRaw}</td>
-                  <td>
-                    {o.paymentType === "COD" ? (
-                      <span className="font-medium text-amber-700">
-                        COD {o.codAmount ? formatCop(o.codAmount) : ""}
-                      </span>
-                    ) : (
-                      "Prepagado"
-                    )}
-                  </td>
                   <td>{o.weightKg} kg</td>
                   <td>
                     <StatusBadge status={o.status} />
@@ -273,7 +244,7 @@ export default function Pedidos() {
                 </tr>
                 {expanded === o.id && (
                   <tr className="border-b border-niebla bg-niebla/40">
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={5} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
                       </div>
@@ -305,7 +276,7 @@ export default function Pedidos() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-navy/40">
+                <td colSpan={5} className="py-8 text-center text-navy/40">
                   Sin pedidos aún. Cree el primero, importe un CSV o cargue el seed demo.
                 </td>
               </tr>

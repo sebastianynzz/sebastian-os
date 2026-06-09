@@ -13,9 +13,6 @@ const ORDER_STATUS_STYLES: Record<string, string> = {
   DISPATCHED: "bg-cielo/70 text-navy",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   COMPLETED: "bg-lima/60 text-navy",
-  COLLECTED: "bg-amber-100 text-amber-700",
-  SETTLED: "bg-lima/60 text-navy",
-  DISCREPANCY: "bg-red-100 text-red-700",
   OPEN: "bg-red-100 text-red-700",
   RESOLVED: "bg-lima/60 text-navy",
 };
@@ -33,9 +30,6 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   DISPATCHED: "Despachada",
   IN_PROGRESS: "En curso",
   COMPLETED: "Completada",
-  COLLECTED: "Recaudado",
-  SETTLED: "Liquidado",
-  DISCREPANCY: "Descuadre",
   OPEN: "Abierta",
   ACKNOWLEDGED: "Atendida",
   RESOLVED: "Resuelta",
@@ -122,14 +116,6 @@ export function Field({
 
 export const inputClass =
   "w-full rounded-lg border border-cielo px-3 py-1.5 text-sm focus:border-navy focus:outline-none";
-
-export function formatCop(amount: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 export function formatEta(etaMin: number): string {
   const h = Math.floor(etaMin / 60);

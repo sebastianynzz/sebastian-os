@@ -12,8 +12,6 @@ interface Stop {
     customerPhone: string;
     addressRaw: string;
     addressNotes: string | null;
-    paymentType: string;
-    codAmount: number | null;
     lat: number | null;
     lng: number | null;
   };
@@ -29,18 +27,9 @@ interface DriverRoute {
 const FAIL_REASONS = [
   ["CLIENTE_AUSENTE", "Cliente ausente"],
   ["DIRECCION_ERRADA", "Dirección errada"],
-  ["RECHAZO_COD", "Rechazó el pago COD"],
   ["RECHAZO_PRODUCTO", "Rechazó el producto"],
   ["ZONA_INSEGURA", "Zona insegura"],
   ["OTRO", "Otro"],
-] as const;
-
-const COD_METHODS = [
-  ["CASH", "Efectivo"],
-  ["QR", "QR / Bre-B"],
-  ["DATAPHONE", "Datáfono"],
-  ["NEQUI", "Nequi"],
-  ["DAVIPLATA", "Daviplata"],
 ] as const;
 
 function formatEta(etaMin: number): string {
@@ -310,11 +299,6 @@ function StopCard({
               📍 {stop.order.addressNotes}
             </div>
           )}
-          {stop.order.paymentType === "COD" && (
-            <div className="mt-1 text-sm font-bold text-amber-700">
-              Cobrar: ${(stop.order.codAmount ?? 0).toLocaleString("es-CO")}
-            </div>
-          )}
         </div>
         <a
           href={`tel:${stop.order.customerPhone}`}
@@ -364,10 +348,8 @@ function StopActionSheet({
 }) {
   const [mode, setMode] = useState<"deliver" | "fail">("deliver");
   const [receivedBy, setReceivedBy] = useState("");
-  const [codMethod, setCodMethod] = useState("CASH");
   const [failReason, setFailReason] = useState("CLIENTE_AUSENTE");
   const [error, setError] = useState<string | null>(null);
-  const isCod = stop.order.paymentType === "COD";
 
   // Fallback demo: si el navegador no da GPS, usar la coordenada del pedido.
   const lat = geo?.lat ?? stop.order.lat ?? undefined;
@@ -381,9 +363,6 @@ function StopActionSheet({
         receivedBy: receivedBy || undefined,
         lat,
         lng,
-        cod: isCod
-          ? { amount: stop.order.codAmount ?? 0, method: codMethod }
-          : undefined,
       });
       onDone(queued);
     } catch (err) {
@@ -434,24 +413,6 @@ function StopActionSheet({
               value={receivedBy}
               onChange={(e) => setReceivedBy(e.target.value)}
             />
-            {isCod && (
-              <div>
-                <div className="mb-2 font-bold text-amber-700">
-                  Cobrar ${(stop.order.codAmount ?? 0).toLocaleString("es-CO")}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {COD_METHODS.map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => setCodMethod(value)}
-                      className={`rounded-lg border py-2 text-xs font-medium ${codMethod === value ? "border-navy bg-cielo/30 text-navy" : "border-cielo/60"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={deliver}

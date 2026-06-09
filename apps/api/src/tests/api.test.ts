@@ -5,8 +5,8 @@ import { prisma } from "../lib/prisma.js";
 
 /**
  * Prueba de integración end-to-end del flujo completo:
- * registro → pedidos → plan de rutas → despacho → entrega con POD y COD →
- * conciliación → toggles de módulos.
+ * registro → pedidos → plan de rutas → despacho → entrega con POD →
+ * toggles de módulos.
  *
  * Requiere DATABASE_URL apuntando a un Postgres con el esquema aplicado
  * (pnpm db:push).
@@ -117,8 +117,6 @@ describe("flujo completo MoveOS", () => {
       addressRaw: "Cra 13 # 54-20",
       lat: 4.6416,
       lng: -74.0639,
-      paymentType: "COD",
-      codAmount: 95000,
     });
     expect(withCoords.status).toBe(201);
     expect(withCoords.body.status).toBe("GEOCODED");
@@ -133,18 +131,11 @@ describe("flujo completo MoveOS", () => {
     expect(informal.status).toBe(201);
     expect(informal.body.lat).toBeTypeOf("number");
     expect(informal.body.geocodeSource).toBe("MOCK");
-
-    const codSinMonto = await api("POST", "/orders", adminToken, {
-      customerName: "Cliente Tres",
-      customerPhone: "+573133333333",
-      addressRaw: "Cl 100 # 19-61",
-      paymentType: "COD",
-    });
-    expect(codSinMonto.status).toBe(400);
   });
 
   let routeId: string;
-  let codStopId: string;
+  let firstStopId: string;
+  let firstStopOrderId: string;
 
   it("planifica rutas con el optimizador (domingo: sin pico y placa)", async () => {
     const orders = await api("GET", "/orders", adminToken);
@@ -163,19 +154,12 @@ describe("flujo completo MoveOS", () => {
     expect(plan.status).toBe(201);
     expect(plan.body.routes.length).toBeGreaterThan(0);
 
-    // La parada COD puede quedar en cualquiera de las rutas generadas.
-    for (const planned of plan.body.routes) {
-      const route = await api("GET", `/routes/${planned.id}`, adminToken);
-      expect(route.status).toBe(200);
-      const codStop = route.body.stops.find(
-        (s: { order: { paymentType: string } }) => s.order.paymentType === "COD",
-      );
-      if (codStop) {
-        routeId = planned.id;
-        codStopId = codStop.id;
-      }
-    }
-    expect(codStopId).toBeDefined();
+    routeId = plan.body.routes[0].id;
+    const route = await api("GET", `/routes/${routeId}`, adminToken);
+    expect(route.status).toBe(200);
+    expect(route.body.stops.length).toBeGreaterThan(0);
+    firstStopId = route.body.stops[0].id;
+    firstStopOrderId = route.body.stops[0].orderId;
   });
 
   it("despacha la ruta a un conductor y este la inicia", async () => {
@@ -200,7 +184,7 @@ describe("flujo completo MoveOS", () => {
     expect(start.status).toBe(200);
   });
 
-  it("reporta posición (tracking) y completa la entrega COD con POD", async () => {
+  it("reporta posición (tracking) y completa la entrega con POD georreferenciado", async () => {
     const ping = await api("POST", "/tracking/pings", driverToken, {
       lat: 4.6416,
       lng: -74.0639,
@@ -209,23 +193,16 @@ describe("flujo completo MoveOS", () => {
     });
     expect(ping.status).toBe(201);
 
-    const complete = await api("POST", `/routes/stops/${codStopId}/complete`, driverToken, {
+    const order = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
+    const complete = await api("POST", `/routes/stops/${firstStopId}/complete`, driverToken, {
       types: ["PHOTO", "GEOFENCE"],
       photoUrl: "https://files.example.com/pod/123.jpg",
-      receivedBy: "Cliente Uno",
-      lat: 4.6417,
-      lng: -74.064,
-      cod: { amount: 95000, method: "CASH" },
+      receivedBy: "Cliente",
+      lat: order.body.lat,
+      lng: order.body.lng,
     });
     expect(complete.status).toBe(200);
     expect(complete.body.geofenceOk).toBe(true);
-
-    // El pedido quedó entregado y el recaudo COD registrado.
-    const payments = await api("GET", "/cod/payments", adminToken);
-    expect(payments.status).toBe(200);
-    expect(payments.body).toHaveLength(1);
-    expect(payments.body[0].amount).toBe(95000);
-    expect(payments.body[0].status).toBe("COLLECTED");
 
     // La dirección quedó aprendida en el grafo de direcciones.
     const pin = await prisma.addressPin.findFirst({ where: { tenantId } });
@@ -233,9 +210,7 @@ describe("flujo completo MoveOS", () => {
     expect(pin!.source).toBe("DELIVERY_CONFIRMED");
 
     // La bitácora registró el ciclo de vida completo del pedido.
-    const payments2 = await api("GET", "/cod/payments", adminToken);
-    const orderId = payments2.body[0].orderId;
-    const detail = await api("GET", `/orders/${orderId}`, adminToken);
+    const detail = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
     const eventTypes = detail.body.events.map((e: { type: string }) => e.type);
     for (const expected of [
       "CREATED",
@@ -244,39 +219,22 @@ describe("flujo completo MoveOS", () => {
       "DISPATCHED",
       "IN_TRANSIT",
       "DELIVERED",
-      "COD_COLLECTED",
     ]) {
       expect(eventTypes).toContain(expected);
     }
   });
 
-  it("concilia el efectivo del conductor (liquidación COD)", async () => {
-    const summary = await api("GET", "/cod/summary", adminToken);
-    expect(summary.status).toBe(200);
-    expect(summary.body.pendingByDriver[0].amount).toBe(95000);
-
-    const settlement = await api("POST", "/cod/settlements", adminToken, {
-      driverId,
-      receivedAmount: 95000,
-    });
-    expect(settlement.status).toBe(201);
-    expect(settlement.body.status).toBe("SETTLED");
-
-    const after = await api("GET", "/cod/summary", adminToken);
-    expect(after.body.pendingByDriver).toHaveLength(0);
-  });
-
   it("permite apagar un módulo y bloquea su API (modelo activable)", async () => {
-    const off = await api("PATCH", "/modules/COD", adminToken, { enabled: false });
+    const off = await api("PATCH", "/modules/SAFETY", adminToken, { enabled: false });
     expect(off.status).toBe(200);
 
-    const blocked = await api("GET", "/cod/summary", adminToken);
+    const blocked = await api("GET", "/safety/alerts", adminToken);
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe("MODULE_NOT_ENABLED");
 
-    const on = await api("PATCH", "/modules/COD", adminToken, { enabled: true });
+    const on = await api("PATCH", "/modules/SAFETY", adminToken, { enabled: true });
     expect(on.status).toBe(200);
-    const allowed = await api("GET", "/cod/summary", adminToken);
+    const allowed = await api("GET", "/safety/alerts", adminToken);
     expect(allowed.status).toBe(200);
   });
 
@@ -304,7 +262,7 @@ describe("flujo completo MoveOS", () => {
   it("analítica resume la operación", async () => {
     const summary = await api("GET", "/analytics/summary", adminToken);
     expect(summary.status).toBe(200);
-    expect(summary.body.codCollected).toBe(95000);
     expect(summary.body.routesPlanned).toBeGreaterThan(0);
+    expect(summary.body.stopsPerRoute).toBeGreaterThan(0);
   });
 });

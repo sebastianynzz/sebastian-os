@@ -5,7 +5,6 @@
  */
 export const MODULE_KEYS = [
   "ROUTE_OPTIMIZATION",
-  "COD",
   "TELEMATICS",
   "EV_MANAGEMENT",
   "SAFETY",
@@ -31,13 +30,6 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     nombre: "Optimización de rutas",
     descripcion:
       "VRP multi-parada con ventanas horarias, capacidad, pico y placa y perfiles por tipo de vehículo (moto/carro/van/EV).",
-    defaultEnabled: true,
-  },
-  {
-    key: "COD",
-    nombre: "Contra-entrega (COD)",
-    descripcion:
-      "Recaudo en efectivo/QR/datáfono, conciliación automática, liquidación a comercios y analítica de rechazos.",
     defaultEnabled: true,
   },
   {
@@ -79,14 +71,14 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     key: "ANALYTICS_PRO",
     nombre: "Analítica Pro",
     descripcion:
-      "Tableros de puntualidad, costo por parada, productividad de conductores, conciliación COD y CO₂.",
+      "Tableros de puntualidad, costo por parada, productividad de conductores (SPR/SPH) y CO₂.",
     defaultEnabled: false,
   },
   {
     key: "AI_ADDONS",
     nombre: "IA avanzada",
     descripcion:
-      "ETAs predictivos, predicción de rechazo COD, detección de anomalías/robo, resolución de direcciones informales.",
+      "ETAs predictivos, predicción de entregas fallidas, detección de anomalías/robo, resolución de direcciones informales.",
     defaultEnabled: false,
   },
 ];

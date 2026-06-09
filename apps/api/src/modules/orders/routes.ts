@@ -36,7 +36,6 @@ export default async function ordersRoutes(app: FastifyInstance) {
       where: { id, tenantId: request.user.tenantId },
       include: {
         stop: { include: { pod: true, route: { select: { id: true, date: true, driverId: true } } } },
-        codPayment: true,
         events: { orderBy: { createdAt: "asc" } },
       },
     });
@@ -77,12 +76,6 @@ async function createOrder(
     geocodeSource = geo.source;
   }
 
-  if (input.paymentType === "COD" && !input.codAmount) {
-    throw Object.assign(new Error("Pedido COD requiere codAmount"), {
-      statusCode: 400,
-    });
-  }
-
   const order = await prisma.order.create({
     data: {
       tenantId,
@@ -96,8 +89,6 @@ async function createOrder(
       lng,
       geocodeSource,
       status: "GEOCODED",
-      paymentType: input.paymentType,
-      codAmount: input.codAmount,
       weightKg: input.weightKg ?? 1,
       volumeM3: input.volumeM3,
       timeWindowStart: input.timeWindowStart ? new Date(input.timeWindowStart) : undefined,

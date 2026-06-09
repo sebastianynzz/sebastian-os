@@ -27,15 +27,6 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       _count: { _all: true },
     });
 
-    const cod = await prisma.codPayment.aggregate({
-      where: { tenantId },
-      _sum: { amount: true },
-    });
-    const codSettled = await prisma.codPayment.aggregate({
-      where: { tenantId, status: "SETTLED" },
-      _sum: { amount: true },
-    });
-
     const totalStops = await prisma.routeStop.count({
       where: { route: { tenantId } },
     });
@@ -60,8 +51,6 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       totalDistanceKm,
       // Aproximación CO2: 0.12 kg/km flota mixta urbana (argumento de venta sostenibilidad).
       estimatedCo2Kg: Number((totalDistanceKm * 0.12).toFixed(1)),
-      codCollected: cod._sum.amount ?? 0,
-      codSettled: codSettled._sum.amount ?? 0,
     };
   });
 

@@ -15,28 +15,6 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export const PAYMENT_TYPES = ["PREPAID", "COD"] as const;
-export type PaymentType = (typeof PAYMENT_TYPES)[number];
-
-export const COD_METHODS = [
-  "CASH",
-  "QR",
-  "DATAPHONE",
-  "PSE",
-  "NEQUI",
-  "DAVIPLATA",
-] as const;
-export type CodMethod = (typeof COD_METHODS)[number];
-
-export const COD_PAYMENT_STATUSES = [
-  "COLLECTED",
-  "DEPOSITED",
-  "RECONCILED",
-  "SETTLED",
-  "DISCREPANCY",
-] as const;
-export type CodPaymentStatus = (typeof COD_PAYMENT_STATUSES)[number];
-
 export const VEHICLE_TYPES = [
   "MOTO",
   "BICICLETA",

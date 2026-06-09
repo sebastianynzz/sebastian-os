@@ -25,8 +25,6 @@ model Tenant {
   orders        Order[]
   routes        Route[]
   addressPins   AddressPin[]
-  codPayments   CodPayment[]
-  codSettlements CodSettlement[]
   telemetry     TelemetryPing[]
   safetyAlerts  SafetyAlert[]
   notifications NotificationLog[]
@@ -67,8 +65,6 @@ model Driver {
   user       User?
   routes     Route[]
   telemetry  TelemetryPing[]
-  codPayments CodPayment[]
-  codSettlements CodSettlement[]
   createdAt  DateTime @default(now())
 }
 
@@ -106,8 +102,6 @@ model Order {
   lng             Float?
   geocodeSource   String? // CLIENT | ADDRESS_PIN | MOCK | GOOGLE | LUPAP
   status          String    @default("PENDING")
-  paymentType     String    @default("PREPAID")
-  codAmount       Int? // pesos colombianos (COP, sin decimales)
   weightKg        Float     @default(1)
   volumeM3        Float?
   timeWindowStart DateTime?
@@ -117,9 +111,8 @@ model Order {
   deliveredAt     DateTime?
   createdAt       DateTime  @default(now())
 
-  stop       RouteStop?
-  codPayment CodPayment?
-  events     OrderEvent[]
+  stop   RouteStop?
+  events OrderEvent[]
 
   @@unique([tenantId, trackingNumber])
   @@index([tenantId, status])
@@ -204,38 +197,6 @@ model ProofOfDelivery {
   lng          Float?
   geofenceOk   Boolean?
   createdAt    DateTime  @default(now())
-}
-
-model CodPayment {
-  id           String    @id @default(cuid())
-  tenantId     String
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orderId      String    @unique
-  order        Order     @relation(fields: [orderId], references: [id])
-  driverId     String?
-  driver       Driver?   @relation(fields: [driverId], references: [id])
-  amount       Int // COP
-  method       String // CASH | QR | DATAPHONE | PSE | NEQUI | DAVIPLATA
-  status       String    @default("COLLECTED")
-  collectedAt  DateTime  @default(now())
-  settlement   CodSettlement? @relation(fields: [settlementId], references: [id])
-  settlementId String?
-
-  @@index([tenantId, status])
-}
-
-model CodSettlement {
-  id             String   @id @default(cuid())
-  tenantId       String
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  driverId       String
-  driver         Driver   @relation(fields: [driverId], references: [id])
-  expectedAmount Int
-  receivedAmount Int
-  status         String // SETTLED | DISCREPANCY
-  notes          String?
-  payments       CodPayment[]
-  createdAt      DateTime @default(now())
 }
 
 model TelemetryPing {
