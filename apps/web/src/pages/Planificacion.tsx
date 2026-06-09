@@ -4,9 +4,11 @@ import L from "leaflet";
 import { api } from "../api";
 import { Button, Card, formatEta } from "../components/ui";
 
-// Iconos por defecto de Leaflet con Vite.
+// Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
+import markerIconUrl from "leaflet/dist/images/marker-icon.png";
+
 const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconUrl: markerIconUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
@@ -67,10 +69,16 @@ export default function Planificacion() {
     })();
   }, []);
 
-  const ordersById = useMemo(
-    () => new Map(orders.map((o) => [o.id, o])),
-    [orders],
+  // Índice acumulado: los pedidos recién planificados dejan de estar en
+  // estado GEOCODED, pero sus datos deben seguir visibles en las rutas.
+  const [orderArchive, setOrderArchive] = useState<Map<string, Order>>(
+    () => new Map(),
   );
+  const ordersById = useMemo(() => {
+    const m = new Map(orderArchive);
+    for (const o of orders) m.set(o.id, o);
+    return m;
+  }, [orders, orderArchive]);
   const vehiclesById = useMemo(
     () => new Map(vehicles.map((v) => [v.id, v])),
     [vehicles],
@@ -85,6 +93,11 @@ export default function Planificacion() {
         depot: DEPOT,
         orderIds: [...selectedOrders],
         vehicleIds: [...selectedVehicles],
+      });
+      setOrderArchive((prev) => {
+        const next = new Map(prev);
+        for (const o of orders) next.set(o.id, o);
+        return next;
       });
       setPlan(res);
       setOrders(await api<Order[]>("GET", "/orders?status=GEOCODED"));

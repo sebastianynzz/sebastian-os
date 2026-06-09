@@ -32,6 +32,21 @@ export async function buildApp() {
   await app.register(cors, { origin: true });
   await registerAuth(app);
 
+  // Los clientes de navegador envían Content-Type: application/json incluso en
+  // POSTs sin cuerpo (p. ej. /routes/:id/start): tratar cuerpo vacío como {}.
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_request, body, done) => {
+      if (body === "" || body === undefined) return done(null, {});
+      try {
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        done(err as Error);
+      }
+    },
+  );
+
   app.setErrorHandler((error: unknown, _request, reply) => {
     if (error instanceof ZodError) {
       return reply.code(400).send({

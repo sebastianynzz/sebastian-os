@@ -113,7 +113,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
               })),
             },
           },
-          include: { stops: true },
+          include: { stops: { orderBy: { sequence: "asc" } } },
         });
         await prisma.order.updateMany({
           where: { id: { in: route.stops.map((s) => s.orderId) } },
