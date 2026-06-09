@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { api } from "../api";
-import { Button, Card, formatEta } from "../components/ui";
+import { Banner, Button, Card, PageHeader, formatEta } from "../components/ui";
 
 // Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
@@ -116,27 +116,35 @@ export default function Planificacion() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Planificación de rutas</h1>
-        <div className="flex items-center gap-3">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-          />
-          <Button onClick={onPlan} disabled={busy || selectedOrders.size === 0}>
-            {busy ? "Optimizando…" : `Optimizar ${selectedOrders.size} pedidos`}
-          </Button>
-        </div>
-      </div>
-      <p className="text-sm text-slate-500">
-        El optimizador aplica pico y placa según ciudad y fecha, capacidad,
-        ventanas horarias y autonomía de vehículos eléctricos.
-      </p>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <PageHeader
+        title="Planificación de rutas"
+        subtitle="El optimizador aplica pico y placa según ciudad y fecha, capacidad,
+          ventanas horarias y autonomía de vehículos eléctricos."
+        actions={
+          <>
+            <label className="sr-only" htmlFor="plan-date">
+              Fecha del plan
+            </label>
+            <input
+              id="plan-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="rounded-lg border border-cielo bg-white px-3 py-1.5 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-cielo/50"
+            />
+            <Button onClick={onPlan} disabled={busy || selectedOrders.size === 0}>
+              {busy ? "Optimizando…" : `Optimizar ${selectedOrders.size} pedidos`}
+            </Button>
+          </>
+        }
+      />
+      {error && (
+        <Banner kind="error" onDismiss={() => setError(null)}>
+          {error}
+        </Banner>
+      )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card title={`Paso 1 · Selecciona pedidos (${orders.length})`}>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {orders.map((o) => (
@@ -152,7 +160,7 @@ export default function Planificacion() {
               </label>
             ))}
             {orders.length === 0 && (
-              <p className="text-sm text-slate-400">No hay pedidos geocodificados pendientes.</p>
+              <p className="text-sm text-navy/50">No hay pedidos geocodificados pendientes.</p>
             )}
           </div>
         </Card>
@@ -176,6 +184,11 @@ export default function Planificacion() {
                 </span>
               </label>
             ))}
+            {vehicles.length === 0 && (
+              <p className="text-sm text-navy/50">
+                No hay vehículos registrados. Créelos en la sección Vehículos.
+              </p>
+            )}
           </div>
         </Card>
 
@@ -225,7 +238,7 @@ export default function Planificacion() {
               ))}
             </Card>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {plan.routes.map((r) => (
               <Card
                 key={r.id}
@@ -240,13 +253,13 @@ export default function Planificacion() {
                       <span>
                         {s.sequence}. {ordersById.get(s.orderId)?.customerName ?? s.orderId}
                       </span>
-                      <span className="font-mono text-xs text-slate-500">
+                      <span className="font-mono text-xs text-navy/50">
                         ETA {formatEta(s.etaMin)}
                       </span>
                     </li>
                   ))}
                 </ol>
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs text-navy/50">
                   Despache esta ruta desde la pestaña Rutas.
                 </p>
               </Card>

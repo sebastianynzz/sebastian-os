@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { Card } from "../components/ui";
+import { Banner, Card, Loading, PageHeader } from "../components/ui";
 
 interface ModuleInfo {
   key: string;
@@ -16,12 +16,17 @@ interface ModuleInfo {
  */
 export default function Modulos() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { refresh, session } = useAuth();
   const isAdmin = session?.user.role === "ADMIN";
 
   async function load() {
-    setModules(await api<ModuleInfo[]>("GET", "/modules"));
+    try {
+      setModules(await api<ModuleInfo[]>("GET", "/modules"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -40,33 +45,37 @@ export default function Modulos() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Módulos de la plataforma</h1>
-      <p className="text-sm text-slate-500">
-        Active solo lo que su operación necesita. Cada módulo se factura por
-        separado; el núcleo (pedidos, despacho, app conductor, tracking, POD y
-        notificaciones) siempre está incluido.
-      </p>
+      <PageHeader
+        title="Módulos de la plataforma"
+        subtitle="Active solo lo que su operación necesita. Cada módulo se factura por
+          separado; el núcleo (pedidos, despacho, app conductor, tracking, POD y
+          notificaciones) siempre está incluido."
+      />
       {!isAdmin && (
-        <p className="text-sm text-amber-600">
-          Solo el rol ADMIN puede cambiar módulos.
-        </p>
+        <Banner kind="info">Solo el rol ADMIN puede cambiar módulos.</Banner>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <Banner kind="error" onDismiss={() => setError(null)}>
+          {error}
+        </Banner>
+      )}
+      {loading && <Loading label="Cargando módulos…" />}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {modules.map((m) => (
           <Card key={m.key}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-semibold">{m.nombre}</h3>
-                <p className="mt-1 text-sm text-slate-500">{m.descripcion}</p>
+                <p className="mt-1 text-sm text-navy/60">{m.descripcion}</p>
               </div>
               <button
                 role="switch"
                 aria-checked={m.enabled}
+                aria-label={`${m.enabled ? "Desactivar" : "Activar"} ${m.nombre}`}
                 disabled={!isAdmin}
                 onClick={() => toggle(m.key, !m.enabled)}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
+                className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 ${
                   m.enabled ? "bg-lima" : "bg-cielo/60"
                 }`}
               >

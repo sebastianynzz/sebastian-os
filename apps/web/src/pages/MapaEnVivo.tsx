@@ -3,7 +3,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
-import { Button, Card } from "../components/ui";
+import { Button, Card, ModuleDisabled, PageHeader } from "../components/ui";
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 };
 
@@ -137,30 +137,30 @@ export default function MapaEnVivo() {
   }
 
   if (moduleOff) {
-    return (
-      <Card title="Mapa en vivo">
-        <p className="text-sm text-navy/60">
-          El módulo de Telemática no está activo. Actívelo en Módulos.
-        </p>
-      </Card>
-    );
+    return <ModuleDisabled title="Mapa en vivo" moduleName="Telemática" />;
   }
 
   const moving = selectedEntry && (selectedEntry.vehicle.lastSpeedKmh ?? 0) > 0.5;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Mapa en vivo</h1>
-        <span className="text-xs text-navy/50">
-          {entries.filter((e) => e.ping).length} vehículos reportando · actualiza cada 3s
-        </span>
-      </div>
+      <PageHeader
+        title="Mapa en vivo"
+        actions={
+          <span className="text-xs text-navy/50">
+            {entries.filter((e) => e.ping).length} vehículos reportando · actualiza cada 3s
+          </span>
+        }
+      />
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           <Card>
-            <MapContainer center={[DEPOT.lat, DEPOT.lng]} zoom={12} style={{ height: 460 }}>
+            <MapContainer
+              center={[DEPOT.lat, DEPOT.lng]}
+              zoom={12}
+              className="h-[320px] w-full lg:h-[460px]"
+            >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <FitToVehicles entries={entries} />
               <Marker position={[DEPOT.lat, DEPOT.lng]} icon={stationIcon}>
@@ -190,12 +190,18 @@ export default function MapaEnVivo() {
 
         <div className="space-y-4">
           <Card title="Vehículos">
-            <div className="max-h-48 space-y-1 overflow-y-auto">
+            <div className="max-h-64 space-y-1 overflow-y-auto">
+              {entries.length === 0 && (
+                <p className="py-2 text-sm text-navy/50">
+                  Sin vehículos reportando todavía.
+                </p>
+              )}
               {entries.map((e) => (
                 <button
                   key={e.vehicle.id}
                   onClick={() => selectVehicle(e.vehicle.id)}
-                  className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm ${
+                  aria-pressed={selected === e.vehicle.id}
+                  className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy ${
                     selected === e.vehicle.id ? "bg-cielo/40" : "hover:bg-niebla"
                   }`}
                 >

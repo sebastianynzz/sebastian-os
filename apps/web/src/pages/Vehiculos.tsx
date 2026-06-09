@@ -1,6 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Button, Card, Field, inputClass } from "../components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Loading,
+  PageHeader,
+  inputClass,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 interface Vehicle {
   id: string;
@@ -24,7 +35,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function docBadge(dateStr: string | null) {
-  if (!dateStr) return <span className="text-slate-400">—</span>;
+  if (!dateStr) return <span className="text-navy/40">—</span>;
   const days = Math.floor((new Date(dateStr).getTime() - Date.now()) / 86400000);
   if (days < 0) return <span className="font-medium text-red-600">Vencido</span>;
   if (days < 30)
@@ -34,12 +45,17 @@ function docBadge(dateStr: string | null) {
 
 export default function Vehiculos() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isElectric, setIsElectric] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setVehicles(await api<Vehicle[]>("GET", "/vehicles"));
+    try {
+      setVehicles(await api<Vehicle[]>("GET", "/vehicles"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -69,16 +85,18 @@ export default function Vehiculos() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Vehículos</h1>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancelar" : "Nuevo vehículo"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Vehículos"
+        actions={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancelar" : "Nuevo vehículo"}
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card title="Nuevo vehículo">
-          <form onSubmit={onCreate} className="grid grid-cols-3 gap-4">
+          <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Placa">
               <input name="plate" className={inputClass} required placeholder="ABC123 / ABC12D" />
             </Field>
@@ -94,7 +112,7 @@ export default function Vehiculos() {
             <Field label="Capacidad (kg)">
               <input name="capacityKg" type="number" className={inputClass} required />
             </Field>
-            <label className="col-span-3 flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm sm:col-span-3">
               <input
                 type="checkbox"
                 checked={isElectric}
@@ -112,8 +130,14 @@ export default function Vehiculos() {
                 </Field>
               </>
             )}
-            {error && <p className="col-span-3 text-sm text-red-600">{error}</p>}
-            <div className="col-span-3">
+            {error && (
+              <div className="sm:col-span-3">
+                <Banner kind="error" onDismiss={() => setError(null)}>
+                  {error}
+                </Banner>
+              </div>
+            )}
+            <div className="sm:col-span-3">
               <Button type="submit">Crear vehículo</Button>
             </div>
           </form>
@@ -121,9 +145,13 @@ export default function Vehiculos() {
       )}
 
       <Card>
+        {loading ? (
+          <Loading label="Cargando vehículos…" />
+        ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
+            <tr className={theadRowClass}>
               <th className="py-2">Placa</th>
               <th>Tipo</th>
               <th>Capacidad</th>
@@ -134,7 +162,7 @@ export default function Vehiculos() {
           </thead>
           <tbody>
             {vehicles.map((v) => (
-              <tr key={v.id} className="border-b border-slate-100">
+              <tr key={v.id} className={tableRowClass}>
                 <td className="py-2 font-mono font-medium">{v.plate}</td>
                 <td>{TYPE_LABELS[v.type] ?? v.type}</td>
                 <td>{v.capacityKg} kg</td>
@@ -152,8 +180,25 @@ export default function Vehiculos() {
                 <td>{docBadge(v.tecnoExpiresAt)}</td>
               </tr>
             ))}
+            {vehicles.length === 0 && (
+              <tr>
+                <td colSpan={6}>
+                  <EmptyState
+                    action={
+                      <Button onClick={() => setShowForm(true)}>
+                        Nuevo vehículo
+                      </Button>
+                    }
+                  >
+                    Aún no hay vehículos registrados.
+                  </EmptyState>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        </div>
+        )}
       </Card>
     </div>
   );

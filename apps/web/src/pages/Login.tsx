@@ -23,7 +23,7 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy">
+    <div className="flex min-h-screen items-center justify-center bg-navy p-4">
       <form
         onSubmit={onSubmit}
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg"
@@ -53,13 +53,18 @@ export default function Login() {
               required
             />
           </Field>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={busy}>
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={busy} className="w-full py-2.5">
             {busy ? "Ingresando…" : "Ingresar"}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-navy/40">
-          Demo: admin@demo.moveos.co / moveos123
+        <p className="mt-6 rounded-lg bg-niebla px-3 py-2 text-xs text-navy/60">
+          Cuenta demo: <span className="font-mono">admin@demo.moveos.co</span> ·{" "}
+          <span className="font-mono">moveos123</span>
         </p>
       </form>
     </div>

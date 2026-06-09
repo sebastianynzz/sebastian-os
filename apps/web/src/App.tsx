@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
+import { Loading } from "./components/ui";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
 import Planificacion from "./pages/Planificacion";
@@ -29,7 +30,7 @@ function Shell() {
   const { session, loading, logout } = useAuth();
 
   if (loading) {
-    return <div className="p-10 text-center text-slate-500">Cargando…</div>;
+    return <Loading label="Cargando su sesión…" />;
   }
   if (!session) return <Login />;
 
@@ -38,23 +39,35 @@ function Shell() {
   );
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="flex w-56 shrink-0 flex-col bg-navy">
-        <div className="border-b border-white/10 p-4">
-          <div className="text-xl font-bold text-white">
-            move<span className="text-lima">.</span>
+    <div className="flex min-h-screen flex-col md:flex-row">
+      {/* En pantallas pequeñas la barra lateral se vuelve barra superior. */}
+      <aside className="flex shrink-0 flex-col bg-navy md:w-56">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
+          <div className="min-w-0">
+            <div className="text-xl font-bold text-white">
+              move<span className="text-lima">.</span>
+            </div>
+            <div className="mt-1 truncate text-xs text-cielo">
+              {session.tenant.name}
+            </div>
           </div>
-          <div className="mt-1 truncate text-xs text-cielo">
-            {session.tenant.name}
-          </div>
+          <button
+            onClick={logout}
+            className="text-xs text-white underline-offset-2 hover:underline md:hidden"
+          >
+            Cerrar sesión
+          </button>
         </div>
-        <nav className="flex flex-col gap-1 p-2">
+        <nav
+          aria-label="Secciones de la plataforma"
+          className="flex gap-1 overflow-x-auto p-2 md:flex-col md:overflow-visible"
+        >
           {visibleNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-lg px-3 py-2 text-sm font-medium ${
+                `whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima ${
                   isActive
                     ? "bg-lima text-navy"
                     : "text-cielo hover:bg-white/10 hover:text-white"
@@ -65,14 +78,17 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-white/10 p-4 text-xs text-cielo">
+        <div className="mt-auto hidden border-t border-white/10 p-4 text-xs text-cielo md:block">
           <div className="mb-2 truncate">{session.user.name}</div>
-          <button onClick={logout} className="text-white hover:underline">
+          <button
+            onClick={logout}
+            className="text-white underline-offset-2 hover:underline"
+          >
             Cerrar sesión
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-x-auto p-6">
+      <main className="min-w-0 flex-1 p-4 md:p-6">
         <Routes>
           <Route path="/" element={<Navigate to="/pedidos" replace />} />
           <Route path="/pedidos" element={<Pedidos />} />

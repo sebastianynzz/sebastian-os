@@ -148,6 +148,7 @@ export default function App() {
           )}
           <button
             onClick={panic}
+            aria-label="Enviar alerta de pánico a la central"
             className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
           >
             SOS
@@ -166,10 +167,17 @@ export default function App() {
 
       {message && (
         <div
-          className="bg-emerald-100 px-4 py-2 text-sm text-emerald-800"
-          onClick={() => setMessage(null)}
+          role="status"
+          className="flex items-center justify-between gap-3 bg-emerald-100 px-4 py-2 text-sm text-emerald-800"
         >
-          {message}
+          <span>{message}</span>
+          <button
+            onClick={() => setMessage(null)}
+            aria-label="Cerrar aviso"
+            className="shrink-0 font-bold opacity-60"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -228,10 +236,12 @@ function Login({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState("carlos@demo.moveos.co");
   const [password, setPassword] = useState("moveos123");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     try {
       const res = await api<{ token: string }>("POST", "/auth/login", {
         email,
@@ -241,6 +251,8 @@ function Login({ onLogin }: { onLogin: () => void }) {
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -249,22 +261,35 @@ function Login({ onLogin }: { onLogin: () => void }) {
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
         <input
-          className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base"
+          className="w-full rounded-lg border border-cielo px-3 py-3 text-base focus:border-navy focus:outline-none"
           type="email"
           placeholder="Correo"
+          aria-label="Correo electrónico"
+          autoComplete="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
         <input
-          className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base"
+          className="w-full rounded-lg border border-cielo px-3 py-3 text-base focus:border-navy focus:outline-none"
           type="password"
           placeholder="Contraseña"
+          aria-label="Contraseña"
+          autoComplete="current-password"
+          required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button className="w-full rounded-lg bg-navy py-3 font-bold text-white">
-          Ingresar
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        )}
+        <button
+          disabled={busy}
+          className="w-full rounded-lg bg-navy py-3 font-bold text-white disabled:opacity-60"
+        >
+          {busy ? "Ingresando…" : "Ingresar"}
         </button>
       </form>
     </div>
@@ -350,6 +375,7 @@ function StopActionSheet({
   const [receivedBy, setReceivedBy] = useState("");
   const [failReason, setFailReason] = useState("CLIENTE_AUSENTE");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   // Fallback demo: si el navegador no da GPS, usar la coordenada del pedido.
   const lat = geo?.lat ?? stop.order.lat ?? undefined;
@@ -357,6 +383,7 @@ function StopActionSheet({
 
   async function deliver() {
     setError(null);
+    setBusy(true);
     try {
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
         types: lat !== undefined ? ["GEOFENCE"] : ["PHOTO"],
@@ -367,11 +394,13 @@ function StopActionSheet({
       onDone(queued);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+      setBusy(false);
     }
   }
 
   async function fail() {
     setError(null);
+    setBusy(true);
     try {
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
         reason: failReason,
@@ -381,15 +410,36 @@ function StopActionSheet({
       onDone(queued);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+      setBusy(false);
     }
   }
 
   return (
     <div className="fixed inset-0 z-20 flex items-end bg-black/40" onClick={onClose}>
       <div
-        className="w-full rounded-t-2xl bg-white p-5"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Gestionar entrega de la parada ${stop.sequence}`}
+        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Contexto de la parada: evita confirmar la entrega equivocada. */}
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-navy/70">
+              Parada {stop.sequence}
+            </div>
+            <div className="truncate font-semibold">{stop.order.customerName}</div>
+            <div className="truncate text-sm text-slate-600">{stop.order.addressRaw}</div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+          >
+            ✕
+          </button>
+        </div>
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setMode("deliver")}
@@ -408,17 +458,23 @@ function StopActionSheet({
         {mode === "deliver" ? (
           <div className="space-y-3">
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-3"
+              className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
               placeholder="¿Quién recibe?"
+              aria-label="Nombre de quien recibe"
               value={receivedBy}
               onChange={(e) => setReceivedBy(e.target.value)}
             />
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
             <button
               onClick={deliver}
-              className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy"
+              disabled={busy}
+              className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95 disabled:opacity-60"
             >
-              Confirmar entrega
+              {busy ? "Registrando…" : "Confirmar entrega"}
             </button>
           </div>
         ) : (
@@ -434,12 +490,17 @@ function StopActionSheet({
                 </button>
               ))}
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
             <button
               onClick={fail}
-              className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white"
+              disabled={busy}
+              className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white active:bg-red-700 disabled:opacity-60"
             >
-              Registrar fallo
+              {busy ? "Registrando…" : "Registrar fallo"}
             </button>
           </div>
         )}

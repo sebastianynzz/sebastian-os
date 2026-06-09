@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
-import { Button, Card, StatusBadge, formatEta } from "../components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Loading,
+  PageHeader,
+  StatusBadge,
+  formatEta,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 interface Driver {
   id: string;
@@ -31,16 +43,21 @@ interface RouteData {
 export default function Rutas() {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    const [r, d] = await Promise.all([
-      api<RouteData[]>("GET", "/routes"),
-      api<Driver[]>("GET", "/drivers"),
-    ]);
-    setRoutes(r);
-    setDrivers(d);
+    try {
+      const [r, d] = await Promise.all([
+        api<RouteData[]>("GET", "/routes"),
+        api<Driver[]>("GET", "/drivers"),
+      ]);
+      setRoutes(r);
+      setDrivers(d);
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -60,13 +77,31 @@ export default function Rutas() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Rutas</h1>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {routes.length === 0 && (
+      <PageHeader title="Rutas" />
+      {error && (
+        <Banner kind="error" onDismiss={() => setError(null)}>
+          {error}
+        </Banner>
+      )}
+      {loading && (
         <Card>
-          <p className="py-4 text-center text-slate-400">
-            No hay rutas. Genere un plan en Planificación.
-          </p>
+          <Loading label="Cargando rutas…" />
+        </Card>
+      )}
+      {!loading && routes.length === 0 && (
+        <Card>
+          <EmptyState
+            action={
+              <Link
+                to="/planificacion"
+                className="rounded-lg bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              >
+                Ir a Planificación
+              </Link>
+            }
+          >
+            No hay rutas todavía. Genere un plan en Planificación.
+          </EmptyState>
         </Card>
       )}
       {routes.map((r) => (
@@ -76,13 +111,14 @@ export default function Rutas() {
           actions={
             <div className="flex items-center gap-2">
               {r.driver ? (
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-navy/70">
                   Conductor: <strong>{r.driver.name}</strong>
                 </span>
               ) : (
                 <>
                   <select
-                    className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                    aria-label="Asignar conductor a la ruta"
+                    className="rounded-lg border border-cielo bg-white px-2 py-1 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-cielo/50"
                     value={assigning[r.id] ?? ""}
                     onChange={(e) =>
                       setAssigning((a) => ({ ...a, [r.id]: e.target.value }))
@@ -104,9 +140,10 @@ export default function Rutas() {
             </div>
           }
         >
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
+              <tr className={theadRowClass}>
                 <th className="py-1">#</th>
                 <th>Cliente</th>
                 <th>Dirección</th>
@@ -117,7 +154,7 @@ export default function Rutas() {
             </thead>
             <tbody>
               {r.stops.map((s) => (
-                <tr key={s.id} className="border-b border-slate-100">
+                <tr key={s.id} className={tableRowClass}>
                   <td className="py-1.5">{s.sequence}</td>
                   <td>{s.order.customerName}</td>
                   <td className="max-w-xs truncate">{s.order.addressRaw}</td>
@@ -136,6 +173,7 @@ export default function Rutas() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       ))}
     </div>

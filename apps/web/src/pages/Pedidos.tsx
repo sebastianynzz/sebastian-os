@@ -1,11 +1,17 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import {
+  Banner,
   Button,
   Card,
+  EmptyState,
   Field,
+  Loading,
+  PageHeader,
   StatusBadge,
   inputClass,
+  tableRowClass,
+  theadRowClass,
 } from "../components/ui";
 
 interface Order {
@@ -74,6 +80,7 @@ function parseCsv(text: string): Record<string, string>[] {
 
 export default function Pedidos() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,7 +89,11 @@ export default function Pedidos() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
-    setOrders(await api<Order[]>("GET", "/orders"));
+    try {
+      setOrders(await api<Order[]>("GET", "/orders"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -149,44 +160,54 @@ export default function Pedidos() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Pedidos</h1>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={downloadTemplate}>
-            Plantilla CSV
-          </Button>
-          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-            Importar CSV
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void importCsv(file);
-              e.target.value = "";
-            }}
-          />
-          <Button onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Cancelar" : "Nuevo pedido"}
-          </Button>
-        </div>
-      </div>
-      {notice && <p className="text-sm font-medium text-navy">✓ {notice}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <PageHeader
+        title="Pedidos"
+        actions={
+          <>
+            <Button variant="secondary" onClick={downloadTemplate}>
+              Plantilla CSV
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              Importar CSV
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importCsv(file);
+                e.target.value = "";
+              }}
+            />
+            <Button onClick={() => setShowForm((v) => !v)}>
+              {showForm ? "Cancelar" : "Nuevo pedido"}
+            </Button>
+          </>
+        }
+      />
+      {notice && (
+        <Banner kind="success" onDismiss={() => setNotice(null)}>
+          {notice}
+        </Banner>
+      )}
+      {error && (
+        <Banner kind="error" onDismiss={() => setError(null)}>
+          {error}
+        </Banner>
+      )}
 
       {showForm && (
         <Card title="Nuevo pedido">
-          <form onSubmit={onCreate} className="grid grid-cols-2 gap-4">
+          <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Cliente">
               <input name="customerName" className={inputClass} required />
             </Field>
             <Field label="Teléfono (WhatsApp)">
               <input name="customerPhone" className={inputClass} required placeholder="+57..." />
             </Field>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Field label="Dirección (formal o informal)">
                 <input
                   name="addressRaw"
@@ -196,7 +217,7 @@ export default function Pedidos() {
                 />
               </Field>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Field label="Referencias de entrega">
                 <input name="addressNotes" className={inputClass} placeholder="Casa de portón verde…" />
               </Field>
@@ -204,7 +225,7 @@ export default function Pedidos() {
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Button type="submit">Crear pedido</Button>
             </div>
           </form>
@@ -212,9 +233,13 @@ export default function Pedidos() {
       )}
 
       <Card>
+        {loading ? (
+          <Loading label="Cargando pedidos…" />
+        ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-cielo/40 text-left text-xs uppercase text-navy/50">
+            <tr className={theadRowClass}>
               <th className="py-2">Guía</th>
               <th>Cliente</th>
               <th>Dirección</th>
@@ -226,10 +251,28 @@ export default function Pedidos() {
             {orders.map((o) => (
               <Fragment key={o.id}>
                 <tr
-                  className="cursor-pointer border-b border-niebla hover:bg-niebla/60"
+                  className={`cursor-pointer hover:bg-niebla/60 ${tableRowClass}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expanded === o.id}
+                  title="Ver bitácora del pedido"
                   onClick={() => void toggleBitacora(o.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      void toggleBitacora(o.id);
+                    }
+                  }}
                 >
                   <td className="py-2 font-mono text-xs font-semibold">
+                    <span
+                      aria-hidden="true"
+                      className={`mr-1.5 inline-block text-navy/40 transition-transform ${
+                        expanded === o.id ? "rotate-90" : ""
+                      }`}
+                    >
+                      ▸
+                    </span>
                     {o.trackingNumber ?? "—"}
                   </td>
                   <td>
@@ -243,7 +286,7 @@ export default function Pedidos() {
                   </td>
                 </tr>
                 {expanded === o.id && (
-                  <tr className="border-b border-niebla bg-niebla/40">
+                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
                     <td colSpan={5} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
@@ -276,13 +319,21 @@ export default function Pedidos() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-navy/40">
-                  Sin pedidos aún. Cree el primero, importe un CSV o cargue el seed demo.
+                <td colSpan={5}>
+                  <EmptyState
+                    action={
+                      <Button onClick={() => setShowForm(true)}>Nuevo pedido</Button>
+                    }
+                  >
+                    Sin pedidos aún. Cree el primero o importe un CSV.
+                  </EmptyState>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
+        )}
       </Card>
     </div>
   );
