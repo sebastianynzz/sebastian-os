@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { MODULE_CATALOG } from "@moveos/shared";
+import { generateTrackingNumber } from "../src/services/orderEvents.js";
 
 /**
  * Datos demo: una operación de última milla en Bogotá con flota mixta
@@ -181,9 +182,11 @@ async function main() {
   ];
 
   for (const o of orders) {
-    await prisma.order.create({
+    const trackingNumber = generateTrackingNumber();
+    const created = await prisma.order.create({
       data: {
         tenantId: tenant.id,
+        trackingNumber,
         customerName: o.customerName,
         customerPhone: o.customerPhone,
         addressRaw: o.addressRaw,
@@ -197,6 +200,12 @@ async function main() {
         weightKg: o.weightKg ?? 1,
         priority: o.priority ?? 0,
       },
+    });
+    await prisma.orderEvent.createMany({
+      data: [
+        { orderId: created.id, type: "CREATED", details: `Guía ${trackingNumber}` },
+        { orderId: created.id, type: "GEOCODED", details: "Fuente: CLIENT" },
+      ],
     });
   }
 

@@ -43,6 +43,11 @@ API layer — a disabled module returns `403 MODULE_NOT_ENABLED`:
 
 Colombia-specific touches built into the core:
 
+- **Tracking number + bitácora**: every order gets a human-readable guía
+  (`MV-XXXXXXXX`) and an auditable event trail (created → geocoded → assigned
+  → dispatched → in transit → delivered/failed, COD collection,
+  notifications) — end-to-end traceability, expandable from the orders table.
+- **CSV bulk import** with downloadable template, plus the `/orders/bulk` API.
 - **Learned address graph** (`AddressPin`): every geo-stamped successful POD
   teaches the geocoder the real GPS pin for informal addresses
   ("frente al colegio San José") — a compounding data moat.
@@ -111,6 +116,7 @@ Captured from the running product with the seeded demo data:
 |---|---|
 | ![Planificación](docs/capturas/planificacion.png) Route planning: `JDK457` excluded by pico y placa; motos + EV absorb the orders | ![Rutas](docs/capturas/rutas.png) Dispatched routes with per-stop POD, COD and status |
 | ![COD](docs/capturas/cod.png) COD reconciliation: cash-in-street per driver, settlement with a $5.000 discrepancy flagged | ![Módulos](docs/capturas/modulos.png) Per-tenant module toggles — nav and APIs react instantly |
+| ![Bitácora](docs/capturas/bitacora.png) Order bitácora: tracking number + full auditable event trail | |
 
 <img src="docs/capturas/driver.png" width="280" alt="App de conductor: paradas con montos COD, entregas, fallos y botón SOS" />
 

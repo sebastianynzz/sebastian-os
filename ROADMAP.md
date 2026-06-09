@@ -15,8 +15,11 @@ Staged plan from the research brief. Checked items exist in this repo.
 - [x] EV module: SoC, dynamic usable range, charging stations (static list)
 - [x] Driver app: offline action queue, COD capture, SOS, telemetry pings
 - [x] Spanish-first dashboard with module toggles
+- [x] Tracking numbers (guía MV-XXXXXXXX) + bitácora auditable per order
+- [x] CSV order import UI with downloadable template
+- [x] SPR/SPH productivity metrics in analytics
+- [x] Move brand system applied (navy 534C / cielo 537C / lima 373C accent)
 - [ ] WhatsApp Business API credentials in production (adapter ready)
-- [ ] CSV order import UI (bulk endpoint ready)
 - [ ] Per-order pricing + free tier billing (suggested: first 100 orders free)
 - [ ] Pilot: 5–10 moto courier SMBs in Bogotá
 

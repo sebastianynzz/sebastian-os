@@ -96,6 +96,7 @@ model Order {
   id              String    @id @default(cuid())
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  trackingNumber  String?
   externalRef     String?
   customerName    String
   customerPhone   String
@@ -118,8 +119,23 @@ model Order {
 
   stop       RouteStop?
   codPayment CodPayment?
+  events     OrderEvent[]
 
+  @@unique([tenantId, trackingNumber])
   @@index([tenantId, status])
+}
+
+/// Bitácora del pedido: historial auditable de cada evento del ciclo de vida
+/// (trazabilidad de principio a fin, base de la página de rastreo).
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String // CREATED | GEOCODED | ASSIGNED | DISPATCHED | IN_TRANSIT | ARRIVED | DELIVERED | FAILED | COD_COLLECTED | NOTIFIED
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 /// Grafo de direcciones aprendido: pines GPS confirmados en entregas exitosas.

@@ -1,23 +1,23 @@
 import type { ReactNode } from "react";
 
 const ORDER_STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-slate-100 text-slate-700",
-  GEOCODED: "bg-blue-100 text-blue-700",
-  ASSIGNED: "bg-indigo-100 text-indigo-700",
+  PENDING: "bg-niebla text-navy/70",
+  GEOCODED: "bg-cielo/40 text-navy",
+  ASSIGNED: "bg-cielo/70 text-navy",
   IN_TRANSIT: "bg-amber-100 text-amber-700",
-  DELIVERED: "bg-emerald-100 text-emerald-700",
+  DELIVERED: "bg-lima/60 text-navy",
   FAILED: "bg-red-100 text-red-700",
   REJECTED: "bg-red-100 text-red-700",
-  CANCELLED: "bg-slate-200 text-slate-500",
-  PLANNED: "bg-blue-100 text-blue-700",
-  DISPATCHED: "bg-indigo-100 text-indigo-700",
+  CANCELLED: "bg-niebla text-navy/50",
+  PLANNED: "bg-cielo/40 text-navy",
+  DISPATCHED: "bg-cielo/70 text-navy",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-emerald-100 text-emerald-700",
+  COMPLETED: "bg-lima/60 text-navy",
   COLLECTED: "bg-amber-100 text-amber-700",
-  SETTLED: "bg-emerald-100 text-emerald-700",
+  SETTLED: "bg-lima/60 text-navy",
   DISCREPANCY: "bg-red-100 text-red-700",
   OPEN: "bg-red-100 text-red-700",
-  RESOLVED: "bg-emerald-100 text-emerald-700",
+  RESOLVED: "bg-lima/60 text-navy",
 };
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
@@ -62,10 +62,10 @@ export function Card({
   actions?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-cielo/40 bg-white p-4 shadow-sm">
       {(title || actions) && (
         <div className="mb-3 flex items-center justify-between">
-          {title && <h2 className="text-sm font-semibold text-slate-700">{title}</h2>}
+          {title && <h2 className="text-sm font-semibold text-navy">{title}</h2>}
           {actions}
         </div>
       )}
@@ -87,9 +87,10 @@ export function Button({
   variant?: "primary" | "secondary" | "danger";
   disabled?: boolean;
 }) {
+  // Botones según manual Move: lima (acento) y cielo sobre fondos claros.
   const styles = {
-    primary: "bg-indigo-600 text-white hover:bg-indigo-700",
-    secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-50",
+    primary: "bg-lima text-navy hover:brightness-95 font-semibold",
+    secondary: "bg-white text-navy border border-cielo hover:bg-niebla",
     danger: "bg-red-600 text-white hover:bg-red-700",
   };
   return (
@@ -120,7 +121,7 @@ export function Field({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none";
+  "w-full rounded-lg border border-cielo px-3 py-1.5 text-sm focus:border-navy focus:outline-none";
 
 export function formatCop(amount: number): string {
   return new Intl.NumberFormat("es-CO", {

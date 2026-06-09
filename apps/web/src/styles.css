@@ -1,6 +1,22 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/*
+ * Paleta de marca Move (manual de identidad, sección 4):
+ *  - Azul Marino  Pantone 534 C — color base, información clave y contraste
+ *  - Azul Cielo   Pantone 537 C — apoyo visual, áreas secundarias
+ *  - Verde Limón  Pantone 373 C — SOLO acento (íconos, resaltados, envolventes)
+ *  - Blanco/Niebla White C      — fondos y áreas de descanso
+ * Jerarquía 30/30/30/10: navy, blanco, cielo, lima.
+ * Tipografía: azul sobre fondo claro, blanca sobre fondo oscuro.
+ */
+@theme {
+  --color-navy: #1b365d;
+  --color-cielo: #a2b2c8;
+  --color-lima: #d0de81;
+  --color-niebla: #f2f3f4;
+}
+
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-niebla text-navy;
 }

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { createOrderSchema, ORDER_STATUSES } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { geocodeAddress } from "../../services/geocoding.js";
+import {
+  generateTrackingNumber,
+  logOrderEvents,
+} from "../../services/orderEvents.js";
 
 export default async function ordersRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -33,6 +37,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
       include: {
         stop: { include: { pod: true, route: { select: { id: true, date: true, driverId: true } } } },
         codPayment: true,
+        events: { orderBy: { createdAt: "asc" } },
       },
     });
     if (!order) return reply.code(404).send({ error: "Pedido no encontrado" });
@@ -78,9 +83,10 @@ async function createOrder(
     });
   }
 
-  return prisma.order.create({
+  const order = await prisma.order.create({
     data: {
       tenantId,
+      trackingNumber: generateTrackingNumber(),
       externalRef: input.externalRef,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
@@ -99,4 +105,10 @@ async function createOrder(
       priority: input.priority,
     },
   });
+
+  await logOrderEvents([
+    { orderId: order.id, type: "CREATED", details: `Guía ${order.trackingNumber}` },
+    { orderId: order.id, type: "GEOCODED", details: `Fuente: ${geocodeSource}` },
+  ]);
+  return order;
 }

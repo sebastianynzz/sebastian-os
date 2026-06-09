@@ -122,6 +122,7 @@ describe("flujo completo MoveOS", () => {
     });
     expect(withCoords.status).toBe(201);
     expect(withCoords.body.status).toBe("GEOCODED");
+    expect(withCoords.body.trackingNumber).toMatch(/^MV-[A-Z2-9]{8}$/);
 
     // Dirección informal sin coordenadas: debe geocodificar (mock en dev).
     const informal = await api("POST", "/orders", adminToken, {
@@ -161,15 +162,20 @@ describe("flujo completo MoveOS", () => {
     });
     expect(plan.status).toBe(201);
     expect(plan.body.routes.length).toBeGreaterThan(0);
-    routeId = plan.body.routes[0].id;
 
-    const route = await api("GET", `/routes/${routeId}`, adminToken);
-    expect(route.status).toBe(200);
-    const codStop = route.body.stops.find(
-      (s: { order: { paymentType: string } }) => s.order.paymentType === "COD",
-    );
-    expect(codStop).toBeDefined();
-    codStopId = codStop.id;
+    // La parada COD puede quedar en cualquiera de las rutas generadas.
+    for (const planned of plan.body.routes) {
+      const route = await api("GET", `/routes/${planned.id}`, adminToken);
+      expect(route.status).toBe(200);
+      const codStop = route.body.stops.find(
+        (s: { order: { paymentType: string } }) => s.order.paymentType === "COD",
+      );
+      if (codStop) {
+        routeId = planned.id;
+        codStopId = codStop.id;
+      }
+    }
+    expect(codStopId).toBeDefined();
   });
 
   it("despacha la ruta a un conductor y este la inicia", async () => {
@@ -225,6 +231,23 @@ describe("flujo completo MoveOS", () => {
     const pin = await prisma.addressPin.findFirst({ where: { tenantId } });
     expect(pin).not.toBeNull();
     expect(pin!.source).toBe("DELIVERY_CONFIRMED");
+
+    // La bitácora registró el ciclo de vida completo del pedido.
+    const payments2 = await api("GET", "/cod/payments", adminToken);
+    const orderId = payments2.body[0].orderId;
+    const detail = await api("GET", `/orders/${orderId}`, adminToken);
+    const eventTypes = detail.body.events.map((e: { type: string }) => e.type);
+    for (const expected of [
+      "CREATED",
+      "GEOCODED",
+      "ASSIGNED",
+      "DISPATCHED",
+      "IN_TRANSIT",
+      "DELIVERED",
+      "COD_COLLECTED",
+    ]) {
+      expect(eventTypes).toContain(expected);
+    }
   });
 
   it("concilia el efectivo del conductor (liquidación COD)", async () => {

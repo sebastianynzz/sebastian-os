@@ -5,6 +5,7 @@ import type { OptimizableOrder, OptimizableVehicle } from "@moveos/optimizer";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
+import { logOrderEvents } from "../../services/orderEvents.js";
 
 /** Convierte un DateTime a minutos desde medianoche (UTC). */
 function toMinOfDay(d: Date): number {
@@ -119,6 +120,14 @@ export default async function optimizationRoutes(app: FastifyInstance) {
           where: { id: { in: route.stops.map((s) => s.orderId) } },
           data: { status: "ASSIGNED" },
         });
+        const plate = dbVehicles.find((v) => v.id === route.vehicleId)?.plate;
+        await logOrderEvents(
+          route.stops.map((s) => ({
+            orderId: s.orderId,
+            type: "ASSIGNED" as const,
+            details: `Ruta ${plate ?? route.vehicleId}, parada ${s.sequence}`,
+          })),
+        );
         created.push(dbRoute);
       }
 

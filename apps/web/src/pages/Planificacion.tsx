@@ -138,7 +138,7 @@ export default function Planificacion() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="grid grid-cols-3 gap-4">
-        <Card title={`Pedidos por planificar (${orders.length})`}>
+        <Card title={`Paso 1 · Selecciona pedidos (${orders.length})`}>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {orders.map((o) => (
               <label key={o.id} className="flex items-center gap-2 text-sm">
@@ -161,7 +161,7 @@ export default function Planificacion() {
           </div>
         </Card>
 
-        <Card title={`Vehículos (${vehicles.length})`}>
+        <Card title={`Paso 2 · Selecciona vehículos (${vehicles.length})`}>
           <div className="max-h-72 space-y-1 overflow-y-auto">
             {vehicles.map((v) => (
               <label key={v.id} className="flex items-center gap-2 text-sm">
@@ -183,7 +183,7 @@ export default function Planificacion() {
           </div>
         </Card>
 
-        <Card title="Mapa">
+        <Card title="Paso 3 · Optimiza (mapa de la operación)">
           <MapContainer
             center={[DEPOT.lat, DEPOT.lng]}
             zoom={12}
@@ -210,6 +210,7 @@ export default function Planificacion() {
 
       {plan && (
         <div className="space-y-4">
+          <h2 className="text-base font-bold">Paso 4 · Revisa y despacha</h2>
           {plan.excludedVehicles.length > 0 && (
             <Card title="Vehículos excluidos">
               {plan.excludedVehicles.map((e) => (

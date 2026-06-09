@@ -39,10 +39,12 @@ function Shell() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-56 shrink-0 border-r border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <div className="text-lg font-bold text-indigo-700">MoveOS</div>
-          <div className="mt-1 truncate text-xs text-slate-500">
+      <aside className="flex w-56 shrink-0 flex-col bg-navy">
+        <div className="border-b border-white/10 p-4">
+          <div className="text-xl font-bold text-white">
+            move<span className="text-lima">.</span>
+          </div>
+          <div className="mt-1 truncate text-xs text-cielo">
             {session.tenant.name}
           </div>
         </div>
@@ -54,8 +56,8 @@ function Shell() {
               className={({ isActive }) =>
                 `rounded-lg px-3 py-2 text-sm font-medium ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-50"
+                    ? "bg-lima text-navy"
+                    : "text-cielo hover:bg-white/10 hover:text-white"
                 }`
               }
             >
@@ -63,12 +65,9 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-slate-200 p-4 text-xs text-slate-500">
+        <div className="mt-auto border-t border-white/10 p-4 text-xs text-cielo">
           <div className="mb-2 truncate">{session.user.name}</div>
-          <button
-            onClick={logout}
-            className="text-indigo-600 hover:underline"
-          >
+          <button onClick={logout} className="text-white hover:underline">
             Cerrar sesión
           </button>
         </div>

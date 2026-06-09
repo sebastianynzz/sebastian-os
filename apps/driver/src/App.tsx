@@ -140,9 +140,11 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col">
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-indigo-700 px-4 py-3 text-white">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-navy px-4 py-3 text-white">
         <div>
-          <div className="font-bold">MoveOS Conductor</div>
+          <div className="font-bold">
+            move<span className="text-lima">.</span> conductor
+          </div>
           {route && (
             <div className="text-xs opacity-80">
               {route.vehicle.plate} {route.vehicle.isElectric && "⚡"}
@@ -195,7 +197,7 @@ export default function App() {
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
-            className="w-full rounded-xl bg-indigo-600 py-4 text-lg font-bold text-white active:bg-indigo-700"
+            className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95"
           >
             Iniciar ruta ({route.stops.length} paradas)
           </button>
@@ -256,7 +258,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-indigo-700">MoveOS Conductor</h1>
+        <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
         <input
           className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base"
           type="email"
@@ -272,7 +274,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button className="w-full rounded-lg bg-indigo-600 py-3 font-bold text-white">
+        <button className="w-full rounded-lg bg-navy py-3 font-bold text-white">
           Ingresar
         </button>
       </form>
@@ -298,7 +300,7 @@ function StopCard({
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-bold text-indigo-600">
+          <div className="text-xs font-bold text-navy/70">
             Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
           </div>
           <div className="mt-0.5 font-semibold">{stop.order.customerName}</div>
@@ -327,14 +329,14 @@ function StopCard({
           {stop.status === "PENDING" && (
             <button
               onClick={onArrive}
-              className="flex-1 rounded-lg border border-indigo-600 py-2.5 text-sm font-bold text-indigo-600"
+              className="flex-1 rounded-lg border border-navy py-2.5 text-sm font-bold text-navy"
             >
               Llegué
             </button>
           )}
           <button
             onClick={onAction}
-            className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white"
+            className="flex-1 rounded-lg bg-navy py-2.5 text-sm font-bold text-white"
           >
             Gestionar entrega
           </button>
@@ -412,13 +414,13 @@ function StopActionSheet({
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setMode("deliver")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-emerald-600 text-white" : "bg-slate-100"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla"}`}
           >
             Entregar
           </button>
           <button
             onClick={() => setMode("fail")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-red-600 text-white" : "bg-slate-100"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-red-600 text-white" : "bg-niebla"}`}
           >
             No se pudo
           </button>
@@ -442,7 +444,7 @@ function StopActionSheet({
                     <button
                       key={value}
                       onClick={() => setCodMethod(value)}
-                      className={`rounded-lg border py-2 text-xs font-medium ${codMethod === value ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200"}`}
+                      className={`rounded-lg border py-2 text-xs font-medium ${codMethod === value ? "border-navy bg-cielo/30 text-navy" : "border-cielo/60"}`}
                     >
                       {label}
                     </button>
@@ -453,7 +455,7 @@ function StopActionSheet({
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={deliver}
-              className="w-full rounded-xl bg-emerald-600 py-4 text-lg font-bold text-white"
+              className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy"
             >
               Confirmar entrega
             </button>

@@ -87,4 +87,13 @@ export async function notify(message: NotificationMessage): Promise<void> {
       payload: message.payload as object,
     },
   });
+  if (message.orderId) {
+    await prisma.orderEvent.create({
+      data: {
+        orderId: message.orderId,
+        type: "NOTIFIED",
+        details: `${message.template} → ${message.recipient}`,
+      },
+    });
+  }
 }

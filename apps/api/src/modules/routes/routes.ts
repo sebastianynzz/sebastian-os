@@ -6,6 +6,7 @@ import { requireRole } from "../../plugins/auth.js";
 import { isModuleEnabled } from "../../plugins/entitlements.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notify } from "../../services/notifications.js";
+import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 
 const GEOFENCE_RADIUS_KM = 0.3; // 300 m para validar POD georreferenciado
 
@@ -69,6 +70,14 @@ export default async function routesRoutes(app: FastifyInstance) {
         data: { driverId: driver.id, status: "DISPATCHED" },
       });
 
+      await logOrderEvents(
+        route.stops.map((s) => ({
+          orderId: s.orderId,
+          type: "DISPATCHED" as const,
+          details: `Conductor: ${driver.name}`,
+        })),
+      );
+
       for (const stop of route.stops) {
         await notify({
           tenantId: request.user.tenantId,
@@ -103,6 +112,13 @@ export default async function routesRoutes(app: FastifyInstance) {
       where: { id: { in: route.stops.map((s) => s.orderId) } },
       data: { status: "IN_TRANSIT" },
     });
+    await logOrderEvents(
+      route.stops.map((s) => ({
+        orderId: s.orderId,
+        type: "IN_TRANSIT" as const,
+        details: "El conductor inició la ruta",
+      })),
+    );
 
     for (const stop of route.stops) {
       await notify({
@@ -141,10 +157,12 @@ export default async function routesRoutes(app: FastifyInstance) {
     const stop = await findStopForUser(request, stopId);
     if (!stop) return reply.code(404).send({ error: "Parada no encontrada" });
 
-    return prisma.routeStop.update({
+    const updated = await prisma.routeStop.update({
       where: { id: stopId },
       data: { status: "ARRIVED", arrivedAt: new Date() },
     });
+    await logOrderEvent(stop.orderId, "ARRIVED", "Conductor en el punto de entrega");
+    return updated;
   });
 
   /**
@@ -226,6 +244,19 @@ export default async function routesRoutes(app: FastifyInstance) {
       }
     });
 
+    await logOrderEvent(
+      order.id,
+      "DELIVERED",
+      input.receivedBy ? `Recibió: ${input.receivedBy}` : undefined,
+    );
+    if (order.paymentType === "COD" && input.cod) {
+      await logOrderEvent(
+        order.id,
+        "COD_COLLECTED",
+        `$${input.cod.amount.toLocaleString("es-CO")} vía ${input.cod.method}`,
+      );
+    }
+
     // Aprender el pin GPS confirmado (mejora geocodificación futura).
     if (input.lat !== undefined && input.lng !== undefined) {
       await learnAddressPin(
@@ -269,6 +300,7 @@ export default async function routesRoutes(app: FastifyInstance) {
         },
       }),
     ]);
+    await logOrderEvent(stop.orderId, "FAILED", `Motivo: ${input.reason}`);
 
     await notify({
       tenantId: request.user.tenantId,

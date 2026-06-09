@@ -6,6 +6,8 @@ interface Summary {
   ordersByStatus: { status: string; count: number }[];
   deliverySuccessRate: number | null;
   routesPlanned: number;
+  stopsPerRoute: number | null;
+  stopsPerHour: number | null;
   totalDistanceKm: number;
   estimatedCo2Kg: number;
   codCollected: number;
@@ -48,6 +50,14 @@ export default function Analitica() {
           : `${(summary.deliverySuccessRate * 100).toFixed(1)}%`,
     },
     { label: "Rutas planificadas", value: String(summary.routesPlanned) },
+    {
+      label: "Paradas por ruta (SPR)",
+      value: summary.stopsPerRoute === null ? "—" : String(summary.stopsPerRoute),
+    },
+    {
+      label: "Paradas por hora (SPH)",
+      value: summary.stopsPerHour === null ? "—" : String(summary.stopsPerHour),
+    },
     { label: "Distancia total", value: `${summary.totalDistanceKm.toFixed(1)} km` },
     { label: "CO₂ estimado", value: `${summary.estimatedCo2Kg} kg` },
     { label: "COD recaudado", value: formatCop(summary.codCollected) },

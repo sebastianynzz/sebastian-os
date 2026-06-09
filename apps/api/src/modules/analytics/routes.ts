@@ -36,11 +36,27 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       _sum: { amount: true },
     });
 
+    const totalStops = await prisma.routeStop.count({
+      where: { route: { tenantId } },
+    });
+    const routeDuration = await prisma.route.aggregate({
+      where: { tenantId },
+      _sum: { totalDurationMin: true },
+    });
+    const routeHours = (routeDuration._sum.totalDurationMin ?? 0) / 60;
+
     const totalDistanceKm = routes._sum.totalDistanceKm ?? 0;
     return {
       ordersByStatus: ordersByStatus.map((s) => ({ status: s.status, count: s._count._all })),
       deliverySuccessRate: attempted === 0 ? null : delivered / attempted,
       routesPlanned: routes._count._all,
+      // Métricas de productividad estilo TMS: paradas por ruta y por hora.
+      stopsPerRoute:
+        routes._count._all === 0
+          ? null
+          : Number((totalStops / routes._count._all).toFixed(1)),
+      stopsPerHour:
+        routeHours === 0 ? null : Number((totalStops / routeHours).toFixed(1)),
       totalDistanceKm,
       // Aproximación CO2: 0.12 kg/km flota mixta urbana (argumento de venta sostenibilidad).
       estimatedCo2Kg: Number((totalDistanceKm * 0.12).toFixed(1)),

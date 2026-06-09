@@ -67,7 +67,7 @@ export default function Modulos() {
                 disabled={!isAdmin}
                 onClick={() => toggle(m.key, !m.enabled)}
                 className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
-                  m.enabled ? "bg-indigo-600" : "bg-slate-300"
+                  m.enabled ? "bg-lima" : "bg-cielo/60"
                 }`}
               >
                 <span

@@ -23,13 +23,15 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-navy">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg"
       >
-        <h1 className="text-2xl font-bold text-indigo-700">MoveOS</h1>
-        <p className="mb-6 mt-1 text-sm text-slate-500">
+        <h1 className="text-3xl font-bold text-navy">
+          move<span className="text-lima">.</span>
+        </h1>
+        <p className="mb-6 mt-1 text-sm text-navy/60">
           Plataforma modular de última milla
         </p>
         <div className="space-y-4">
@@ -56,7 +58,7 @@ export default function Login() {
             {busy ? "Ingresando…" : "Ingresar"}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-slate-400">
+        <p className="mt-6 text-xs text-navy/40">
           Demo: admin@demo.moveos.co / moveos123
         </p>
       </form>
