@@ -1,23 +1,31 @@
-# Despliegue de la API MoveOS en Render (un comando: render blueprint launch).
-# Las UIs (web, admin) van en Vercel/Cloudflare Pages; la base en Supabase/Neon.
+# Despliegue de la API MoveOS en Render.
+# Uso: dashboard de Render → New + → Blueprint → conectar este repo,
+# o CLI: `render blueprint launch` desde la raíz del repo.
+# Las UIs (web, driver, admin) van en Vercel; la base de datos en Supabase.
 services:
   - type: web
     name: moveos-api
     runtime: docker
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    plan: starter
+    plan: starter # ~US$7/mes; "free" también sirve (se duerme tras inactividad)
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
-        generateValue: true # Render genera un secreto fuerte
+        generateValue: true # Render genera un secreto fuerte automáticamente
       - key: DATABASE_URL
-        sync: false # pega aquí la URL de Supabase/Neon
+        sync: false # Supabase → Connect → "Session pooler" URI (IPv4, puerto 5432)
       - key: CORS_ORIGINS
-        sync: false # p.ej. https://app.moveos.co,https://admin.moveos.co
+        sync: false # luego del deploy en Vercel: https://app...,https://conductor...,https://admin...
+      - key: SUPABASE_URL
+        value: https://mervcbeedbcruqcipuvr.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # Supabase → Settings → API → service_role (secreto)
+      - key: SUPABASE_STORAGE_BUCKET
+        value: pod-photos
       - key: WHATSAPP_BUSINESS_TOKEN
-        sync: false
+        sync: false # opcional: vacío hasta tener credenciales BSP
       - key: WHATSAPP_PHONE_NUMBER_ID
-        sync: false
+        sync: false # opcional
