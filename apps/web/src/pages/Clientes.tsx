@@ -1,6 +1,17 @@
 import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Button, Card, Field, inputClass } from "../components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Loading,
+  PageHeader,
+  inputClass,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 interface Client {
   id: string;
@@ -36,6 +47,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
 
 export default function Clientes() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [channel, setChannel] = useState("IN_APP");
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +55,11 @@ export default function Clientes() {
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
 
   async function load() {
-    setClients(await api<Client[]>("GET", "/clients"));
+    try {
+      setClients(await api<Client[]>("GET", "/clients"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -82,22 +98,20 @@ export default function Clientes() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Negocios cliente</h1>
-          <p className="text-sm text-navy/50">
-            Las empresas que originan los envíos. Reciben la confirmación de
-            entrega por el canal que definas.
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancelar" : "Nuevo cliente"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Negocios cliente"
+        subtitle="Las empresas que originan los envíos. Reciben la confirmación de
+          entrega por el canal que definas."
+        actions={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancelar" : "Nuevo cliente"}
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card title="Nuevo negocio cliente">
-          <form onSubmit={onCreate} className="grid grid-cols-2 gap-4">
+          <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Nombre del negocio">
               <input name="name" className={inputClass} required />
             </Field>
@@ -128,14 +142,20 @@ export default function Clientes() {
               </Field>
             )}
             {channel === "WEBHOOK" && (
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <Field label="URL del webhook (recibe los eventos de entrega)">
                   <input name="webhookUrl" type="url" className={inputClass} placeholder="https://..." />
                 </Field>
               </div>
             )}
-            {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
-            <div className="col-span-2">
+            {error && (
+              <div className="sm:col-span-2">
+                <Banner kind="error" onDismiss={() => setError(null)}>
+                  {error}
+                </Banner>
+              </div>
+            )}
+            <div className="sm:col-span-2">
               <Button type="submit">Crear cliente</Button>
             </div>
           </form>
@@ -143,20 +163,26 @@ export default function Clientes() {
       )}
 
       <Card>
+        {loading ? (
+          <Loading label="Cargando negocios cliente…" />
+        ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-cielo/40 text-left text-xs uppercase text-navy/50">
+            <tr className={theadRowClass}>
               <th className="py-2">Negocio</th>
               <th>Contacto</th>
               <th>Canal de aviso</th>
               <th>Envíos</th>
-              <th></th>
+              <th>
+                <span className="sr-only">Acciones</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {clients.map((c) => (
               <Fragment key={c.id}>
-                <tr className="border-b border-niebla">
+                <tr className={tableRowClass}>
                   <td className="py-2 font-medium">{c.name}</td>
                   <td>{c.contactName ?? "—"}</td>
                   <td>
@@ -168,14 +194,15 @@ export default function Clientes() {
                   <td className="text-right">
                     <button
                       onClick={() => toggleFeed(c.id)}
-                      className="text-xs text-navy/60 hover:underline"
+                      aria-expanded={openClient === c.id}
+                      className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
                     >
                       {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
                     </button>
                   </td>
                 </tr>
                 {openClient === c.id && (
-                  <tr className="bg-niebla/40">
+                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
                     <td colSpan={5} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Confirmaciones enviadas a {c.name}
@@ -214,13 +241,23 @@ export default function Clientes() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-navy/40">
-                  Sin negocios cliente aún. Cree el primero.
+                <td colSpan={5}>
+                  <EmptyState
+                    action={
+                      <Button onClick={() => setShowForm(true)}>
+                        Nuevo cliente
+                      </Button>
+                    }
+                  >
+                    Sin negocios cliente aún. Cree el primero.
+                  </EmptyState>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
+        )}
       </Card>
     </div>
   );

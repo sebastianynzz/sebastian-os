@@ -1,6 +1,17 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
-import { Button, Card, Field, inputClass } from "../components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Loading,
+  PageHeader,
+  inputClass,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 interface Driver {
   id: string;
@@ -13,11 +24,16 @@ interface Driver {
 
 export default function Conductores() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setDrivers(await api<Driver[]>("GET", "/drivers"));
+    try {
+      setDrivers(await api<Driver[]>("GET", "/drivers"));
+    } finally {
+      setLoading(false);
+    }
   }
   useEffect(() => {
     void load();
@@ -44,16 +60,18 @@ export default function Conductores() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Conductores</h1>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancelar" : "Nuevo conductor"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Conductores"
+        actions={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancelar" : "Nuevo conductor"}
+          </Button>
+        }
+      />
 
       {showForm && (
         <Card title="Nuevo conductor (onboarding ligero para mensajeros)">
-          <form onSubmit={onCreate} className="grid grid-cols-2 gap-4">
+          <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Nombre completo">
               <input name="name" className={inputClass} required />
             </Field>
@@ -63,15 +81,21 @@ export default function Conductores() {
             <Field label="Cédula">
               <input name="documentId" className={inputClass} required />
             </Field>
-            <div />
+            <div className="hidden sm:block" />
             <Field label="Correo (acceso app conductor, opcional)">
               <input name="email" type="email" className={inputClass} />
             </Field>
             <Field label="Contraseña (opcional)">
               <input name="password" type="password" className={inputClass} minLength={8} />
             </Field>
-            {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
-            <div className="col-span-2">
+            {error && (
+              <div className="sm:col-span-2">
+                <Banner kind="error" onDismiss={() => setError(null)}>
+                  {error}
+                </Banner>
+              </div>
+            )}
+            <div className="sm:col-span-2">
               <Button type="submit">Crear conductor</Button>
             </div>
           </form>
@@ -79,9 +103,13 @@ export default function Conductores() {
       )}
 
       <Card>
+        {loading ? (
+          <Loading label="Cargando conductores…" />
+        ) : (
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
+            <tr className={theadRowClass}>
               <th className="py-2">Nombre</th>
               <th>Celular</th>
               <th>Cédula</th>
@@ -91,16 +119,33 @@ export default function Conductores() {
           </thead>
           <tbody>
             {drivers.map((d) => (
-              <tr key={d.id} className="border-b border-slate-100">
+              <tr key={d.id} className={tableRowClass}>
                 <td className="py-2 font-medium">{d.name}</td>
                 <td>{d.phone}</td>
                 <td>{d.documentId}</td>
-                <td className="text-xs text-slate-500">{d.user?.email ?? "Sin cuenta"}</td>
+                <td className="text-xs text-navy/50">{d.user?.email ?? "Sin cuenta"}</td>
                 <td>{d.status === "ACTIVE" ? "Activo" : d.status}</td>
               </tr>
             ))}
+            {drivers.length === 0 && (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState
+                    action={
+                      <Button onClick={() => setShowForm(true)}>
+                        Nuevo conductor
+                      </Button>
+                    }
+                  >
+                    Aún no hay conductores registrados.
+                  </EmptyState>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        </div>
+        )}
       </Card>
     </div>
   );

@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
-import { Card, StatusBadge } from "../components/ui";
+import {
+  Card,
+  Loading,
+  ModuleDisabled,
+  PageHeader,
+  StatusBadge,
+} from "../components/ui";
 
 interface Summary {
   ordersByStatus: { status: string; count: number }[];
@@ -29,15 +35,9 @@ export default function Analitica() {
   }, []);
 
   if (moduleOff) {
-    return (
-      <Card title="Analítica">
-        <p className="text-sm text-slate-500">
-          El módulo Analítica Pro no está activo. Actívelo en Módulos.
-        </p>
-      </Card>
-    );
+    return <ModuleDisabled title="Analítica" moduleName="Analítica Pro" />;
   }
-  if (!summary) return <p className="text-slate-400">Cargando…</p>;
+  if (!summary) return <Loading label="Cargando indicadores…" />;
 
   const kpis = [
     {
@@ -62,11 +62,11 @@ export default function Analitica() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Analítica</h1>
-      <div className="grid grid-cols-3 gap-4">
+      <PageHeader title="Analítica" />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {kpis.map((k) => (
           <Card key={k.label}>
-            <div className="text-xs uppercase text-slate-400">{k.label}</div>
+            <div className="text-xs uppercase tracking-wide text-navy/50">{k.label}</div>
             <div className="mt-1 text-2xl font-bold">{k.value}</div>
           </Card>
         ))}
@@ -74,7 +74,7 @@ export default function Analitica() {
       <Card title="Pedidos por estado">
         <div className="flex flex-wrap gap-3">
           {summary.ordersByStatus.map((s) => (
-            <div key={s.status} className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2">
+            <div key={s.status} className="flex items-center gap-2 rounded-lg border border-niebla px-3 py-2">
               <StatusBadge status={s.status} />
               <span className="text-lg font-bold">{s.count}</span>
             </div>
