@@ -16,29 +16,19 @@ serverless functions can't host. The topology splits accordingly.
 
 ## Status of this preview
 
-- ✅ **Database is LIVE** — Supabase project **"Move OS"**
-  (`mervcbeedbcruqcipuvr`, region us-west-2). The full 15-table schema has
-  been applied. URL: `https://mervcbeedbcruqcipuvr.supabase.co`.
-- ⏳ **API host** — needs one deploy step (below). This build environment
-  can't host a public persistent server; you complete it with a single
-  command on your hosting account.
+- ✅ **Database LIVE** — Supabase project **"Move OS"**
+  (`mervcbeedbcruqcipuvr`, us-west-2), full 18-table schema applied
+  (core + B2B clients + platform admin + telematics).
+  URL: `https://mervcbeedbcruqcipuvr.supabase.co`.
+- ✅ **RLS enabled on all tables** (defense-in-depth). Prisma connects as the
+  table owner and is NOT affected; the anon/PostgREST roles are fully locked
+  out. The remaining Supabase advisories are INFO-level ("no policies"),
+  which is the intended state.
+- ✅ **Storage bucket `pod-photos`** created (public read, service-role
+  write). The API uploads POD photos here in production; locally it uses
+  disk + `/files/*`.
+- ⏳ **API host** — the single remaining step (below).
 - ⏳ **Frontends** — deploy after the API URL exists (they read `VITE_API_URL`).
-
-### ⚠️ Security finding from provisioning (Row Level Security)
-
-Supabase flagged that the 15 tables have **RLS disabled**. What this means and
-what to do:
-
-- **Why it's mitigated today:** MoveOS clients never talk to Supabase
-  directly with the anon key — they call our Fastify API, which connects as
-  the Postgres owner and enforces `tenantId` scoping in application code. The
-  anon/`authenticated` roles (PostgREST/supabase-js) are simply not used.
-- **Hardening (recommended before real customer data):** either
-  **(a) disable the Data API/PostgREST** on this project (Settings → API), so
-  the anon key exposes nothing — simplest given we use direct Postgres only;
-  or **(b) enable RLS** as defense-in-depth. Prisma (owner role) bypasses RLS,
-  so enabling it does **not** break the API; it only blocks the anon roles.
-  RLS SQL is in the Supabase advisor and tracked in `AUDIT.md` §7 / roadmap.
 
 ## Step-by-step
 
@@ -54,9 +44,14 @@ render blueprint launch     # reads render.yaml
 ```
 Then set the non-synced env vars in the Render dashboard:
 `DATABASE_URL` (Supabase URI), `CORS_ORIGINS`
-(`https://<your-web>.vercel.app,https://<your-driver>.vercel.app`).
+(`https://<your-web>.vercel.app,https://<your-driver>.vercel.app,https://<your-admin>.vercel.app`),
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (dashboard → Settings → API),
+`SUPABASE_STORAGE_BUCKET=pod-photos`.
 `JWT_SECRET` is auto-generated. The container runs `db:push` on boot, then
 starts the API. Health check: `/health`.
+
+> RLS note: migrations and Prisma queries run as the `postgres` owner role,
+> which bypasses RLS — enabling RLS did not change API behavior.
 
 > Railway / Fly alternative: `railway up` (uses `apps/api/Dockerfile`) or
 > `fly launch`. Any container host works; the only requirement is a
@@ -69,9 +64,11 @@ DATABASE_URL="<supabase-uri>" pnpm --filter @moveos/api db:seed
 Creates the demo Bogotá tenant + users (`admin@demo.moveos.co / moveos123`).
 
 ### 4. Frontends → Vercel
-For each of `apps/web` and `apps/driver`:
+For each of `apps/web`, `apps/driver` and `apps/admin`:
 ```bash
 cd apps/web && vercel --prod    # vercel.json handles the monorepo build
+cd apps/driver && vercel --prod
+cd apps/admin && vercel --prod
 ```
 Set `VITE_API_URL=https://<your-api-host>` as a build-time env var in each
 Vercel project.

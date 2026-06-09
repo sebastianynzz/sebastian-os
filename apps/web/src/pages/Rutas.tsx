@@ -24,7 +24,11 @@ interface RouteData {
       customerName: string;
       addressRaw: string;
     };
-    pod: { geofenceOk: boolean | null; receivedBy: string | null } | null;
+    pod: {
+      geofenceOk: boolean | null;
+      receivedBy: string | null;
+      photoUrl: string | null;
+    } | null;
   }[];
 }
 
@@ -123,11 +127,25 @@ export default function Rutas() {
                   <td className="max-w-xs truncate">{s.order.addressRaw}</td>
                   <td className="font-mono text-xs">{formatEta(s.etaMin)}</td>
                   <td className="text-xs">
-                    {s.pod
-                      ? s.pod.geofenceOk === false
-                        ? "⚠ fuera de geocerca"
-                        : `✓ ${s.pod.receivedBy ?? ""}`
-                      : "—"}
+                    {s.pod ? (
+                      <span className="flex items-center gap-1.5">
+                        {s.pod.geofenceOk === false
+                          ? "⚠ fuera de geocerca"
+                          : `✓ ${s.pod.receivedBy ?? ""}`}
+                        {s.pod.photoUrl && (
+                          <a
+                            href={s.pod.photoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-navy underline"
+                          >
+                            foto
+                          </a>
+                        )}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>
                     <StatusBadge status={s.status} />

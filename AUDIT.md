@@ -14,10 +14,10 @@ removed by product decision; this audit verifies the removal (§8).
 
 | Check | Result |
 |---|---|
-| TypeScript build (5 packages) | 0 errors |
+| TypeScript build (6 packages) | 0 errors |
 | Optimizer unit tests | 15/15 pass |
-| API end-to-end tests (real Postgres) | 11/11 pass |
-| Live browser tour (dashboard + driver app) | verified, screenshots in `docs/capturas/` |
+| API end-to-end tests (real Postgres) | 30/30 pass (core, telematics, B2B webhook, platform, uploads) |
+| Live browser tour (dashboard + driver + admin) | verified, screenshots in `docs/capturas/` |
 | Payment references in code/docs | 0 (grep-verified) |
 
 ## 2. System architecture
@@ -186,14 +186,16 @@ value evolution.
 - **Tenant suspension** enforced at login and per-request via a 60 s TTL cache
   (immediate in-process on suspend), returning 403 `TENANT_SUSPENDED`.
 
+**Closed since (this round):**
+- **POD photo upload pipeline**: multipart `/uploads/pod` (auth + rate-limited,
+  images only, 8 MB), tenant-scoped keys; local disk in dev (`/files/*`),
+  Supabase Storage (`pod-photos` bucket) in production. Driver app captures,
+  compresses on-device (canvas, máx 1280 px) and uploads before completing.
+- **RLS enabled on all 18 tables of the live Supabase DB** (defense-in-depth;
+  Prisma connects as owner and is unaffected; anon/PostgREST locked out).
+
 **Gaps remaining before production:**
 - No refresh-token rotation; a 12 h token can't be revoked before expiry.
-- POD photos/signatures stored as external URLs — signed-URL upload pipeline
-  (S3/R2) pending.
-- App-level tenant isolation only; Postgres **RLS** would add defense in depth.
-  Note: the provisioned Supabase project has RLS disabled — mitigated because
-  MoveOS uses a direct Postgres connection (not the anon key / PostgREST), but
-  hardening is recommended (`docs/DEPLOYMENT.md`).
 
 ## 8. Payments removal (verified)
 
@@ -213,7 +215,7 @@ records *deliveries and evidence*, never money.
 | Schema management | `prisma db push` | Switch to versioned `prisma migrate` |
 | Dashboard refresh | Polling (15 s safety) | WebSockets/SSE for live ops |
 | Notifications | Console adapter unless WhatsApp env set | WhatsApp Business API credentials + retry queue |
-| Driver offline queue | localStorage | IndexedDB + idempotency keys |
+| Driver offline queue | localStorage (la foto requiere señal; la entrega no) | IndexedDB + idempotency keys |
 | Telemetry transport | HTTP ingest + simulator | Aggregator (Flespi/Wialon) for real Teltonika/Queclink hardware |
 | Engine immobilization | Command + simulated device ACK | Hardwired relay device + legal/insurer sign-off |
 | RNDC / CX Pro / AI / Platform admin | Catalogued / planned | See `docs/MASTER_ROADMAP.md` |

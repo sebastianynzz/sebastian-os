@@ -92,3 +92,43 @@ export async function flushQueue(): Promise<number> {
 export function queueSize(): number {
   return readQueue().length;
 }
+
+/**
+ * Sube la foto del POD (multipart). Devuelve la URL pública o null si no hay
+ * red: la entrega continúa sin foto en lugar de bloquear al conductor.
+ */
+export async function uploadPodPhoto(blob: Blob): Promise<string | null> {
+  try {
+    const form = new FormData();
+    form.append("file", blob, "pod.jpg");
+    const res = await fetch(`${BASE_URL}/uploads/pod`, {
+      method: "POST",
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+      body: form,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { url: string };
+    return data.url;
+  } catch {
+    return null; // sin señal: se entrega sin foto
+  }
+}
+
+/** Comprime la foto en el dispositivo (máx 1280 px, JPEG) antes de subirla. */
+export async function compressImage(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const MAX = 1280;
+  const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("No se pudo comprimir"))),
+      "image/jpeg",
+      0.72,
+    );
+  });
+}

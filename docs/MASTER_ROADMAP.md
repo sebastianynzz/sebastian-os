@@ -45,7 +45,7 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 ### (a) Driver app  — stakeholders: employed & gig drivers
 | Phase | Items |
 |---|---|
-| **Now** | IndexedDB offline queue + idempotency keys; PWA manifest/installability; **POD photo capture + compression + signed upload**; navigation deep links (Google Maps/Waze); barcode/QR scan at handover; richer fail flows with photo; battery-aware telemetry cadence |
+| **Now** | IndexedDB offline queue + idempotency keys; PWA manifest/installability; **POD photo capture + compression + upload ✓ (built)**; navigation deep links (Google Maps/Waze); barcode/QR scan at handover; richer fail flows with photo; battery-aware telemetry cadence |
 | **Next** | **Capacitor Android** (background GPS, FCM push, camera, **BLE OBD/CAN read**); dispatcher↔driver chat; **shift check-in/out + inspección preoperacional** (Colombian fleet requirement); driver document wallet (licencia/SOAT/tecno) with expiry nudges; proof-of-pickup + multi-pickup; EV SoC entry/OBD; gig onboarding (KYC, background check) |
 | **Later** | Offline map tiles; voice guidance; crash/fall detection via sensors; fatigue scoring; iOS |
 

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, apiOrQueue, flushQueue, getToken, queueSize, setToken } from "./api";
+import {
+  api,
+  apiOrQueue,
+  compressImage,
+  flushQueue,
+  getToken,
+  queueSize,
+  setToken,
+  uploadPodPhoto,
+} from "./api";
 
 interface Stop {
   id: string;
@@ -350,23 +359,60 @@ function StopActionSheet({
   const [receivedBy, setReceivedBy] = useState("");
   const [failReason, setFailReason] = useState("CLIENTE_AUSENTE");
   const [error, setError] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<{ blob: Blob; preview: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const photoRef = useRef<HTMLInputElement>(null);
 
   // Fallback demo: si el navegador no da GPS, usar la coordenada del pedido.
   const lat = geo?.lat ?? stop.order.lat ?? undefined;
   const lng = geo?.lng ?? stop.order.lng ?? undefined;
 
-  async function deliver() {
+  async function onPickPhoto(file: File) {
     setError(null);
     try {
+      const blob = await compressImage(file);
+      setPhoto((prev) => {
+        if (prev) URL.revokeObjectURL(prev.preview);
+        return { blob, preview: URL.createObjectURL(blob) };
+      });
+    } catch {
+      setError("No se pudo procesar la foto");
+    }
+  }
+
+  async function deliver() {
+    setError(null);
+    setBusy(true);
+    try {
+      // Subir la foto primero; si no hay señal se entrega sin foto.
+      let photoUrl: string | undefined;
+      let photoSkipped = false;
+      if (photo) {
+        const url = await uploadPodPhoto(photo.blob);
+        if (url) photoUrl = url;
+        else photoSkipped = true;
+      }
+
+      const types: string[] = [];
+      if (photoUrl) types.push("PHOTO");
+      if (lat !== undefined) types.push("GEOFENCE");
+      if (types.length === 0) types.push("PHOTO");
+
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
-        types: lat !== undefined ? ["GEOFENCE"] : ["PHOTO"],
+        types,
+        photoUrl,
         receivedBy: receivedBy || undefined,
         lat,
         lng,
       });
+      if (photoSkipped) {
+        console.warn("Foto no subida (sin señal): entrega registrada sin foto");
+      }
       onDone(queued);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -413,12 +459,50 @@ function StopActionSheet({
               value={receivedBy}
               onChange={(e) => setReceivedBy(e.target.value)}
             />
+
+            {/* Evidencia fotográfica del POD */}
+            <input
+              ref={photoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onPickPhoto(f);
+                e.target.value = "";
+              }}
+            />
+            {photo ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={photo.preview}
+                  alt="Evidencia"
+                  className="h-20 w-20 rounded-lg border border-cielo/60 object-cover"
+                />
+                <button
+                  onClick={() => photoRef.current?.click()}
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                >
+                  Cambiar foto
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => photoRef.current?.click()}
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+              >
+                📷 Tomar foto de evidencia
+              </button>
+            )}
+
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={deliver}
-              className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy"
+              disabled={busy}
+              className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy disabled:opacity-50"
             >
-              Confirmar entrega
+              {busy ? "Enviando…" : "Confirmar entrega"}
             </button>
           </div>
         ) : (
