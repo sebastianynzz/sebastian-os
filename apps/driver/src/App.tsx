@@ -1,0 +1,486 @@
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { api, apiOrQueue, flushQueue, getToken, queueSize, setToken } from "./api";
+
+interface Stop {
+  id: string;
+  sequence: number;
+  etaMin: number;
+  status: string;
+  order: {
+    id: string;
+    customerName: string;
+    customerPhone: string;
+    addressRaw: string;
+    addressNotes: string | null;
+    paymentType: string;
+    codAmount: number | null;
+    lat: number | null;
+    lng: number | null;
+  };
+  pod: unknown | null;
+}
+interface DriverRoute {
+  id: string;
+  status: string;
+  vehicle: { plate: string; type: string; isElectric: boolean };
+  stops: Stop[];
+}
+
+const FAIL_REASONS = [
+  ["CLIENTE_AUSENTE", "Cliente ausente"],
+  ["DIRECCION_ERRADA", "Dirección errada"],
+  ["RECHAZO_COD", "Rechazó el pago COD"],
+  ["RECHAZO_PRODUCTO", "Rechazó el producto"],
+  ["ZONA_INSEGURA", "Zona insegura"],
+  ["OTRO", "Otro"],
+] as const;
+
+const COD_METHODS = [
+  ["CASH", "Efectivo"],
+  ["QR", "QR / Bre-B"],
+  ["DATAPHONE", "Datáfono"],
+  ["NEQUI", "Nequi"],
+  ["DAVIPLATA", "Daviplata"],
+] as const;
+
+function formatEta(etaMin: number): string {
+  const h = Math.floor(etaMin / 60);
+  const m = etaMin % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function useGeo() {
+  const pos = useRef<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (p) => {
+        pos.current = { lat: p.coords.latitude, lng: p.coords.longitude };
+      },
+      () => {},
+      { enableHighAccuracy: true },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+  return pos;
+}
+
+export default function App() {
+  const [authed, setAuthed] = useState(Boolean(getToken()));
+  const [route, setRoute] = useState<DriverRoute | null>(null);
+  const [activeStop, setActiveStop] = useState<Stop | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, setPending] = useState(queueSize());
+  const geo = useGeo();
+
+  const load = useCallback(async () => {
+    if (!getToken()) return;
+    try {
+      setRoute(await api<DriverRoute | null>("GET", "/routes/driver/today"));
+    } catch {
+      // sin red: se mantiene la última vista
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load, authed]);
+
+  // Cola offline: reintentar al volver la señal y refrescar contador.
+  useEffect(() => {
+    const flush = async () => {
+      const n = await flushQueue();
+      setPending(queueSize());
+      if (n > 0) {
+        setMessage(`${n} acciones sincronizadas`);
+        await load();
+      }
+    };
+    window.addEventListener("online", flush);
+    const interval = setInterval(flush, 20000);
+    return () => {
+      window.removeEventListener("online", flush);
+      clearInterval(interval);
+    };
+  }, [load]);
+
+  // Telemetría: ping de posición cada 30 s con la ruta activa.
+  useEffect(() => {
+    if (!route || route.status !== "IN_PROGRESS") return;
+    const interval = setInterval(() => {
+      if (!geo.current) return;
+      void apiOrQueue("/tracking/pings", {
+        lat: geo.current.lat,
+        lng: geo.current.lng,
+        routeId: route.id,
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [route, geo]);
+
+  if (!authed) {
+    return <Login onLogin={() => setAuthed(true)} />;
+  }
+
+  async function startRoute() {
+    if (!route) return;
+    await api("POST", `/routes/${route.id}/start`);
+    await load();
+  }
+
+  async function panic() {
+    if (!route) return;
+    await apiOrQueue("/safety/panic", {
+      routeId: route.id,
+      lat: geo.current?.lat,
+      lng: geo.current?.lng,
+    });
+    setMessage("🚨 Alerta de pánico enviada a la central");
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md flex-col">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-indigo-700 px-4 py-3 text-white">
+        <div>
+          <div className="font-bold">MoveOS Conductor</div>
+          {route && (
+            <div className="text-xs opacity-80">
+              {route.vehicle.plate} {route.vehicle.isElectric && "⚡"}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {pending > 0 && (
+            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold">
+              {pending} sin sync
+            </span>
+          )}
+          <button
+            onClick={panic}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
+          >
+            SOS
+          </button>
+          <button
+            onClick={() => {
+              setToken(null);
+              setAuthed(false);
+            }}
+            className="text-xs underline opacity-80"
+          >
+            Salir
+          </button>
+        </div>
+      </header>
+
+      {message && (
+        <div
+          className="bg-emerald-100 px-4 py-2 text-sm text-emerald-800"
+          onClick={() => setMessage(null)}
+        >
+          {message}
+        </div>
+      )}
+
+      <main className="flex-1 space-y-3 p-4">
+        {!route && (
+          <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
+            No tiene ruta asignada hoy.
+            <button onClick={load} className="mt-3 block w-full rounded-lg bg-slate-100 py-2 text-sm font-medium">
+              Actualizar
+            </button>
+          </div>
+        )}
+
+        {route?.status === "DISPATCHED" && (
+          <button
+            onClick={startRoute}
+            className="w-full rounded-xl bg-indigo-600 py-4 text-lg font-bold text-white active:bg-indigo-700"
+          >
+            Iniciar ruta ({route.stops.length} paradas)
+          </button>
+        )}
+
+        {route?.stops.map((stop) => (
+          <StopCard
+            key={stop.id}
+            stop={stop}
+            routeActive={route.status === "IN_PROGRESS"}
+            onAction={() => setActiveStop(stop)}
+            onArrive={async () => {
+              await apiOrQueue(`/routes/stops/${stop.id}/arrive`);
+              setPending(queueSize());
+              await load();
+            }}
+          />
+        ))}
+      </main>
+
+      {activeStop && (
+        <StopActionSheet
+          stop={activeStop}
+          geo={geo.current}
+          onClose={() => setActiveStop(null)}
+          onDone={async (queued) => {
+            setActiveStop(null);
+            setPending(queueSize());
+            if (queued) setMessage("Sin señal: la entrega se sincronizará automáticamente");
+            await load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Login({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState("carlos@demo.moveos.co");
+  const [password, setPassword] = useState("moveos123");
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      const res = await api<{ token: string }>("POST", "/auth/login", {
+        email,
+        password,
+      });
+      setToken(res.token);
+      onLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-bold text-indigo-700">MoveOS Conductor</h1>
+        <input
+          className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base"
+          type="email"
+          placeholder="Correo"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          className="w-full rounded-lg border border-slate-300 px-3 py-3 text-base"
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <button className="w-full rounded-lg bg-indigo-600 py-3 font-bold text-white">
+          Ingresar
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function StopCard({
+  stop,
+  routeActive,
+  onAction,
+  onArrive,
+}: {
+  stop: Stop;
+  routeActive: boolean;
+  onAction: () => void;
+  onArrive: () => void;
+}) {
+  const done = stop.status === "COMPLETED" || stop.status === "FAILED";
+  return (
+    <div
+      className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""}`}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-xs font-bold text-indigo-600">
+            Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
+          </div>
+          <div className="mt-0.5 font-semibold">{stop.order.customerName}</div>
+          <div className="text-sm text-slate-600">{stop.order.addressRaw}</div>
+          {stop.order.addressNotes && (
+            <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+              📍 {stop.order.addressNotes}
+            </div>
+          )}
+          {stop.order.paymentType === "COD" && (
+            <div className="mt-1 text-sm font-bold text-amber-700">
+              Cobrar: ${(stop.order.codAmount ?? 0).toLocaleString("es-CO")}
+            </div>
+          )}
+        </div>
+        <a
+          href={`tel:${stop.order.customerPhone}`}
+          className="rounded-lg bg-slate-100 px-3 py-2 text-sm"
+        >
+          📞
+        </a>
+      </div>
+
+      {routeActive && !done && (
+        <div className="mt-3 flex gap-2">
+          {stop.status === "PENDING" && (
+            <button
+              onClick={onArrive}
+              className="flex-1 rounded-lg border border-indigo-600 py-2.5 text-sm font-bold text-indigo-600"
+            >
+              Llegué
+            </button>
+          )}
+          <button
+            onClick={onAction}
+            className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-bold text-white"
+          >
+            Gestionar entrega
+          </button>
+        </div>
+      )}
+      {done && (
+        <div className="mt-2 text-sm font-medium">
+          {stop.status === "COMPLETED" ? "✅ Entregado" : "❌ No entregado"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StopActionSheet({
+  stop,
+  geo,
+  onClose,
+  onDone,
+}: {
+  stop: Stop;
+  geo: { lat: number; lng: number } | null;
+  onClose: () => void;
+  onDone: (queued: boolean) => void;
+}) {
+  const [mode, setMode] = useState<"deliver" | "fail">("deliver");
+  const [receivedBy, setReceivedBy] = useState("");
+  const [codMethod, setCodMethod] = useState("CASH");
+  const [failReason, setFailReason] = useState("CLIENTE_AUSENTE");
+  const [error, setError] = useState<string | null>(null);
+  const isCod = stop.order.paymentType === "COD";
+
+  // Fallback demo: si el navegador no da GPS, usar la coordenada del pedido.
+  const lat = geo?.lat ?? stop.order.lat ?? undefined;
+  const lng = geo?.lng ?? stop.order.lng ?? undefined;
+
+  async function deliver() {
+    setError(null);
+    try {
+      const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
+        types: lat !== undefined ? ["GEOFENCE"] : ["PHOTO"],
+        receivedBy: receivedBy || undefined,
+        lat,
+        lng,
+        cod: isCod
+          ? { amount: stop.order.codAmount ?? 0, method: codMethod }
+          : undefined,
+      });
+      onDone(queued);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function fail() {
+    setError(null);
+    try {
+      const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
+        reason: failReason,
+        lat,
+        lng,
+      });
+      onDone(queued);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-20 flex items-end bg-black/40" onClick={onClose}>
+      <div
+        className="w-full rounded-t-2xl bg-white p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setMode("deliver")}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-emerald-600 text-white" : "bg-slate-100"}`}
+          >
+            Entregar
+          </button>
+          <button
+            onClick={() => setMode("fail")}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-red-600 text-white" : "bg-slate-100"}`}
+          >
+            No se pudo
+          </button>
+        </div>
+
+        {mode === "deliver" ? (
+          <div className="space-y-3">
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-3"
+              placeholder="¿Quién recibe?"
+              value={receivedBy}
+              onChange={(e) => setReceivedBy(e.target.value)}
+            />
+            {isCod && (
+              <div>
+                <div className="mb-2 font-bold text-amber-700">
+                  Cobrar ${(stop.order.codAmount ?? 0).toLocaleString("es-CO")}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {COD_METHODS.map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setCodMethod(value)}
+                      className={`rounded-lg border py-2 text-xs font-medium ${codMethod === value ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button
+              onClick={deliver}
+              className="w-full rounded-xl bg-emerald-600 py-4 text-lg font-bold text-white"
+            >
+              Confirmar entrega
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {FAIL_REASONS.map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setFailReason(value)}
+                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-red-600 bg-red-50 text-red-700" : "border-slate-200"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button
+              onClick={fail}
+              className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white"
+            >
+              Registrar fallo
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,249 @@
+import { useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import L from "leaflet";
+import { api } from "../api";
+import { Button, Card, formatEta } from "../components/ui";
+
+// Iconos por defecto de Leaflet con Vite.
+const markerIcon = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+interface Order {
+  id: string;
+  customerName: string;
+  addressRaw: string;
+  status: string;
+  weightKg: number;
+  paymentType: string;
+  lat: number | null;
+  lng: number | null;
+}
+interface Vehicle {
+  id: string;
+  plate: string;
+  type: string;
+  capacityKg: number;
+  isElectric: boolean;
+  socPercent: number | null;
+}
+interface PlanResponse {
+  routes: {
+    id: string;
+    vehicleId: string;
+    totalDistanceKm: number;
+    totalDurationMin: number;
+    warnings: string[];
+    stops: { orderId: string; sequence: number; etaMin: number }[];
+  }[];
+  unassigned: { orderId: string; reason: string }[];
+  excludedVehicles: { vehicleId: string; reason: string }[];
+}
+
+const DEPOT = { lat: 4.6486, lng: -74.0628 }; // demo: Chapinero
+
+export default function Planificacion() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [plan, setPlan] = useState<PlanResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const [o, v] = await Promise.all([
+        api<Order[]>("GET", "/orders?status=GEOCODED"),
+        api<Vehicle[]>("GET", "/vehicles"),
+      ]);
+      setOrders(o);
+      setVehicles(v);
+      setSelectedOrders(new Set(o.map((x) => x.id)));
+      setSelectedVehicles(new Set(v.map((x) => x.id)));
+    })();
+  }, []);
+
+  const ordersById = useMemo(
+    () => new Map(orders.map((o) => [o.id, o])),
+    [orders],
+  );
+  const vehiclesById = useMemo(
+    () => new Map(vehicles.map((v) => [v.id, v])),
+    [vehicles],
+  );
+
+  async function onPlan() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<PlanResponse>("POST", "/optimization/plans", {
+        date,
+        depot: DEPOT,
+        orderIds: [...selectedOrders],
+        vehicleIds: [...selectedVehicles],
+      });
+      setPlan(res);
+      setOrders(await api<Order[]>("GET", "/orders?status=GEOCODED"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggle(set: Set<string>, id: string): Set<string> {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Planificación de rutas</h1>
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          />
+          <Button onClick={onPlan} disabled={busy || selectedOrders.size === 0}>
+            {busy ? "Optimizando…" : `Optimizar ${selectedOrders.size} pedidos`}
+          </Button>
+        </div>
+      </div>
+      <p className="text-sm text-slate-500">
+        El optimizador aplica pico y placa según ciudad y fecha, capacidad,
+        ventanas horarias y autonomía de vehículos eléctricos.
+      </p>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card title={`Pedidos por planificar (${orders.length})`}>
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {orders.map((o) => (
+              <label key={o.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedOrders.has(o.id)}
+                  onChange={() => setSelectedOrders((s) => toggle(s, o.id))}
+                />
+                <span className="truncate">
+                  {o.customerName} — {o.addressRaw}
+                  {o.paymentType === "COD" && (
+                    <span className="ml-1 text-xs font-medium text-amber-600">COD</span>
+                  )}
+                </span>
+              </label>
+            ))}
+            {orders.length === 0 && (
+              <p className="text-sm text-slate-400">No hay pedidos geocodificados pendientes.</p>
+            )}
+          </div>
+        </Card>
+
+        <Card title={`Vehículos (${vehicles.length})`}>
+          <div className="max-h-72 space-y-1 overflow-y-auto">
+            {vehicles.map((v) => (
+              <label key={v.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedVehicles.has(v.id)}
+                  onChange={() => setSelectedVehicles((s) => toggle(s, v.id))}
+                />
+                <span>
+                  {v.plate} · {v.type} · {v.capacityKg} kg
+                  {v.isElectric && (
+                    <span className="ml-1 text-xs font-medium text-emerald-600">
+                      ⚡ {v.socPercent != null ? `${v.socPercent}%` : "EV"}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Mapa">
+          <MapContainer
+            center={[DEPOT.lat, DEPOT.lng]}
+            zoom={12}
+            style={{ height: 280 }}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <Marker position={[DEPOT.lat, DEPOT.lng]} icon={markerIcon}>
+              <Popup>Depósito</Popup>
+            </Marker>
+            {orders
+              .filter((o) => o.lat !== null && o.lng !== null)
+              .map((o) => (
+                <Marker key={o.id} position={[o.lat!, o.lng!]} icon={markerIcon}>
+                  <Popup>
+                    {o.customerName}
+                    <br />
+                    {o.addressRaw}
+                  </Popup>
+                </Marker>
+              ))}
+          </MapContainer>
+        </Card>
+      </div>
+
+      {plan && (
+        <div className="space-y-4">
+          {plan.excludedVehicles.length > 0 && (
+            <Card title="Vehículos excluidos">
+              {plan.excludedVehicles.map((e) => (
+                <p key={e.vehicleId} className="text-sm text-amber-700">
+                  {vehiclesById.get(e.vehicleId)?.plate ?? e.vehicleId}: {e.reason}
+                </p>
+              ))}
+            </Card>
+          )}
+          {plan.unassigned.length > 0 && (
+            <Card title="Pedidos sin asignar">
+              {plan.unassigned.map((u) => (
+                <p key={u.orderId} className="text-sm text-red-700">
+                  {ordersById.get(u.orderId)?.customerName ?? u.orderId}: {u.reason}
+                </p>
+              ))}
+            </Card>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            {plan.routes.map((r) => (
+              <Card
+                key={r.id}
+                title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
+              >
+                {r.warnings.map((w) => (
+                  <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
+                ))}
+                <ol className="space-y-1 text-sm">
+                  {r.stops.map((s) => (
+                    <li key={s.orderId} className="flex justify-between">
+                      <span>
+                        {s.sequence}. {ordersById.get(s.orderId)?.customerName ?? s.orderId}
+                      </span>
+                      <span className="font-mono text-xs text-slate-500">
+                        ETA {formatEta(s.etaMin)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-xs text-slate-400">
+                  Despache esta ruta desde la pestaña Rutas.
+                </p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
