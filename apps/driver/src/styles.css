@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Paleta de marca Move: navy 534C, cielo 537C, lima 373C (solo acento). */
+@theme {
+  --color-navy: #1b365d;
+  --color-cielo: #a2b2c8;
+  --color-lima: #d0de81;
+  --color-niebla: #f2f3f4;
+}
+
+body {
+  @apply bg-niebla text-navy;
+}

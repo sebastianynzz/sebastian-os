@@ -1,0 +1,29 @@
+{
+  "name": "move-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MoveOS — Plataforma modular SaaS de última milla para Colombia y LatAm",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "dev:api": "pnpm --filter @moveos/api dev",
+    "dev:web": "pnpm --filter @moveos/web dev",
+    "dev:driver": "pnpm --filter @moveos/driver dev",
+    "dev:admin": "pnpm --filter @moveos/admin dev",
+    "db:migrate": "pnpm --filter @moveos/api db:migrate",
+    "db:seed": "pnpm --filter @moveos/api db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild"
+    ]
+  }
+}

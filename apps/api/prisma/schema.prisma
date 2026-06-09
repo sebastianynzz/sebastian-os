@@ -1,0 +1,329 @@
+// MoveOS — esquema de datos multi-tenant.
+// Los "enums" del dominio se modelan como String + validación Zod/TS en
+// @moveos/shared para mantener flexibilidad de evolución sin migraciones.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Operador de la plataforma MoveOS (NO pertenece a ningún tenant). Gestiona
+/// tenants, planes, módulos y salud desde el panel de administración.
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  nit       String?
+  city      String   @default("Bogotá")
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
+  plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
+  createdAt DateTime @default(now())
+
+  entitlements  ModuleEntitlement[]
+  users         User[]
+  drivers       Driver[]
+  vehicles      Vehicle[]
+  clients       Client[]
+  orders        Order[]
+  routes        Route[]
+  addressPins   AddressPin[]
+  telemetry     TelemetryPing[]
+  commands      VehicleCommand[]
+  safetyAlerts  SafetyAlert[]
+  notifications NotificationLog[]
+}
+
+model ModuleEntitlement {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  moduleKey String
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, moduleKey])
+}
+
+model User {
+  id           String  @id @default(cuid())
+  tenantId     String
+  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String  @unique
+  passwordHash String
+  name         String
+  role         String  // ADMIN | DISPATCHER | DRIVER
+  driver       Driver? @relation(fields: [driverId], references: [id])
+  driverId     String? @unique
+  createdAt    DateTime @default(now())
+}
+
+model Driver {
+  id         String  @id @default(cuid())
+  tenantId   String
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  phone      String
+  documentId String
+  status     String  @default("ACTIVE")
+  user       User?
+  routes     Route[]
+  telemetry  TelemetryPing[]
+  createdAt  DateTime @default(now())
+}
+
+model Vehicle {
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plate          String
+  type           String // MOTO | BICICLETA | CARRO | VAN | CAMION
+  capacityKg     Float
+  capacityM3     Float?
+  isElectric     Boolean   @default(false)
+  batteryKwh     Float?
+  nominalRangeKm Float?
+  socPercent     Float? // último estado de carga conocido (EV)
+  soatExpiresAt  DateTime?
+  tecnoExpiresAt DateTime?
+  // Telemática: último estado conocido (alimentado por TelemetryPing).
+  engineOn       Boolean   @default(true)
+  immobilized    Boolean   @default(false) // motor bloqueado por comando (relé)
+  lastSpeedKmh   Float?    // fuente del interlock de seguridad (apagado solo si 0)
+  lastSeenAt     DateTime?
+  routes         Route[]
+  telemetry      TelemetryPing[]
+  commands       VehicleCommand[]
+  createdAt      DateTime  @default(now())
+
+  @@unique([tenantId, plate])
+}
+
+/// Cliente empresarial del tenant: el NEGOCIO que origina los envíos (tienda,
+/// distribuidor, e-commerce). MoveOS es B2B: cuando un paquete se entrega, la
+/// confirmación se notifica a este negocio cliente, NO al consumidor final que
+/// recibe el paquete en la puerta.
+model Client {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String // razón social / nombre del negocio
+  contactName   String?
+  email         String?
+  phone         String?
+  // Canal por el que el negocio recibe las confirmaciones de entrega.
+  notifyChannel String   @default("IN_APP") // IN_APP | EMAIL | WHATSAPP | WEBHOOK
+  webhookUrl    String?
+  createdAt     DateTime @default(now())
+  orders        Order[]
+  notifications NotificationLog[]
+
+  @@index([tenantId])
+}
+
+model Order {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+  trackingNumber  String?
+  externalRef     String?
+  // Consumidor final / destino de la entrega (el conductor entrega aquí).
+  // NO recibe notificaciones: en B2B se notifica al negocio cliente.
+  customerName    String
+  customerPhone   String
+  addressRaw      String
+  addressNotes    String?
+  lat             Float?
+  lng             Float?
+  geocodeSource   String? // CLIENT | ADDRESS_PIN | MOCK | GOOGLE | LUPAP
+  status          String    @default("PENDING")
+  weightKg        Float     @default(1)
+  volumeM3        Float?
+  timeWindowStart DateTime?
+  timeWindowEnd   DateTime?
+  priority        Int       @default(0)
+  failureReason   String?
+  deliveredAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  stop   RouteStop?
+  events OrderEvent[]
+
+  @@unique([tenantId, trackingNumber])
+  @@index([tenantId, status])
+}
+
+/// Bitácora del pedido: historial auditable de cada evento del ciclo de vida
+/// (trazabilidad de principio a fin, base de la página de rastreo).
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String // CREATED | GEOCODED | ASSIGNED | DISPATCHED | IN_TRANSIT | ARRIVED | DELIVERED | FAILED | COD_COLLECTED | NOTIFIED
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+/// Grafo de direcciones aprendido: pines GPS confirmados en entregas exitosas.
+/// Es la respuesta a la informalidad de direcciones ("frente al colegio").
+model AddressPin {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addressKey     String // dirección normalizada (clave de búsqueda)
+  lat            Float
+  lng            Float
+  referenceNotes String?
+  source         String   @default("DELIVERY_CONFIRMED")
+  useCount       Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenantId, addressKey])
+}
+
+model Route {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date             String // YYYY-MM-DD
+  status           String   @default("PLANNED")
+  driverId         String?
+  driver           Driver?  @relation(fields: [driverId], references: [id])
+  vehicleId        String
+  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id])
+  depotLat         Float
+  depotLng         Float
+  departureMin     Int
+  totalDistanceKm  Float
+  totalDurationMin Int
+  warnings         String[]
+  stops            RouteStop[]
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId, date])
+}
+
+model RouteStop {
+  id          String    @id @default(cuid())
+  routeId     String
+  route       Route     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  orderId     String    @unique
+  order       Order     @relation(fields: [orderId], references: [id])
+  sequence    Int
+  etaMin      Int
+  status      String    @default("PENDING")
+  arrivedAt   DateTime?
+  completedAt DateTime?
+  pod         ProofOfDelivery?
+}
+
+model ProofOfDelivery {
+  id           String    @id @default(cuid())
+  stopId       String    @unique
+  stop         RouteStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  types        String[] // PHOTO | SIGNATURE | OTP | GEOFENCE
+  photoUrl     String?
+  signatureUrl String?
+  receivedBy   String?
+  notes        String?
+  lat          Float?
+  lng          Float?
+  geofenceOk   Boolean?
+  createdAt    DateTime  @default(now())
+}
+
+model TelemetryPing {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  driverId   String?
+  driver     Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicleId  String?
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  routeId    String?
+  lat        Float
+  lng        Float
+  speedKmh   Float?
+  heading    Float?
+  batterySoc Float?
+  // Datos CAN bus (moto / camión liviano): nulos si el dispositivo no los expone.
+  rpm          Float?
+  odometerKm   Float?
+  fuelLevelPct Float?
+  coolantTempC Float?
+  engineOn     Boolean?
+  source       String   @default("PHONE") // PHONE | DEVICE | SIMULATOR
+  recordedAt   DateTime @default(now())
+
+  @@index([tenantId, driverId, recordedAt])
+  @@index([tenantId, vehicleId, recordedAt])
+}
+
+/// Comando hacia el vehículo (encendido/apagado de motor vía relé del
+/// dispositivo telemático). Es un registro auditable: quién, cuándo, por qué,
+/// y el acuse del dispositivo. NO es una escritura al CAN bus.
+model VehicleCommand {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  type            String // ENGINE_OFF | ENGINE_ON
+  status          String   @default("PENDING") // PENDING | SENT | ACK | REJECTED
+  requestedByUserId String?
+  reason          String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  ackAt           DateTime?
+
+  @@index([tenantId, vehicleId, createdAt])
+  @@index([vehicleId, status])
+}
+
+model SafetyAlert {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  driverId  String?
+  routeId   String?
+  type      String // ROUTE_DEVIATION | PANIC | LONG_STOP | GEOFENCE_EXIT
+  lat       Float?
+  lng       Float?
+  details   String?
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+}
+
+/// Registro de notificaciones enviadas al negocio cliente (no al consumidor).
+model NotificationLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  orderId   String?
+  channel   String // WEBHOOK | WHATSAPP | EMAIL | CONSOLE
+  recipient String
+  template  String
+  payload   Json
+  status    String   @default("SENT") // SENT | FAILED
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, clientId, createdAt])
+}
