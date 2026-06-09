@@ -103,5 +103,16 @@ applied (`pnpm --filter @moveos/api db:push`).
    discrepancy detection if amounts don't match.
 6. **Módulos** → toggle modules on/off and watch the nav and APIs react.
 
+## Screenshots
+
+Captured from the running product with the seeded demo data:
+
+| | |
+|---|---|
+| ![Planificación](docs/capturas/planificacion.png) Route planning: `JDK457` excluded by pico y placa; motos + EV absorb the orders | ![Rutas](docs/capturas/rutas.png) Dispatched routes with per-stop POD, COD and status |
+| ![COD](docs/capturas/cod.png) COD reconciliation: cash-in-street per driver, settlement with a $5.000 discrepancy flagged | ![Módulos](docs/capturas/modulos.png) Per-tenant module toggles — nav and APIs react instantly |
+
+<img src="docs/capturas/driver.png" width="280" alt="App de conductor: paradas con montos COD, entregas, fallos y botón SOS" />
+
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions and
 [ROADMAP.md](./ROADMAP.md) for the staged plan from the research brief.
