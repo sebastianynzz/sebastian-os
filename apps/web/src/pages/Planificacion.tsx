@@ -37,7 +37,7 @@ interface PlanResponse {
     totalDistanceKm: number;
     totalDurationMin: number;
     warnings: string[];
-    stops: { orderId: string; sequence: number; etaMin: number }[];
+    stops: { orderId: string; kind: "PICKUP" | "DELIVERY"; sequence: number; etaMin: number }[];
   }[];
   unassigned: { orderId: string; reason: string }[];
   excludedVehicles: { vehicleId: string; reason: string }[];
@@ -249,9 +249,17 @@ export default function Planificacion() {
                 ))}
                 <ol className="space-y-1 text-sm">
                   {r.stops.map((s) => (
-                    <li key={s.orderId} className="flex justify-between">
+                    <li key={`${s.orderId}-${s.kind}`} className="flex justify-between">
                       <span>
-                        {s.sequence}. {ordersById.get(s.orderId)?.customerName ?? s.orderId}
+                        {s.sequence}.{" "}
+                        <span
+                          className={`mr-1 rounded px-1 text-[10px] font-bold ${
+                            s.kind === "PICKUP" ? "bg-cielo/40" : "bg-lima/50"
+                          }`}
+                        >
+                          {s.kind === "PICKUP" ? "REC" : "ENT"}
+                        </span>
+                        {ordersById.get(s.orderId)?.customerName ?? s.orderId}
                       </span>
                       <span className="font-mono text-xs text-navy/50">
                         ETA {formatEta(s.etaMin)}

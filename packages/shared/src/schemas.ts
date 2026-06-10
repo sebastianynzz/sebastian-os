@@ -66,6 +66,12 @@ export const createOrderSchema = z.object({
   weightKg: z.number().positive().optional(),
   volumeM3: z.number().positive().optional(),
   priority: z.number().int().min(0).max(10).default(0),
+  // Recogida en origen (opcional). Si se da pickupAddressRaw sin coordenadas,
+  // se geocodifica. Habilita el flujo pickup→delivery.
+  pickupAddressRaw: z.string().min(3).optional(),
+  pickupNotes: z.string().optional(),
+  pickupLat: z.number().min(-90).max(90).optional(),
+  pickupLng: z.number().min(-180).max(180).optional(),
 });
 
 export const createDriverSchema = z.object({

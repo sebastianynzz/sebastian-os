@@ -29,12 +29,14 @@ interface RouteData {
   driver: { id: string; name: string } | null;
   stops: {
     id: string;
+    kind: "PICKUP" | "DELIVERY";
     sequence: number;
     etaMin: number;
     status: string;
     order: {
       customerName: string;
       addressRaw: string;
+      pickupAddressRaw: string | null;
     };
     pod: {
       geofenceOk: boolean | null;
@@ -159,9 +161,24 @@ export default function Rutas() {
             <tbody>
               {r.stops.map((s) => (
                 <tr key={s.id} className={tableRowClass}>
-                  <td className="py-1.5">{s.sequence}</td>
+                  <td className="py-1.5">
+                    <span className="flex items-center gap-1.5">
+                      {s.sequence}
+                      <span
+                        className={`rounded px-1 py-0.5 text-[10px] font-bold ${
+                          s.kind === "PICKUP" ? "bg-cielo/40 text-navy" : "bg-lima/50 text-navy"
+                        }`}
+                      >
+                        {s.kind === "PICKUP" ? "REC" : "ENT"}
+                      </span>
+                    </span>
+                  </td>
                   <td>{s.order.customerName}</td>
-                  <td className="max-w-xs truncate">{s.order.addressRaw}</td>
+                  <td className="max-w-xs truncate">
+                    {s.kind === "PICKUP"
+                      ? (s.order.pickupAddressRaw ?? s.order.addressRaw)
+                      : s.order.addressRaw}
+                  </td>
                   <td className="font-mono text-xs">{formatEta(s.etaMin)}</td>
                   <td className="text-xs">
                     {s.pod ? (

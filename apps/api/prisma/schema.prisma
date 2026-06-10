@@ -151,6 +151,13 @@ model Order {
   lat             Float?
   lng             Float?
   geocodeSource   String? // CLIENT | ADDRESS_PIN | MOCK | GOOGLE | LUPAP
+  // Recogida en origen (opcional): si está presente, el conductor recoge aquí
+  // antes de entregar (modelo pickup→delivery). Sin pickup = flujo desde depósito.
+  pickupLat       Float?
+  pickupLng       Float?
+  pickupAddressRaw String?
+  pickupNotes     String?
+  pickedUpAt      DateTime?
   status          String    @default("PENDING")
   weightKg        Float     @default(1)
   volumeM3        Float?
@@ -161,7 +168,8 @@ model Order {
   deliveredAt     DateTime?
   createdAt       DateTime  @default(now())
 
-  stop   RouteStop?
+  // Un pedido puede tener hasta 2 paradas: PICKUP (si hay recogida) y DELIVERY.
+  stops  RouteStop[]
   events OrderEvent[]
 
   @@unique([tenantId, trackingNumber])
@@ -174,7 +182,7 @@ model OrderEvent {
   id        String   @id @default(cuid())
   orderId   String
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  type      String // CREATED | GEOCODED | ASSIGNED | DISPATCHED | IN_TRANSIT | ARRIVED | DELIVERED | FAILED | COD_COLLECTED | NOTIFIED
+  type      String // CREATED | GEOCODED | ASSIGNED | DISPATCHED | IN_TRANSIT | ARRIVED | PICKED_UP | DELIVERED | FAILED | NOTIFIED
   details   String?
   createdAt DateTime @default(now())
 
@@ -224,14 +232,18 @@ model RouteStop {
   id          String    @id @default(cuid())
   routeId     String
   route       Route     @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  orderId     String    @unique
+  orderId     String
   order       Order     @relation(fields: [orderId], references: [id])
+  kind        String    @default("DELIVERY") // PICKUP | DELIVERY
   sequence    Int
   etaMin      Int
   status      String    @default("PENDING")
   arrivedAt   DateTime?
   completedAt DateTime?
   pod         ProofOfDelivery?
+
+  // Un pedido tiene a lo sumo una parada de cada tipo por ruta.
+  @@unique([routeId, orderId, kind])
 }
 
 model ProofOfDelivery {

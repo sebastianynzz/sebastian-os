@@ -12,6 +12,7 @@ import {
 
 interface Stop {
   id: string;
+  kind: "PICKUP" | "DELIVERY";
   sequence: number;
   etaMin: number;
   status: string;
@@ -23,6 +24,10 @@ interface Stop {
     addressNotes: string | null;
     lat: number | null;
     lng: number | null;
+    pickupAddressRaw: string | null;
+    pickupNotes: string | null;
+    pickupLat: number | null;
+    pickupLng: number | null;
   };
   pod: unknown | null;
 }
@@ -317,20 +322,37 @@ function StopCard({
   onArrive: () => void;
 }) {
   const done = stop.status === "COMPLETED" || stop.status === "FAILED";
+  const isPickup = stop.kind === "PICKUP";
+  // En recogida se muestra la dirección de origen; en entrega, la del destino.
+  const address = isPickup
+    ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
+    : stop.order.addressRaw;
+  const notes = isPickup ? stop.order.pickupNotes : stop.order.addressNotes;
   return (
     <div
-      className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""}`}
+      className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
+        isPickup && !done ? "border-l-4 border-cielo" : ""
+      }`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs font-bold text-navy/70">
-            Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span
+              className={`rounded px-1.5 py-0.5 ${
+                isPickup ? "bg-cielo/40 text-navy" : "bg-lima/50 text-navy"
+              }`}
+            >
+              {isPickup ? "📦 RECOGER" : "📍 ENTREGAR"}
+            </span>
+            <span className="text-navy/60">
+              Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
+            </span>
           </div>
-          <div className="mt-0.5 font-semibold">{stop.order.customerName}</div>
-          <div className="text-sm text-slate-600">{stop.order.addressRaw}</div>
-          {stop.order.addressNotes && (
+          <div className="mt-1 font-semibold">{stop.order.customerName}</div>
+          <div className="text-sm text-slate-600">{address}</div>
+          {notes && (
             <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-              📍 {stop.order.addressNotes}
+              📍 {notes}
             </div>
           )}
         </div>
@@ -356,13 +378,17 @@ function StopCard({
             onClick={onAction}
             className="flex-1 rounded-lg bg-navy py-2.5 text-sm font-bold text-white"
           >
-            Gestionar entrega
+            {isPickup ? "Confirmar recogida" : "Gestionar entrega"}
           </button>
         </div>
       )}
       {done && (
         <div className="mt-2 text-sm font-medium">
-          {stop.status === "COMPLETED" ? "✅ Entregado" : "❌ No entregado"}
+          {stop.status === "COMPLETED"
+            ? isPickup
+              ? "✅ Recogido"
+              : "✅ Entregado"
+            : "❌ No completado"}
         </div>
       )}
     </div>
@@ -388,9 +414,15 @@ function StopActionSheet({
   const [busy, setBusy] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
 
-  // Fallback demo: si el navegador no da GPS, usar la coordenada del pedido.
-  const lat = geo?.lat ?? stop.order.lat ?? undefined;
-  const lng = geo?.lng ?? stop.order.lng ?? undefined;
+  const isPickup = stop.kind === "PICKUP";
+  const refLat = isPickup ? stop.order.pickupLat : stop.order.lat;
+  const refLng = isPickup ? stop.order.pickupLng : stop.order.lng;
+  const sheetAddress = isPickup
+    ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
+    : stop.order.addressRaw;
+  // Fallback demo: si el navegador no da GPS, usar la coordenada de la parada.
+  const lat = geo?.lat ?? refLat ?? undefined;
+  const lng = geo?.lng ?? refLng ?? undefined;
 
   async function onPickPhoto(file: File) {
     setError(null);
@@ -474,7 +506,7 @@ function StopActionSheet({
               Parada {stop.sequence}
             </div>
             <div className="truncate font-semibold">{stop.order.customerName}</div>
-            <div className="truncate text-sm text-slate-600">{stop.order.addressRaw}</div>
+            <div className="truncate text-sm text-slate-600">{sheetAddress}</div>
           </div>
           <button
             onClick={onClose}
@@ -489,7 +521,7 @@ function StopActionSheet({
             onClick={() => setMode("deliver")}
             className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla"}`}
           >
-            Entregar
+            {isPickup ? "Recoger" : "Entregar"}
           </button>
           <button
             onClick={() => setMode("fail")}
@@ -501,13 +533,15 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
-            <input
-              className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
-              placeholder="¿Quién recibe?"
-              aria-label="Nombre de quien recibe"
-              value={receivedBy}
-              onChange={(e) => setReceivedBy(e.target.value)}
-            />
+            {!isPickup && (
+              <input
+                className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
+                placeholder="¿Quién recibe?"
+                aria-label="Nombre de quien recibe"
+                value={receivedBy}
+                onChange={(e) => setReceivedBy(e.target.value)}
+              />
+            )}
             {/* Evidencia fotográfica del POD */}
             <input
               ref={photoRef}
@@ -555,7 +589,11 @@ function StopActionSheet({
               disabled={busy}
               className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95 disabled:opacity-60"
             >
-              {busy ? "Enviando…" : "Confirmar entrega"}
+              {busy
+                ? "Enviando…"
+                : isPickup
+                  ? "Confirmar recogida"
+                  : "Confirmar entrega"}
             </button>
           </div>
         ) : (

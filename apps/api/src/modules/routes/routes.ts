@@ -81,16 +81,25 @@ export default async function routesRoutes(app: FastifyInstance) {
         data: { driverId: driver.id, status: "DISPATCHED" },
       });
 
+      // Un pedido con recogida tiene 2 paradas; deduplicar por pedido para no
+      // registrar/notificar dos veces. La parada de entrega lleva la ETA final.
+      const deliveryStops = route.stops.filter((s) => s.kind === "DELIVERY");
+      const stopsByOrder = new Map(
+        deliveryStops.length > 0
+          ? deliveryStops.map((s) => [s.orderId, s])
+          : route.stops.map((s) => [s.orderId, s]),
+      );
+
       await logOrderEvents(
-        route.stops.map((s) => ({
-          orderId: s.orderId,
+        [...stopsByOrder.keys()].map((orderId) => ({
+          orderId,
           type: "DISPATCHED" as const,
           details: `Conductor: ${driver.name}`,
         })),
       );
 
       // B2B: avisar al negocio cliente que su envío salió a reparto.
-      for (const stop of route.stops) {
+      for (const stop of stopsByOrder.values()) {
         await notifyClient({
           tenantId: request.user.tenantId,
           orderId: stop.orderId,
@@ -120,14 +129,15 @@ export default async function routesRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Ruta de otro conductor" });
     }
 
+    const orderIds = [...new Set(route.stops.map((s) => s.orderId))];
     await prisma.route.update({ where: { id }, data: { status: "IN_PROGRESS" } });
     await prisma.order.updateMany({
-      where: { id: { in: route.stops.map((s) => s.orderId) } },
+      where: { id: { in: orderIds } },
       data: { status: "IN_TRANSIT" },
     });
     await logOrderEvents(
-      route.stops.map((s) => ({
-        orderId: s.orderId,
+      orderIds.map((orderId) => ({
+        orderId,
         type: "IN_TRANSIT" as const,
         details: "El conductor inició la ruta",
       })),
@@ -162,17 +172,23 @@ export default async function routesRoutes(app: FastifyInstance) {
     const stop = await findStopForUser(request, stopId);
     if (!stop) return reply.code(404).send({ error: "Parada no encontrada" });
 
+    const isPickup = stop.kind === "PICKUP";
     const updated = await prisma.routeStop.update({
       where: { id: stopId },
       data: { status: "ARRIVED", arrivedAt: new Date() },
     });
-    await logOrderEvent(stop.orderId, "ARRIVED", "Conductor en el punto de entrega");
+    await logOrderEvent(
+      stop.orderId,
+      "ARRIVED",
+      isPickup ? "Conductor en el punto de recogida" : "Conductor en el punto de entrega",
+    );
     return updated;
   });
 
   /**
-   * Completar parada: registra POD, valida geocerca y aprende el pin GPS de
-   * la dirección (grafo de direcciones).
+   * Completar parada. Una parada PICKUP marca el pedido como recogido (sin
+   * entregarlo); una parada DELIVERY registra POD, valida geocerca, aprende el
+   * pin GPS y notifica al negocio cliente.
    */
   app.post("/stops/:stopId/complete", async (request, reply) => {
     const { stopId } = z.object({ stopId: z.string() }).parse(request.params);
@@ -185,17 +201,19 @@ export default async function routesRoutes(app: FastifyInstance) {
 
     const tenantId = request.user.tenantId;
     const order = stop.order;
+    const isPickup = stop.kind === "PICKUP";
+    const now = new Date();
 
+    // Geocerca: validar contra el punto correcto (recogida vs entrega).
+    const refLat = isPickup ? order.pickupLat : order.lat;
+    const refLng = isPickup ? order.pickupLng : order.lng;
     let geofenceOk: boolean | null = null;
-    if (input.lat !== undefined && input.lng !== undefined && order.lat !== null && order.lng !== null) {
+    if (input.lat !== undefined && input.lng !== undefined && refLat !== null && refLng !== null) {
       geofenceOk =
-        haversineKm(
-          { lat: input.lat, lng: input.lng },
-          { lat: order.lat, lng: order.lng },
-        ) <= GEOFENCE_RADIUS_KM;
+        haversineKm({ lat: input.lat, lng: input.lng }, { lat: refLat, lng: refLng }) <=
+        GEOFENCE_RADIUS_KM;
     }
 
-    const now = new Date();
     await prisma.$transaction(async (tx) => {
       await tx.routeStop.update({
         where: { id: stopId },
@@ -218,9 +236,17 @@ export default async function routesRoutes(app: FastifyInstance) {
       });
       await tx.order.update({
         where: { id: order.id },
-        data: { status: "DELIVERED", deliveredAt: now },
+        data: isPickup
+          ? { pickedUpAt: now }
+          : { status: "DELIVERED", deliveredAt: now },
       });
     });
+
+    if (isPickup) {
+      await logOrderEvent(order.id, "PICKED_UP", "Paquete recogido en origen");
+      await maybeCompleteRoute(stop.route.id);
+      return { ok: true, geofenceOk, kind: "PICKUP" };
+    }
 
     await logOrderEvent(
       order.id,
@@ -254,7 +280,7 @@ export default async function routesRoutes(app: FastifyInstance) {
     });
 
     await maybeCompleteRoute(stop.route.id);
-    return { ok: true, geofenceOk };
+    return { ok: true, geofenceOk, kind: "DELIVERY" };
   });
 
   app.post("/stops/:stopId/fail", async (request, reply) => {

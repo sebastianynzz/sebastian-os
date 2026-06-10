@@ -46,41 +46,70 @@ function travelMin(a: LatLng, b: LatLng, v: OptimizableVehicle): number {
   return (roadDistanceKm(a, b) / speedFor(v)) * 60;
 }
 
+interface SimStop {
+  orderId: string;
+  kind: "PICKUP" | "DELIVERY";
+  etaMin: number;
+  legKm: number;
+}
+
+interface SimResult {
+  stops: SimStop[];
+  totalDistanceKm: number;
+  totalDurationMin: number;
+}
+
 /**
- * Simula la ruta (depósito → paradas → depósito) y devuelve métricas, o null
- * si viola ventanas horarias, jornada máxima o autonomía.
+ * Simula la ruta (depósito → paradas → depósito) y devuelve métricas por
+ * parada, o null si viola ventanas horarias, jornada máxima o autonomía.
+ *
+ * Cada pedido con `pickupLocation` produce DOS paradas adyacentes (PICKUP
+ * luego DELIVERY); así la precedencia queda garantizada por construcción y el
+ * 2-opt nunca puede separar el par (reordena pedidos completos, no paradas).
  */
 function simulateRoute(
   depot: LatLng,
-  stops: OptimizableOrder[],
+  orders: OptimizableOrder[],
   vehicle: OptimizableVehicle,
   departureMin: number,
   rangeBudgetKm: number,
-): {
-  etas: number[];
-  legDistances: number[];
-  totalDistanceKm: number;
-  totalDurationMin: number;
-} | null {
+): SimResult | null {
   let clock = departureMin;
   let prev = depot;
   let totalKm = 0;
-  const etas: number[] = [];
-  const legDistances: number[] = [];
+  const stops: SimStop[] = [];
+  const serviceTime = (o: OptimizableOrder) =>
+    o.serviceTimeMin ?? DEFAULT_SERVICE_TIME_MIN;
 
-  for (const stop of stops) {
-    const legKm = roadDistanceKm(prev, stop.location);
+  const visit = (
+    orderId: string,
+    kind: "PICKUP" | "DELIVERY",
+    point: LatLng,
+    timeWindow: { startMin: number; endMin: number } | undefined,
+    service: number,
+  ): boolean => {
+    const legKm = roadDistanceKm(prev, point);
     totalKm += legKm;
     clock += (legKm / speedFor(vehicle)) * 60;
-
-    if (stop.timeWindow) {
-      if (clock > stop.timeWindow.endMin) return null;
-      if (clock < stop.timeWindow.startMin) clock = stop.timeWindow.startMin;
+    // La ventana horaria aplica a la entrega (no a la recogida).
+    if (timeWindow) {
+      if (clock > timeWindow.endMin) return false;
+      if (clock < timeWindow.startMin) clock = timeWindow.startMin;
     }
-    etas.push(clock);
-    legDistances.push(legKm);
-    clock += stop.serviceTimeMin ?? DEFAULT_SERVICE_TIME_MIN;
-    prev = stop.location;
+    stops.push({ orderId, kind, etaMin: clock, legKm });
+    clock += service;
+    prev = point;
+    return true;
+  };
+
+  for (const order of orders) {
+    if (order.pickupLocation) {
+      // Recoger primero (sin ventana horaria; la ventana es para la entrega).
+      if (!visit(order.id, "PICKUP", order.pickupLocation, undefined, serviceTime(order)))
+        return null;
+    }
+    if (!visit(order.id, "DELIVERY", order.location, order.timeWindow, serviceTime(order)))
+      return null;
   }
 
   // Regreso al depósito.
@@ -91,12 +120,7 @@ function simulateRoute(
   if (totalKm > rangeBudgetKm) return null;
   if (clock - departureMin > MAX_ROUTE_DURATION_MIN) return null;
 
-  return {
-    etas,
-    legDistances,
-    totalDistanceKm: totalKm,
-    totalDurationMin: clock - departureMin,
-  };
+  return { stops, totalDistanceKm: totalKm, totalDurationMin: clock - departureMin };
 }
 
 /**
@@ -277,11 +301,12 @@ export function planRoutes(request: PlanRequest): PlanResult {
     );
     if (!sim) continue; // no debería ocurrir: improved siempre es factible
 
-    const stops: PlannedStop[] = improved.map((order, i) => ({
-      orderId: order.id,
+    const stops: PlannedStop[] = sim.stops.map((s, i) => ({
+      orderId: s.orderId,
+      kind: s.kind,
       sequence: i + 1,
-      etaMin: Math.round(sim.etas[i]!),
-      distanceFromPrevKm: Number(sim.legDistances[i]!.toFixed(2)),
+      etaMin: Math.round(s.etaMin),
+      distanceFromPrevKm: Number(s.legKm.toFixed(2)),
     }));
 
     routes.push({

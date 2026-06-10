@@ -254,8 +254,13 @@ async function main() {
     lng: number;
     weightKg?: number;
     priority?: number;
+    pickupAddressRaw?: string;
+    pickupLat?: number;
+    pickupLng?: number;
   }> = [
-    { customerName: "Laura Martínez", customerPhone: "+573101000001", addressRaw: "Cra 13 # 54-20, Chapinero", lat: 4.6416, lng: -74.0639, weightKg: 2 },
+    // Pedido con recogida en origen: el conductor recoge en la bodega del
+    // cliente (Cl 80) y entrega en Chapinero (flujo pickup→delivery).
+    { customerName: "Laura Martínez", customerPhone: "+573101000001", addressRaw: "Cra 13 # 54-20, Chapinero", lat: 4.6416, lng: -74.0639, weightKg: 2, pickupAddressRaw: "Bodega Distribuidora, Cl 80 # 20-10", pickupLat: 4.6678, pickupLng: -74.0589 },
     { customerName: "Pedro Sánchez", customerPhone: "+573101000002", addressRaw: "Cl 72 # 10-34, Quinta Camacho", lat: 4.6585, lng: -74.0577, weightKg: 1.2 },
     { customerName: "Sofía Torres", customerPhone: "+573101000003", addressRaw: "Cl 116 # 15-08, Santa Bárbara", lat: 4.6957, lng: -74.0395, weightKg: 3.4 },
     { customerName: "Andrés Ruiz", customerPhone: "+573101000004", addressRaw: "Cra 7 # 32-16, Teusaquillo", lat: 4.6206, lng: -74.0689, weightKg: 0.8 },
@@ -283,6 +288,9 @@ async function main() {
         lat: o.lat,
         lng: o.lng,
         geocodeSource: "CLIENT",
+        pickupAddressRaw: o.pickupAddressRaw,
+        pickupLat: o.pickupLat,
+        pickupLng: o.pickupLng,
         status: "GEOCODED",
         weightKg: o.weightKg ?? 1,
         priority: o.priority ?? 0,
