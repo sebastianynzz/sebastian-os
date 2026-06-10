@@ -2,7 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { MODULE_CATALOG } from "@moveos/shared";
-import { generateTrackingNumber } from "../src/services/orderEvents.js";
+import { generateTrackingNumber, generateTrackingToken } from "../src/services/orderEvents.js";
 
 /**
  * Datos demo: una operación de última milla en Bogotá con flota mixta
@@ -64,6 +64,7 @@ async function main() {
         data: {
           tenantId: t2.id,
           trackingNumber: generateTrackingNumber(),
+          trackingToken: generateTrackingToken(),
           customerName: `Cliente Medellín ${i + 1}`,
           customerPhone: `+57301555000${i}`,
           addressRaw: `Cra ${30 + i} # 10-${20 + i}, El Poblado`,
@@ -281,6 +282,7 @@ async function main() {
         tenantId: tenant.id,
         clientId: clientIds[i % clientIds.length],
         trackingNumber,
+        trackingToken: generateTrackingToken(),
         customerName: o.customerName,
         customerPhone: o.customerPhone,
         addressRaw: o.addressRaw,

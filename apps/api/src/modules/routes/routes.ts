@@ -4,7 +4,7 @@ import { failStopSchema, submitPodSchema, haversineKm } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
-import { notifyClient } from "../../services/notifications.js";
+import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
@@ -110,6 +110,7 @@ export default async function routesRoutes(app: FastifyInstance) {
             destinatario: stop.order.customerName,
             etaMin: stop.etaMin,
             conductor: driver.name,
+            rastreo: publicTrackingUrl(stop.order.trackingToken),
           },
         });
       }
@@ -276,6 +277,7 @@ export default async function routesRoutes(app: FastifyInstance) {
         destinatario: order.customerName,
         recibidoPor: input.receivedBy ?? null,
         geocercaOk: geofenceOk,
+        rastreo: publicTrackingUrl(order.trackingToken),
       },
     });
 

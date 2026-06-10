@@ -141,6 +141,9 @@ model Order {
   clientId        String?
   client          Client?   @relation(fields: [clientId], references: [id])
   trackingNumber  String?
+  // Token opaco para la página pública de rastreo (no adivinable, distinto de
+  // la guía MV-). Permite al negocio cliente seguir el envío sin login.
+  trackingToken   String?   @unique
   externalRef     String?
   // Consumidor final / destino de la entrega (el conductor entrega aquí).
   // NO recibe notificaciones: en B2B se notifica al negocio cliente.

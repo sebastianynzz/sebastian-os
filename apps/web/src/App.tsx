@@ -1,4 +1,11 @@
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import { Loading } from "./components/ui";
 import Login from "./pages/Login";
@@ -13,6 +20,7 @@ import Modulos from "./pages/Modulos";
 import Ev from "./pages/Ev";
 import Seguridad from "./pages/Seguridad";
 import Analitica from "./pages/Analitica";
+import Track from "./pages/Track";
 
 const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/pedidos", label: "Pedidos" },
@@ -91,7 +99,26 @@ function Shell() {
         </div>
       </aside>
       <main className="min-w-0 flex-1 p-4 md:p-6">
-        <Routes>
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Rastreo público: sin login, fuera del shell autenticado. */}
+        <Route path="/t/:token" element={<Track />} />
+        {/* Dashboard autenticado: Shell es el layout (sidebar + Outlet). */}
+        <Route
+          element={
+            <AuthProvider>
+              <Shell />
+            </AuthProvider>
+          }
+        >
           <Route path="/" element={<Navigate to="/pedidos" replace />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/clientes" element={<Clientes />} />
@@ -104,18 +131,8 @@ function Shell() {
           <Route path="/seguridad" element={<Seguridad />} />
           <Route path="/analitica" element={<Analitica />} />
           <Route path="/modulos" element={<Modulos />} />
-        </Routes>
-      </main>
-    </div>
-  );
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Shell />
-      </BrowserRouter>
-    </AuthProvider>
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

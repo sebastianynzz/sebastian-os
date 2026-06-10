@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { geocodeAddress } from "../../services/geocoding.js";
 import {
   generateTrackingNumber,
+  generateTrackingToken,
   logOrderEvents,
 } from "../../services/orderEvents.js";
 
@@ -117,6 +118,7 @@ async function createOrder(
       tenantId,
       clientId: input.clientId,
       trackingNumber: generateTrackingNumber(),
+      trackingToken: generateTrackingToken(),
       externalRef: input.externalRef,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
