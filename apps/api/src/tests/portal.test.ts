@@ -228,6 +228,15 @@ describe("portal de clientes (rol CLIENT)", () => {
     const summary = await api("GET", "/portal/summary", portalToken);
     expect(summary.status).toBe(200);
     expect(summary.body.createdThisMonth).toBeGreaterThanOrEqual(1);
+    // Tablero del portal: tasa de éxito, en curso y tendencia de 30 días.
+    expect(summary.body).toHaveProperty("successRate");
+    expect(summary.body.inTransit).toBe(0);
+    expect(summary.body.byDay).toHaveLength(30);
+    const totalCreated = summary.body.byDay.reduce(
+      (acc: number, d: { created: number }) => acc + d.created,
+      0,
+    );
+    expect(totalCreated).toBeGreaterThanOrEqual(1); // su pedido aparece en la serie
 
     const green = await api("GET", "/portal/green-report", portalToken);
     expect(green.status).toBe(200);

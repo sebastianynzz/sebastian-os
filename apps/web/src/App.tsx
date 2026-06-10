@@ -22,6 +22,7 @@ import Seguridad from "./pages/Seguridad";
 import Analitica from "./pages/Analitica";
 import Sostenibilidad from "./pages/Sostenibilidad";
 import Track from "./pages/Track";
+import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
 import PortalVerde from "./pages/PortalVerde";
@@ -43,6 +44,7 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
 
 /** Portal de clientes (rol CLIENT): navegación propia, sin plano operativo. */
 const CLIENT_NAV: { to: string; label: string }[] = [
+  { to: "/portal/resumen", label: "Resumen" },
   { to: "/portal/envios", label: "Mis envíos" },
   { to: "/portal/nuevo", label: "Nuevo envío" },
   { to: "/portal/verde", label: "Informe verde" },
@@ -125,7 +127,7 @@ function Home() {
   const { session } = useAuth();
   return (
     <Navigate
-      to={session?.user.role === "CLIENT" ? "/portal/envios" : "/pedidos"}
+      to={session?.user.role === "CLIENT" ? "/portal/resumen" : "/pedidos"}
       replace
     />
   );
@@ -159,6 +161,7 @@ export default function App() {
           <Route path="/sostenibilidad" element={<Sostenibilidad />} />
           <Route path="/modulos" element={<Modulos />} />
           {/* Portal de clientes (rol CLIENT). */}
+          <Route path="/portal/resumen" element={<PortalResumen />} />
           <Route path="/portal/envios" element={<PortalPedidos />} />
           <Route path="/portal/nuevo" element={<PortalNuevoEnvio />} />
           <Route path="/portal/verde" element={<PortalVerde />} />

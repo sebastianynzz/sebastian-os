@@ -63,6 +63,16 @@ export const TENANT_OPERATOR_TYPES = [
 ] as const;
 export type TenantOperatorType = (typeof TENANT_OPERATOR_TYPES)[number];
 
+// Oferta comercial del tenant. Ortogonal a operatorType (propiedad de
+// activos / aprovisionamiento): un contrato 3PL puede ser un SUB_OPERATOR con
+// vehículos de MOVE. Etiqueta + preset de módulos, nunca lógica de cobro.
+export const TENANT_BUSINESS_MODELS = [
+  "SAAS",
+  "FAAS",
+  "LOGISTICS_3PL",
+] as const;
+export type TenantBusinessModel = (typeof TENANT_BUSINESS_MODELS)[number];
+
 export const SAFETY_ALERT_TYPES = [
   "ROUTE_DEVIATION",
   "PANIC",

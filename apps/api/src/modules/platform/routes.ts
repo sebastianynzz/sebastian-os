@@ -1,7 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import platformAuthRoutes from "./auth.js";
 import platformTenantsRoutes from "./tenants.js";
+import platformTenantUsersRoutes from "./users.js";
 import platformMetricsRoutes from "./metrics.js";
+import platformAuditRoutes from "./audit.js";
 
 /**
  * Plano del operador de plataforma: `/platform/*`. La autenticación
@@ -14,6 +16,10 @@ export default async function platformRoutes(app: FastifyInstance) {
   await app.register(async (protectedApp) => {
     protectedApp.addHook("preHandler", protectedApp.requirePlatformAdmin);
     await protectedApp.register(platformTenantsRoutes, { prefix: "/tenants" });
+    await protectedApp.register(platformTenantUsersRoutes, {
+      prefix: "/tenants/:id/users",
+    });
     await protectedApp.register(platformMetricsRoutes, { prefix: "/metrics" });
+    await protectedApp.register(platformAuditRoutes, { prefix: "/audit" });
   });
 }

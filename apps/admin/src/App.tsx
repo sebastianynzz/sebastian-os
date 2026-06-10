@@ -5,6 +5,7 @@ import Tenants from "./pages/Tenants";
 import TenantDetail from "./pages/TenantDetail";
 import Metricas from "./pages/Metricas";
 import Flota from "./pages/Flota";
+import Auditoria from "./pages/Auditoria";
 
 function Shell() {
   const { admin, loading, logout } = useAuth();
@@ -26,6 +27,7 @@ function Shell() {
             { to: "/tenants", label: "Tenants" },
             { to: "/flota", label: "Flota en sitio" },
             { to: "/metricas", label: "Métricas" },
+            { to: "/auditoria", label: "Auditoría" },
           ].map((item) => (
             <NavLink
               key={item.to}
@@ -54,6 +56,7 @@ function Shell() {
           <Route path="/tenants/:id" element={<TenantDetail />} />
           <Route path="/flota" element={<Flota />} />
           <Route path="/metricas" element={<Metricas />} />
+          <Route path="/auditoria" element={<Auditoria />} />
         </Routes>
       </main>
     </div>

@@ -36,6 +36,11 @@ model Tenant {
   // PLATFORM_FLEET (el tenant operativo del propio MOVE).
   operatorType   String  @default("SELF_SERVE")
   parentTenantId String?
+  // Oferta comercial: SAAS (software autoservicio) | FAAS (flota de MOVE en
+  // sitio) | LOGISTICS_3PL (operación logística completa). Ortogonal a
+  // operatorType (mecánica de aprovisionamiento / propiedad de activos):
+  // etiqueta + preset de módulos al aprovisionar, nunca lógica de cobro.
+  businessModel String   @default("SAAS")
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]
@@ -50,6 +55,47 @@ model Tenant {
   commands      VehicleCommand[]
   safetyAlerts  SafetyAlert[]
   notifications NotificationLog[]
+  dailyMetrics  DailyTenantMetric[]
+}
+
+/// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
+/// Recomputable e idempotente: ver docs/planning/ANALYTICS_ARCHITECTURE.md.
+/// El día se corta en America/Bogota (sin horario de verano).
+model DailyTenantMetric {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  date             String // YYYY-MM-DD (día local Bogotá; coincide con Route.date)
+  ordersCreated    Int      @default(0)
+  ordersDelivered  Int      @default(0)
+  ordersFailed     Int      @default(0) // FAILED + REJECTED
+  routesPlanned    Int      @default(0)
+  stopsCompleted   Int      @default(0)
+  totalDistanceKm  Float    @default(0)
+  totalDurationMin Int      @default(0)
+  activeDrivers    Int      @default(0) // conductores con ruta ese día
+  co2Kg            Float    @default(0)
+  co2SavedKg       Float    @default(0)
+  computedAt       DateTime @updatedAt
+
+  @@unique([tenantId, date])
+  @@index([date])
+}
+
+/// Bitácora del plano de plataforma: toda mutación del operador MOVE queda
+/// registrada (quién, qué, sobre qué tenant/usuario, con diff en details).
+model PlatformAuditLog {
+  id             String   @id @default(cuid())
+  adminId        String
+  adminEmail     String // desnormalizado: legible aunque se elimine el admin
+  action         String // TENANT_PROVISION | TENANT_UPDATE | MODULE_TOGGLE | VEHICLE_ASSIGN | USER_CREATE | USER_UPDATE | USER_RESET_PASSWORD | USER_DELETE
+  targetTenantId String?
+  targetUserId   String?
+  details        Json
+  createdAt      DateTime @default(now())
+
+  @@index([targetTenantId, createdAt])
+  @@index([createdAt])
 }
 
 model ModuleEntitlement {

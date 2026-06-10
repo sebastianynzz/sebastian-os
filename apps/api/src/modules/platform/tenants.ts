@@ -4,12 +4,15 @@ import { z } from "zod";
 import {
   createVehicleSchema,
   MODULE_CATALOG,
+  MODULE_PRESETS_BY_BUSINESS_MODEL,
+  TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
   updateTenantSchema,
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { invalidateTenantStatus } from "../../plugins/tenantStatus.js";
+import { auditPlatform, shallowDiff } from "../../services/platformAudit.js";
 
 /**
  * Gestión de tenants desde el panel del operador de plataforma. Todas las
@@ -43,6 +46,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       status: t.status,
       plan: t.plan,
       operatorType: t.operatorType,
+      businessModel: t.businessModel,
       createdAt: t.createdAt,
       counts: t._count,
       ordersLast30d: recentByTenant.get(t.id) ?? 0,
@@ -63,6 +67,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         city: z.string().default("Bogotá"),
         plan: z.enum(TENANT_PLANS).default("FREE"),
         operatorType: z.enum(TENANT_OPERATOR_TYPES).default("SUB_OPERATOR"),
+        businessModel: z.enum(TENANT_BUSINESS_MODELS).default("FAAS"),
         parentTenantId: z.string().optional(),
         adminName: z.string().min(2),
         adminEmail: z.string().email(),
@@ -85,6 +90,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       if (!parent) return reply.code(400).send({ error: "parentTenantId no existe" });
     }
 
+    // Preset por modelo de negocio: enciende, además de los default del
+    // catálogo, los módulos que la oferta comercial incluye de entrada.
+    const preset = new Set(MODULE_PRESETS_BY_BUSINESS_MODEL[input.businessModel]);
     const tenant = await prisma.tenant.create({
       data: {
         name: input.name,
@@ -92,11 +100,12 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         city: input.city,
         plan: input.plan,
         operatorType: input.operatorType,
+        businessModel: input.businessModel,
         parentTenantId: input.parentTenantId,
         entitlements: {
           create: MODULE_CATALOG.map((m) => ({
             moduleKey: m.key,
-            enabled: m.defaultEnabled,
+            enabled: m.defaultEnabled || preset.has(m.key),
           })),
         },
       },
@@ -108,6 +117,16 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         passwordHash: await bcrypt.hash(input.adminPassword, 10),
         name: input.adminName,
         role: "ADMIN",
+      },
+    });
+    await auditPlatform(request, "TENANT_PROVISION", {
+      targetTenantId: tenant.id,
+      details: {
+        name: tenant.name,
+        plan: tenant.plan,
+        operatorType: tenant.operatorType,
+        businessModel: tenant.businessModel,
+        adminEmail: admin.email,
       },
     });
 
@@ -149,6 +168,15 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         isElectric: input.isElectric,
         batteryKwh: input.batteryKwh,
         nominalRangeKm: input.nominalRangeKm,
+      },
+    });
+    await auditPlatform(request, "VEHICLE_ASSIGN", {
+      targetTenantId: id,
+      details: {
+        vehicleId: vehicle.id,
+        plate: vehicle.plate,
+        type: vehicle.type,
+        ownerTenantId: vehicle.ownerTenantId,
       },
     });
     return reply.code(201).send(vehicle);
@@ -209,6 +237,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       nit: tenant.nit,
       status: tenant.status,
       plan: tenant.plan,
+      operatorType: tenant.operatorType,
+      businessModel: tenant.businessModel,
+      parentTenantId: tenant.parentTenantId,
       createdAt: tenant.createdAt,
       counts: tenant._count,
       modules: MODULE_CATALOG.map((m) => ({
@@ -219,7 +250,11 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
     };
   });
 
-  /** Cambiar estado (suspender/reactivar) y/o plan. */
+  /**
+   * Actualizar el tenant: estado (suspender/reactivar), plan, datos de la
+   * empresa (nombre/NIT/ciudad), tipo de operador y modelo de negocio. Todo
+   * editable desde el panel; el cambio queda auditado con su diff.
+   */
   app.patch("/:id", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const body = updateTenantSchema.parse(request.body);
@@ -228,10 +263,50 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
 
     const updated = await prisma.tenant.update({
       where: { id },
-      data: { status: body.status, plan: body.plan },
+      data: {
+        status: body.status,
+        plan: body.plan,
+        name: body.name,
+        nit: body.nit === "" ? null : body.nit,
+        city: body.city,
+        operatorType: body.operatorType,
+        businessModel: body.businessModel,
+      },
     });
     if (body.status) invalidateTenantStatus(id); // suspensión inmediata
-    return { id: updated.id, status: updated.status, plan: updated.plan };
+    await auditPlatform(request, "TENANT_UPDATE", {
+      targetTenantId: id,
+      details: shallowDiff(
+        {
+          status: tenant.status,
+          plan: tenant.plan,
+          name: tenant.name,
+          nit: tenant.nit,
+          city: tenant.city,
+          operatorType: tenant.operatorType,
+          businessModel: tenant.businessModel,
+        },
+        {
+          status: updated.status,
+          plan: updated.plan,
+          name: updated.name,
+          nit: updated.nit,
+          city: updated.city,
+          operatorType: updated.operatorType,
+          businessModel: updated.businessModel,
+        },
+      ),
+    });
+    return {
+      id: updated.id,
+      status: updated.status,
+      plan: updated.plan,
+      name: updated.name,
+      nit: updated.nit,
+      city: updated.city,
+      operatorType: updated.operatorType,
+      businessModel: updated.businessModel,
+    };
   });
 
   /** Override de un módulo del tenant desde la plataforma. */
@@ -250,6 +325,10 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       where: { tenantId_moduleKey: { tenantId: params.id, moduleKey: params.key } },
       create: { tenantId: params.id, moduleKey: params.key, enabled: body.enabled },
       update: { enabled: body.enabled },
+    });
+    await auditPlatform(request, "MODULE_TOGGLE", {
+      targetTenantId: params.id,
+      details: { moduleKey: params.key, enabled: body.enabled },
     });
     return entitlement;
   });

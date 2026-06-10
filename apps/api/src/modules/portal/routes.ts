@@ -4,6 +4,12 @@ import { ORDER_STATUSES, portalCreateOrderSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { createOrder } from "../../services/orders.js";
 import {
+  addDays,
+  bogotaUtcRange,
+  eachDay,
+  todayBogota,
+} from "../../services/dailyMetrics.js";
+import {
   clientGreenReport,
   currentMonth,
   MONTH_RE,
@@ -147,28 +153,69 @@ export default async function portalRoutes(app: FastifyInstance) {
     return reply.code(201).send(withTrackingUrl(order));
   });
 
-  /** Resumen del tablero del portal: estados y actividad del mes. */
+  /**
+   * Resumen del tablero del portal: estados, actividad del mes, tasa de
+   * éxito y tendencia de 30 días — para que el negocio entienda su operación
+   * completa de un vistazo. Se calcula al vuelo: el volumen por cliente es
+   * pequeño y el portal no depende de la infraestructura de rollups.
+   */
   app.get("/summary", async (request) => {
-    const where = {
-      tenantId: request.user.tenantId,
-      clientId: request.user.clientId,
-    };
+    const tenantId = request.user.tenantId;
+    const clientId = request.user.clientId!;
+    const where = { tenantId, clientId };
     const month = currentMonth();
     const monthStart = new Date(`${month}-01T00:00:00.000Z`);
+    const to = todayBogota();
+    const from = addDays(to, -29);
+    const { start, end } = bogotaUtcRange(from, to);
 
-    const [byStatus, createdThisMonth, deliveredThisMonth] = await Promise.all([
-      prisma.order.groupBy({ by: ["status"], where, _count: { _all: true } }),
-      prisma.order.count({ where: { ...where, createdAt: { gte: monthStart } } }),
-      prisma.order.count({
-        where: { ...where, status: "DELIVERED", deliveredAt: { gte: monthStart } },
-      }),
-    ]);
+    const [byStatus, createdThisMonth, deliveredThisMonth, createdByDay, deliveredByDay] =
+      await Promise.all([
+        prisma.order.groupBy({ by: ["status"], where, _count: { _all: true } }),
+        prisma.order.count({ where: { ...where, createdAt: { gte: monthStart } } }),
+        prisma.order.count({
+          where: { ...where, status: "DELIVERED", deliveredAt: { gte: monthStart } },
+        }),
+        prisma.$queryRaw<{ day: string; count: number }[]>`
+          SELECT ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Bogota')::date)::text AS day,
+                 count(*)::int AS count
+          FROM "Order"
+          WHERE "tenantId" = ${tenantId} AND "clientId" = ${clientId}
+            AND "createdAt" >= ${start} AND "createdAt" < ${end}
+          GROUP BY 1
+        `,
+        prisma.$queryRaw<{ day: string; count: number }[]>`
+          SELECT ((("deliveredAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Bogota')::date)::text AS day,
+                 count(*)::int AS count
+          FROM "Order"
+          WHERE "tenantId" = ${tenantId} AND "clientId" = ${clientId}
+            AND status = 'DELIVERED'
+            AND "deliveredAt" >= ${start} AND "deliveredAt" < ${end}
+          GROUP BY 1
+        `,
+      ]);
+
+    const count = (status: string) =>
+      byStatus.find((s) => s.status === status)?._count._all ?? 0;
+    const delivered = count("DELIVERED");
+    const attempted = delivered + count("FAILED") + count("REJECTED");
+    const inTransit = count("ASSIGNED") + count("IN_TRANSIT");
+
+    const createdMap = new Map(createdByDay.map((r) => [r.day, r.count]));
+    const deliveredMap = new Map(deliveredByDay.map((r) => [r.day, r.count]));
 
     return {
       month,
       createdThisMonth,
       deliveredThisMonth,
+      successRate: attempted === 0 ? null : delivered / attempted,
+      inTransit,
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count._all })),
+      byDay: eachDay(from, to).map((day) => ({
+        day,
+        created: createdMap.get(day) ?? 0,
+        delivered: deliveredMap.get(day) ?? 0,
+      })),
     };
   });
 

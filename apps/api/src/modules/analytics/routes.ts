@@ -3,6 +3,10 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import {
+  getTenantTimeseries,
+  parseRange,
+} from "../../services/dailyMetrics.js";
+import {
   currentMonth,
   MONTH_RE,
   tenantGreenReport,
@@ -58,6 +62,26 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       // Aproximación CO2: 0.12 kg/km flota mixta urbana (argumento de venta sostenibilidad).
       estimatedCo2Kg: Number((totalDistanceKm * 0.12).toFixed(1)),
     };
+  });
+
+  /**
+   * Serie diaria (rollup DailyTenantMetric, refresco perezoso): pedidos,
+   * entregas, rutas, distancia, CO₂ y tasa de éxito por día. Por defecto los
+   * últimos 30 días; máximo 92.
+   */
+  app.get("/timeseries", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+
+    const days = await getTenantTimeseries(
+      request.user.tenantId,
+      range.from,
+      range.to,
+    );
+    return { from: range.from, to: range.to, days };
   });
 
   /**
