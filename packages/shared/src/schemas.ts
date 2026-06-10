@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   POD_TYPES,
   TELEMETRY_SOURCES,
+  TENANT_BUSINESS_MODELS,
+  TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
   TENANT_STATUSES,
   VEHICLE_COMMAND_TYPES,
@@ -221,9 +223,35 @@ export const updateTenantSchema = z
   .object({
     status: z.enum(TENANT_STATUSES).optional(),
     plan: z.enum(TENANT_PLANS).optional(),
+    name: z.string().min(2).optional(),
+    nit: z.string().min(5).optional().or(z.literal("")),
+    city: z.string().min(2).optional(),
+    operatorType: z.enum(TENANT_OPERATOR_TYPES).optional(),
+    businessModel: z.enum(TENANT_BUSINESS_MODELS).optional(),
   })
-  .refine((b) => b.status !== undefined || b.plan !== undefined, {
-    message: "Indique status y/o plan",
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "Indique al menos un campo a actualizar",
   });
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>;
+
+/** Plataforma crea un usuario del equipo de un tenant (staff, no conductores). */
+export const platformCreateUserSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  role: z.enum(["ADMIN", "DISPATCHER"]),
+  password: z.string().min(8),
+});
+export type PlatformCreateUserInput = z.infer<typeof platformCreateUserSchema>;
+
+/** Plataforma actualiza un usuario del equipo (rol/nombre y/o reset de clave). */
+export const platformUpdateUserSchema = z
+  .object({
+    name: z.string().min(2).optional(),
+    role: z.enum(["ADMIN", "DISPATCHER"]).optional(),
+    newPassword: z.string().min(8).optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "Indique al menos un campo a actualizar",
+  });
+export type PlatformUpdateUserInput = z.infer<typeof platformUpdateUserSchema>;

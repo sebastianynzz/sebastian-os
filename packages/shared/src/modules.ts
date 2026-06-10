@@ -24,6 +24,23 @@ export interface ModuleDescriptor {
   defaultEnabled: boolean;
 }
 
+import type { TenantBusinessModel } from "./enums.js";
+
+/**
+ * Preset de módulos por modelo de negocio: valores INICIALES al aprovisionar
+ * un tenant desde la plataforma. Cada módulo sigue siendo togglable por
+ * tenant después. FAAS incluye lo que MOVE necesita para operar su flota en
+ * sitio; LOGISTICS_3PL lo que un contrato de operación logística espera.
+ */
+export const MODULE_PRESETS_BY_BUSINESS_MODEL: Record<
+  TenantBusinessModel,
+  ModuleKey[]
+> = {
+  SAAS: [], // solo los defaultEnabled del catálogo
+  FAAS: ["TELEMATICS", "EV_MANAGEMENT", "SAFETY", "ANALYTICS_PRO"],
+  LOGISTICS_3PL: ["ANALYTICS_PRO", "CUSTOMER_EXPERIENCE_PRO"],
+};
+
 export const MODULE_CATALOG: ModuleDescriptor[] = [
   {
     key: "ROUTE_OPTIMIZATION",
