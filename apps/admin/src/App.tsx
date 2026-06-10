@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Tenants from "./pages/Tenants";
 import TenantDetail from "./pages/TenantDetail";
 import Metricas from "./pages/Metricas";
+import Flota from "./pages/Flota";
 
 function Shell() {
   const { admin, loading, logout } = useAuth();
@@ -23,6 +24,7 @@ function Shell() {
         <nav className="flex flex-col gap-1 p-2">
           {[
             { to: "/tenants", label: "Tenants" },
+            { to: "/flota", label: "Flota en sitio" },
             { to: "/metricas", label: "Métricas" },
           ].map((item) => (
             <NavLink
@@ -50,6 +52,7 @@ function Shell() {
           <Route path="/" element={<Navigate to="/tenants" replace />} />
           <Route path="/tenants" element={<Tenants />} />
           <Route path="/tenants/:id" element={<TenantDetail />} />
+          <Route path="/flota" element={<Flota />} />
           <Route path="/metricas" element={<Metricas />} />
         </Routes>
       </main>

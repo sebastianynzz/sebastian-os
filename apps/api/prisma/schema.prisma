@@ -31,6 +31,11 @@ model Tenant {
   city      String   @default("Bogotá")
   status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
   plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
+  // Fleet-as-a-service: SELF_SERVE (se registró solo) | SUB_OPERATOR (cliente
+  // con vehículos de MOVE en sitio, aprovisionado por la plataforma) |
+  // PLATFORM_FLEET (el tenant operativo del propio MOVE).
+  operatorType   String  @default("SELF_SERVE")
+  parentTenantId String?
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]
@@ -87,8 +92,13 @@ model Driver {
 
 model Vehicle {
   id             String    @id @default(cuid())
+  // Quién OPERA el vehículo (scoping de todas las consultas operativas).
   tenantId       String
   tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Quién es DUEÑO del activo (fleet-as-a-service: MOVE presta el vehículo a
+  // un sub-operador). Null = el operador es el dueño. Solo el plano de
+  // plataforma agrega/lee a través de tenants por este campo.
+  ownerTenantId  String?
   plate          String
   type           String // MOTO | BICICLETA | CARRO | VAN | CAMION
   capacityKg     Float
