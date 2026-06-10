@@ -1,6 +1,7 @@
-import { roadDistanceKm, type LatLng, type VehicleType } from "@moveos/shared";
+import type { LatLng } from "@moveos/shared";
 import { checkPicoYPlaca } from "./picoYPlaca.js";
 import { estimateUsableRangeKm } from "./evRange.js";
+import { haversineTravelModel, type TravelModel } from "./travel.js";
 import type {
   OptimizableOrder,
   OptimizableVehicle,
@@ -9,19 +10,6 @@ import type {
   PlannedRoute,
   PlannedStop,
 } from "./types.js";
-
-/**
- * Velocidades urbanas promedio por tipo de vehículo (km/h), calibradas para
- * tráfico denso tipo Bogotá. Las motos son significativamente más rápidas en
- * congestión: esto hace que el optimizador prefiera motos para rutas urbanas.
- */
-const URBAN_SPEED_KMH: Record<VehicleType, number> = {
-  MOTO: 22,
-  BICICLETA: 13,
-  CARRO: 17,
-  VAN: 16,
-  CAMION: 14,
-};
 
 const DEFAULT_SERVICE_TIME_MIN = 6;
 const DEFAULT_DEPARTURE_MIN = 8 * 60;
@@ -38,12 +26,18 @@ interface VehicleState {
   warnings: string[];
 }
 
-function speedFor(v: OptimizableVehicle): number {
-  return URBAN_SPEED_KMH[v.type];
-}
-
-function travelMin(a: LatLng, b: LatLng, v: OptimizableVehicle): number {
-  return (roadDistanceKm(a, b) / speedFor(v)) * 60;
+/** Contexto compartido de simulación (planificación e inserción dinámica). */
+interface SimContext {
+  /** Punto de partida (depósito, o última parada atendida en inserciones). */
+  start: LatLng;
+  /** Punto de regreso al final (normalmente el depósito). */
+  returnTo: LatLng;
+  vehicle: OptimizableVehicle;
+  departureMin: number;
+  rangeBudgetKm: number;
+  /** Jornada máxima permitida desde departureMin. */
+  maxDurationMin: number;
+  travel: TravelModel;
 }
 
 interface SimStop {
@@ -60,22 +54,16 @@ interface SimResult {
 }
 
 /**
- * Simula la ruta (depósito → paradas → depósito) y devuelve métricas por
+ * Simula la secuencia (start → paradas → returnTo) y devuelve métricas por
  * parada, o null si viola ventanas horarias, jornada máxima o autonomía.
  *
  * Cada pedido con `pickupLocation` produce DOS paradas adyacentes (PICKUP
  * luego DELIVERY); así la precedencia queda garantizada por construcción y el
  * 2-opt nunca puede separar el par (reordena pedidos completos, no paradas).
  */
-function simulateRoute(
-  depot: LatLng,
-  orders: OptimizableOrder[],
-  vehicle: OptimizableVehicle,
-  departureMin: number,
-  rangeBudgetKm: number,
-): SimResult | null {
-  let clock = departureMin;
-  let prev = depot;
+function simulateRoute(ctx: SimContext, orders: OptimizableOrder[]): SimResult | null {
+  let clock = ctx.departureMin;
+  let prev = ctx.start;
   let totalKm = 0;
   const stops: SimStop[] = [];
   const serviceTime = (o: OptimizableOrder) =>
@@ -88,9 +76,9 @@ function simulateRoute(
     timeWindow: { startMin: number; endMin: number } | undefined,
     service: number,
   ): boolean => {
-    const legKm = roadDistanceKm(prev, point);
+    const legKm = ctx.travel.distanceKm(prev, point);
     totalKm += legKm;
-    clock += (legKm / speedFor(vehicle)) * 60;
+    clock += ctx.travel.travelMin(prev, point, ctx.vehicle.type);
     // La ventana horaria aplica a la entrega (no a la recogida).
     if (timeWindow) {
       if (clock > timeWindow.endMin) return false;
@@ -112,15 +100,14 @@ function simulateRoute(
       return null;
   }
 
-  // Regreso al depósito.
-  const returnKm = roadDistanceKm(prev, depot);
-  totalKm += returnKm;
-  clock += (returnKm / speedFor(vehicle)) * 60;
+  // Regreso al punto final (normalmente el depósito).
+  totalKm += ctx.travel.distanceKm(prev, ctx.returnTo);
+  clock += ctx.travel.travelMin(prev, ctx.returnTo, ctx.vehicle.type);
 
-  if (totalKm > rangeBudgetKm) return null;
-  if (clock - departureMin > MAX_ROUTE_DURATION_MIN) return null;
+  if (totalKm > ctx.rangeBudgetKm) return null;
+  if (clock - ctx.departureMin > ctx.maxDurationMin) return null;
 
-  return { stops, totalDistanceKm: totalKm, totalDurationMin: clock - departureMin };
+  return { stops, totalDistanceKm: totalKm, totalDurationMin: clock - ctx.departureMin };
 }
 
 /**
@@ -128,14 +115,11 @@ function simulateRoute(
  * sin violar la factibilidad (ventanas horarias, autonomía, jornada).
  */
 function twoOptImprove(
-  depot: LatLng,
+  ctx: SimContext,
   stops: OptimizableOrder[],
-  vehicle: OptimizableVehicle,
-  departureMin: number,
-  rangeBudgetKm: number,
 ): OptimizableOrder[] {
   let best = stops.slice();
-  let bestSim = simulateRoute(depot, best, vehicle, departureMin, rangeBudgetKm);
+  let bestSim = simulateRoute(ctx, best);
   if (!bestSim) return best;
 
   let improved = true;
@@ -146,13 +130,7 @@ function twoOptImprove(
         const candidate = best
           .slice(0, i)
           .concat(best.slice(i, j + 1).reverse(), best.slice(j + 1));
-        const sim = simulateRoute(
-          depot,
-          candidate,
-          vehicle,
-          departureMin,
-          rangeBudgetKm,
-        );
+        const sim = simulateRoute(ctx, candidate);
         if (sim && sim.totalDistanceKm < bestSim.totalDistanceKm - 1e-9) {
           best = candidate;
           bestSim = sim;
@@ -171,8 +149,19 @@ function twoOptImprove(
  */
 export function planRoutes(request: PlanRequest): PlanResult {
   const departureMin = request.departureMin ?? DEFAULT_DEPARTURE_MIN;
+  const travel = request.travel ?? haversineTravelModel();
   const excludedVehicles: PlanResult["excludedVehicles"] = [];
   const states: VehicleState[] = [];
+
+  const ctxFor = (state: VehicleState): SimContext => ({
+    start: request.depot,
+    returnTo: request.depot,
+    vehicle: state.vehicle,
+    departureMin,
+    rangeBudgetKm: state.rangeBudgetKm,
+    maxDurationMin: MAX_ROUTE_DURATION_MIN,
+    travel,
+  });
 
   for (const vehicle of request.vehicles) {
     const check = checkPicoYPlaca(
@@ -249,13 +238,7 @@ export function planRoutes(request: PlanRequest): PlanResult {
 
       // Inserción al final (vecino más cercano sobre la última parada).
       const candidate = state.stops.concat(order);
-      const sim = simulateRoute(
-        request.depot,
-        candidate,
-        state.vehicle,
-        departureMin,
-        state.rangeBudgetKm,
-      );
+      const sim = simulateRoute(ctxFor(state), candidate);
       if (!sim) {
         lastRejection = state.vehicle.isElectric
           ? "Fuera de autonomía EV, ventana horaria o jornada máxima"
@@ -265,7 +248,7 @@ export function planRoutes(request: PlanRequest): PlanResult {
 
       const last = state.stops[state.stops.length - 1];
       const from = last ? last.location : request.depot;
-      const cost = roadDistanceKm(from, order.location);
+      const cost = travel.distanceKm(from, order.location);
       if (cost < bestCost) {
         bestCost = cost;
         bestState = state;
@@ -285,20 +268,9 @@ export function planRoutes(request: PlanRequest): PlanResult {
   for (const state of states) {
     if (state.stops.length === 0) continue;
 
-    const improved = twoOptImprove(
-      request.depot,
-      state.stops,
-      state.vehicle,
-      departureMin,
-      state.rangeBudgetKm,
-    );
-    const sim = simulateRoute(
-      request.depot,
-      improved,
-      state.vehicle,
-      departureMin,
-      state.rangeBudgetKm,
-    );
+    const ctx = ctxFor(state);
+    const improved = twoOptImprove(ctx, state.stops);
+    const sim = simulateRoute(ctx, improved);
     if (!sim) continue; // no debería ocurrir: improved siempre es factible
 
     const stops: PlannedStop[] = sim.stops.map((s, i) => ({
@@ -320,4 +292,93 @@ export function planRoutes(request: PlanRequest): PlanResult {
   }
 
   return { routes, unassigned, excludedVehicles };
+}
+
+export interface InsertRequest {
+  /**
+   * Pedidos PENDIENTES de la ruta en su orden actual (la "cola" aún no
+   * atendida). Los pedidos ya recogidos deben venir sin pickupLocation.
+   */
+  pendingOrders: OptimizableOrder[];
+  /** Pedido nuevo a insertar (express / mismo día). */
+  newOrder: OptimizableOrder;
+  vehicle: OptimizableVehicle;
+  /** Punto de partida: depósito, o la última parada atendida si va en ruta. */
+  start: LatLng;
+  /** Punto de regreso (depósito). */
+  returnTo: LatLng;
+  /** Reloj de partida en minutos desde medianoche (hora local). */
+  departureMin: number;
+  /**
+   * Presupuesto de autonomía restante (km). Para EV en ruta: recalcular desde
+   * el SoC actual reportado por telemetría — cubre exactamente lo que falta.
+   */
+  rangeBudgetKm: number;
+  /** Carga ya a bordo + pendiente (kg) ANTES de insertar el nuevo pedido. */
+  currentLoadKg: number;
+  /** Tiempo máximo restante de jornada (minutos). */
+  maxDurationMin?: number;
+  travel?: TravelModel;
+}
+
+export interface InsertResult {
+  /** Cola resultante con el pedido insertado en la mejor posición. */
+  orders: OptimizableOrder[];
+  /** Paradas simuladas (con ETA y km por tramo) de la cola resultante. */
+  stops: PlannedStop[];
+  totalDistanceKm: number;
+  totalDurationMin: number;
+  /** Posición (índice en la cola) donde quedó el pedido nuevo. */
+  insertedAt: number;
+}
+
+/**
+ * Inserción dinámica (express / mismo día): prueba el pedido nuevo en cada
+ * posición de la cola pendiente, valida factibilidad completa (capacidad,
+ * ventanas, autonomía, jornada) y devuelve la posición de menor distancia
+ * total, o null si no cabe en ninguna. La precedencia pickup→delivery del
+ * pedido nuevo queda garantizada por construcción (el par viaja junto).
+ */
+export function insertOrderIntoRoute(req: InsertRequest): InsertResult | null {
+  const travel = req.travel ?? haversineTravelModel();
+
+  if (req.currentLoadKg + req.newOrder.weightKg > req.vehicle.capacityKg) {
+    return null; // capacidad de peso excedida
+  }
+
+  const ctx: SimContext = {
+    start: req.start,
+    returnTo: req.returnTo,
+    vehicle: req.vehicle,
+    departureMin: req.departureMin,
+    rangeBudgetKm: req.rangeBudgetKm,
+    maxDurationMin: req.maxDurationMin ?? MAX_ROUTE_DURATION_MIN,
+    travel,
+  };
+
+  let best: { orders: OptimizableOrder[]; sim: SimResult; at: number } | null = null;
+  for (let at = 0; at <= req.pendingOrders.length; at++) {
+    const candidate = req.pendingOrders
+      .slice(0, at)
+      .concat(req.newOrder, req.pendingOrders.slice(at));
+    const sim = simulateRoute(ctx, candidate);
+    if (sim && (!best || sim.totalDistanceKm < best.sim.totalDistanceKm - 1e-9)) {
+      best = { orders: candidate, sim, at };
+    }
+  }
+  if (!best) return null;
+
+  return {
+    orders: best.orders,
+    stops: best.sim.stops.map((s, i) => ({
+      orderId: s.orderId,
+      kind: s.kind,
+      sequence: i + 1,
+      etaMin: Math.round(s.etaMin),
+      distanceFromPrevKm: Number(s.legKm.toFixed(2)),
+    })),
+    totalDistanceKm: Number(best.sim.totalDistanceKm.toFixed(2)),
+    totalDurationMin: Math.round(best.sim.totalDurationMin),
+    insertedAt: best.at,
+  };
 }
