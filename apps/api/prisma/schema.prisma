@@ -3,7 +3,10 @@
 // @moveos/shared para mantener flexibilidad de evolución sin migraciones.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" para desarrollo local; "debian-openssl-3.0.x" para la imagen
+  // Docker de producción (Render usa Debian con OpenSSL 3).
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 /// Operador de la plataforma MoveOS (NO pertenece a ningún tenant). Gestiona
