@@ -21,7 +21,8 @@ interface Client {
   phone: string | null;
   notifyChannel: string;
   webhookUrl: string | null;
-  _count: { orders: number };
+  pickupAddressRaw: string | null;
+  _count: { orders: number; portalUsers: number };
 }
 
 interface Notification {
@@ -53,6 +54,8 @@ export default function Clientes() {
   const [error, setError] = useState<string | null>(null);
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
+  const [portalFor, setPortalFor] = useState<string | null>(null);
+  const [portalMsg, setPortalMsg] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -88,11 +91,32 @@ export default function Clientes() {
         phone: data.get("phone") || undefined,
         notifyChannel: channel,
         webhookUrl: data.get("webhookUrl") || undefined,
+        pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
+        pickupNotes: data.get("pickupNotes") || undefined,
       });
       setShowForm(false);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  /** Entrega credenciales del portal de clientes a un negocio (solo ADMIN). */
+  async function onCreatePortalAccess(e: FormEvent<HTMLFormElement>, clientId: string) {
+    e.preventDefault();
+    setPortalMsg(null);
+    const data = new FormData(e.currentTarget);
+    try {
+      const user = await api<{ email: string }>(
+        "POST",
+        `/clients/${clientId}/portal-access`,
+        { email: data.get("email"), password: data.get("password") },
+      );
+      setPortalMsg(`Acceso creado: ${user.email}. Comparta las credenciales con el negocio.`);
+      setPortalFor(null);
+      await load();
+    } catch (err) {
+      setPortalMsg(err instanceof Error ? err.message : "Error");
     }
   }
 
@@ -148,6 +172,16 @@ export default function Clientes() {
                 </Field>
               </div>
             )}
+            <Field label="Dirección de recogida (origen de sus envíos del portal)">
+              <input
+                name="pickupAddressRaw"
+                className={inputClass}
+                placeholder="Cra 9 # 60-15, Chapinero"
+              />
+            </Field>
+            <Field label="Indicaciones de recogida">
+              <input name="pickupNotes" className={inputClass} placeholder="Local 2, bodega…" />
+            </Field>
             {error && (
               <div className="sm:col-span-2">
                 <Banner kind="error" onDismiss={() => setError(null)}>
@@ -162,6 +196,12 @@ export default function Clientes() {
         </Card>
       )}
 
+      {portalMsg && (
+        <Banner kind="info" onDismiss={() => setPortalMsg(null)}>
+          {portalMsg}
+        </Banner>
+      )}
+
       <Card>
         {loading ? (
           <Loading label="Cargando negocios cliente…" />
@@ -174,6 +214,7 @@ export default function Clientes() {
               <th>Contacto</th>
               <th>Canal de aviso</th>
               <th>Envíos</th>
+              <th>Portal</th>
               <th>
                 <span className="sr-only">Acciones</span>
               </th>
@@ -191,6 +232,24 @@ export default function Clientes() {
                     </span>
                   </td>
                   <td>{c._count.orders}</td>
+                  <td>
+                    {c._count.portalUsers > 0 ? (
+                      <span className="rounded-full bg-lima/40 px-2 py-0.5 text-xs">
+                        {c._count.portalUsers} usuario{c._count.portalUsers > 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setPortalMsg(null);
+                          setPortalFor(portalFor === c.id ? null : c.id);
+                        }}
+                        aria-expanded={portalFor === c.id}
+                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      >
+                        Dar acceso
+                      </button>
+                    )}
+                  </td>
                   <td className="text-right">
                     <button
                       onClick={() => toggleFeed(c.id)}
@@ -201,9 +260,40 @@ export default function Clientes() {
                     </button>
                   </td>
                 </tr>
+                {portalFor === c.id && (
+                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
+                    <td colSpan={6} className="px-4 py-3">
+                      <div className="mb-2 text-xs font-semibold uppercase text-navy/50">
+                        Acceso al portal de clientes para {c.name}
+                      </div>
+                      <form
+                        onSubmit={(e) => void onCreatePortalAccess(e, c.id)}
+                        className="flex flex-wrap items-end gap-3"
+                      >
+                        <Field label="Correo del negocio">
+                          <input name="email" type="email" className={inputClass} required />
+                        </Field>
+                        <Field label="Contraseña inicial (mín. 8)">
+                          <input
+                            name="password"
+                            type="text"
+                            className={inputClass}
+                            required
+                            minLength={8}
+                          />
+                        </Field>
+                        <Button type="submit">Crear acceso</Button>
+                      </form>
+                      <p className="mt-2 text-xs text-navy/40">
+                        El negocio entra con estas credenciales en esta misma
+                        página de login y solo ve sus propios envíos.
+                      </p>
+                    </td>
+                  </tr>
+                )}
                 {openClient === c.id && (
                   <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={5} className="px-4 py-3">
+                    <td colSpan={6} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Confirmaciones enviadas a {c.name}
                       </div>
@@ -241,7 +331,7 @@ export default function Clientes() {
             ))}
             {clients.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <EmptyState
                     action={
                       <Button onClick={() => setShowForm(true)}>

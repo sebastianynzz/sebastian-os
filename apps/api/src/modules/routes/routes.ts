@@ -6,6 +6,7 @@ import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
+import { emitOrderUpdate } from "../../services/realtime.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
 const clientSelect = {
@@ -100,6 +101,7 @@ export default async function routesRoutes(app: FastifyInstance) {
 
       // B2B: avisar al negocio cliente que su envío salió a reparto.
       for (const stop of stopsByOrder.values()) {
+        emitOrderUpdate(request.user.tenantId, stop.order);
         await notifyClient({
           tenantId: request.user.tenantId,
           orderId: stop.orderId,
@@ -143,6 +145,12 @@ export default async function routesRoutes(app: FastifyInstance) {
         details: "El conductor inició la ruta",
       })),
     );
+    // Tiempo real: dashboard, portal del cliente y rastreo público.
+    const orders = await prisma.order.findMany({
+      where: { id: { in: orderIds } },
+      select: { id: true, clientId: true, status: true, trackingNumber: true },
+    });
+    for (const order of orders) emitOrderUpdate(request.user.tenantId, order);
     // En B2B no se notifica "en camino" por cada parada (sería ruido): el
     // negocio ya fue avisado al despachar y se le confirma al entregar.
     return { ok: true };
@@ -183,6 +191,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       "ARRIVED",
       isPickup ? "Conductor en el punto de recogida" : "Conductor en el punto de entrega",
     );
+    emitOrderUpdate(request.user.tenantId, stop.order);
     return updated;
   });
 
@@ -245,6 +254,7 @@ export default async function routesRoutes(app: FastifyInstance) {
 
     if (isPickup) {
       await logOrderEvent(order.id, "PICKED_UP", "Paquete recogido en origen");
+      emitOrderUpdate(tenantId, order);
       await maybeCompleteRoute(stop.route.id);
       return { ok: true, geofenceOk, kind: "PICKUP" };
     }
@@ -254,6 +264,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       "DELIVERED",
       input.receivedBy ? `Recibió: ${input.receivedBy}` : undefined,
     );
+    emitOrderUpdate(tenantId, { ...order, status: "DELIVERED" });
 
     // Aprender el pin GPS confirmado (mejora geocodificación futura).
     if (input.lat !== undefined && input.lng !== undefined) {
@@ -306,6 +317,10 @@ export default async function routesRoutes(app: FastifyInstance) {
       }),
     ]);
     await logOrderEvent(stop.orderId, "FAILED", `Motivo: ${input.reason}`);
+    emitOrderUpdate(request.user.tenantId, {
+      ...stop.order,
+      status: isRejection ? "REJECTED" : "FAILED",
+    });
 
     // B2B: avisar al negocio cliente que su envío no se pudo entregar.
     await notifyClient({

@@ -8,6 +8,7 @@ import { prisma } from "../../lib/prisma.js";
 import { requireModule, isModuleEnabled } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
 import { checkRouteDeviation } from "../../services/safety.js";
+import { emitPlatform, emitTenant } from "../../services/realtime.js";
 
 /**
  * Plano telemático / IoT: ingesta de GPS + datos CAN bus (moto / camión
@@ -81,6 +82,21 @@ export default async function telematicsRoutes(app: FastifyInstance) {
         input.lat,
         input.lng,
       );
+    }
+
+    // Tiempo real: mapa en vivo del tenant y, si el activo es FaaS (dueño
+    // distinto del operador), el panel de flota de la plataforma.
+    emitTenant(tenantId, "telemetry", {
+      vehicleId: vehicle.id,
+      plate: vehicle.plate,
+      lat: input.lat,
+      lng: input.lng,
+      speedKmh: input.speedKmh ?? null,
+      engineOn: input.engineOn ?? null,
+      recordedAt: ping.recordedAt.toISOString(),
+    });
+    if (vehicle.ownerTenantId) {
+      emitPlatform("fleet", { vehicleId: vehicle.id, plate: vehicle.plate });
     }
 
     return reply.code(201).send({ id: ping.id });

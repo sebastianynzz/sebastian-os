@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
+import {
+  currentMonth,
+  MONTH_RE,
+  tenantGreenReport,
+} from "../../services/greenReport.js";
 
 /** Módulo Analítica Pro: KPIs operativos y financieros. */
 export default async function analyticsRoutes(app: FastifyInstance) {
@@ -52,6 +58,20 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       // Aproximación CO2: 0.12 kg/km flota mixta urbana (argumento de venta sostenibilidad).
       estimatedCo2Kg: Number((totalDistanceKm * 0.12).toFixed(1)),
     };
+  });
+
+  /**
+   * Informe verde mensual del tenant: CO₂ por flota, tipo de vehículo y
+   * negocio cliente — listo para enviar como argumento ESG a cada cliente.
+   */
+  app.get("/green-report", async (request) => {
+    const query = z
+      .object({ month: z.string().regex(MONTH_RE).optional() })
+      .parse(request.query);
+    return tenantGreenReport(
+      request.user.tenantId,
+      query.month ?? currentMonth(),
+    );
   });
 
   app.get("/notifications", async (request) => {

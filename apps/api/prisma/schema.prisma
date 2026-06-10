@@ -70,10 +70,17 @@ model User {
   email        String  @unique
   passwordHash String
   name         String
-  role         String  // ADMIN | DISPATCHER | DRIVER
+  role         String  // ADMIN | DISPATCHER | DRIVER | CLIENT
   driver       Driver? @relation(fields: [driverId], references: [id])
   driverId     String? @unique
+  // Portal de clientes: un usuario con rol CLIENT pertenece a un negocio
+  // cliente y solo ve/crea pedidos de ese negocio. Un negocio puede tener
+  // varios usuarios (gerente + bodega), por eso no es @unique.
+  client       Client? @relation(fields: [clientId], references: [id])
+  clientId     String?
   createdAt    DateTime @default(now())
+
+  @@index([clientId])
 }
 
 model Driver {
@@ -137,9 +144,17 @@ model Client {
   // Canal por el que el negocio recibe las confirmaciones de entrega.
   notifyChannel String   @default("IN_APP") // IN_APP | EMAIL | WHATSAPP | WEBHOOK
   webhookUrl    String?
+  // Dirección de recogida registrada: origen por defecto de los pedidos que
+  // el negocio crea desde su portal (recogida en su bodega/tienda).
+  pickupAddressRaw String?
+  pickupLat        Float?
+  pickupLng        Float?
+  pickupNotes      String?
   createdAt     DateTime @default(now())
   orders        Order[]
   notifications NotificationLog[]
+  // Usuarios del portal de clientes (rol CLIENT) de este negocio.
+  portalUsers   User[]
 
   @@index([tenantId])
 }

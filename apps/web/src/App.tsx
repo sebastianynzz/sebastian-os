@@ -20,7 +20,11 @@ import Modulos from "./pages/Modulos";
 import Ev from "./pages/Ev";
 import Seguridad from "./pages/Seguridad";
 import Analitica from "./pages/Analitica";
+import Sostenibilidad from "./pages/Sostenibilidad";
 import Track from "./pages/Track";
+import PortalPedidos from "./pages/PortalPedidos";
+import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
+import PortalVerde from "./pages/PortalVerde";
 
 const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/pedidos", label: "Pedidos" },
@@ -33,7 +37,15 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/ev", label: "Flota eléctrica", module: "EV_MANAGEMENT" },
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
+  { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
   { to: "/modulos", label: "Módulos" },
+];
+
+/** Portal de clientes (rol CLIENT): navegación propia, sin plano operativo. */
+const CLIENT_NAV: { to: string; label: string }[] = [
+  { to: "/portal/envios", label: "Mis envíos" },
+  { to: "/portal/nuevo", label: "Nuevo envío" },
+  { to: "/portal/verde", label: "Informe verde" },
 ];
 
 function Shell() {
@@ -44,9 +56,12 @@ function Shell() {
   }
   if (!session) return <Login />;
 
-  const visibleNav = NAV_ITEMS.filter(
-    (item) => !item.module || session.modules.includes(item.module),
-  );
+  const isClient = session.user.role === "CLIENT";
+  const visibleNav = isClient
+    ? CLIENT_NAV
+    : NAV_ITEMS.filter(
+        (item) => !item.module || session.modules.includes(item.module),
+      );
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -58,7 +73,7 @@ function Shell() {
               move<span className="text-lima">.</span>
             </div>
             <div className="mt-1 truncate text-xs text-cielo">
-              {session.tenant.name}
+              {isClient ? "Portal de clientes" : session.tenant.name}
             </div>
           </div>
           <button
@@ -105,6 +120,17 @@ function Shell() {
   );
 }
 
+/** Inicio según el tipo de cuenta: portal para CLIENT, pedidos para el equipo. */
+function Home() {
+  const { session } = useAuth();
+  return (
+    <Navigate
+      to={session?.user.role === "CLIENT" ? "/portal/envios" : "/pedidos"}
+      replace
+    />
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -119,7 +145,7 @@ export default function App() {
             </AuthProvider>
           }
         >
-          <Route path="/" element={<Navigate to="/pedidos" replace />} />
+          <Route path="/" element={<Home />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/planificacion" element={<Planificacion />} />
@@ -130,7 +156,12 @@ export default function App() {
           <Route path="/ev" element={<Ev />} />
           <Route path="/seguridad" element={<Seguridad />} />
           <Route path="/analitica" element={<Analitica />} />
+          <Route path="/sostenibilidad" element={<Sostenibilidad />} />
           <Route path="/modulos" element={<Modulos />} />
+          {/* Portal de clientes (rol CLIENT). */}
+          <Route path="/portal/envios" element={<PortalPedidos />} />
+          <Route path="/portal/nuevo" element={<PortalNuevoEnvio />} />
+          <Route path="/portal/verde" element={<PortalVerde />} />
         </Route>
       </Routes>
     </BrowserRouter>

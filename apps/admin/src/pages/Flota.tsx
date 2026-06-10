@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, BASE_URL, getToken } from "../api";
 import { Card } from "../components/ui";
 
 /**
@@ -32,8 +32,21 @@ export default function Flota() {
   }
   useEffect(() => {
     void load();
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
+    // Tiempo real: la telemetría de activos FaaS llega por SSE (antes: sondeo
+    // cada 15 s). Queda un respaldo lento por si el stream se cae.
+    const token = getToken();
+    let es: EventSource | null = null;
+    if (token && typeof EventSource !== "undefined") {
+      es = new EventSource(
+        `${BASE_URL}/realtime/platform/stream?token=${encodeURIComponent(token)}`,
+      );
+      es.addEventListener("fleet", () => void load());
+    }
+    const interval = setInterval(load, 60000);
+    return () => {
+      es?.close();
+      clearInterval(interval);
+    };
   }, []);
 
   return (

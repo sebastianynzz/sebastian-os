@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, ApiError } from "../api";
+import { useRealtimeReload } from "../realtime";
 import {
   Button,
   Card,
@@ -43,11 +44,9 @@ export default function Seguridad() {
       setLoading(false);
     }
   }
-  useEffect(() => {
-    void load();
-    const interval = setInterval(load, 15000); // refresco de central de monitoreo
-    return () => clearInterval(interval);
-  }, []);
+  // Tiempo real: pánico y desviaciones llegan por SSE al instante (antes:
+  // sondeo cada 15 s). Queda un respaldo lento por si el stream se cae.
+  useRealtimeReload(["safety"], () => void load());
 
   async function setStatus(id: string, status: string) {
     await api("PATCH", `/safety/alerts/${id}`, { status });

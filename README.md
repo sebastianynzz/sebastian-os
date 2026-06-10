@@ -95,17 +95,29 @@ Demo credentials (seed):
 | `despacho@demo.moveos.co` | `moveos123` | DISPATCHER |
 | `carlos@demo.moveos.co` | `moveos123` | DRIVER (moto) |
 | `maria@demo.moveos.co` | `moveos123` | DRIVER (e-van) |
+| `cliente@demo.moveos.co` | `moveos123` | CLIENT (portal de Tienda Moda Express) |
 | `ops@moveos.co` | `moveos123` | PLATFORM OPERATOR (admin panel :5175) |
 
 MoveOS is **B2B**: the driver confirms delivery to the **business client** that
 originated the shipment (via webhook / WhatsApp / email / in-app feed), not to
 the end consumer. Manage business clients under **Clientes** in the dashboard.
 
+Business clients also get a **self-service portal** (same login page, CLIENT
+role): they create orders with pickup at their registered address, follow them
+live, copy the public tracking link for their end consumer, and see a monthly
+**green report** (CO₂ + savings vs an ICE baseline). The tenant-wide version
+lives under **Sostenibilidad** (Analítica Pro module).
+
+Live views (map, safety alerts, orders, public tracking page, platform FaaS
+fleet) are pushed over **SSE** (`/realtime/stream`, `/track/:token/stream`) —
+no fast polling; a slow fallback poll remains in case the stream drops.
+
 ## Tests
 
 ```bash
-pnpm --filter @moveos/optimizer test   # 15 unit tests: VRP, pico y placa, EV range
-pnpm --filter @moveos/api test         # 11 E2E tests: register → plan → deliver → audit trail
+pnpm --filter @moveos/optimizer test   # unit tests: VRP, pico y placa, EV range
+pnpm --filter @moveos/api test         # E2E: register → plan → deliver → audit,
+                                       # portal CLIENT, informe verde, SSE
 ```
 
 The API test suite needs `DATABASE_URL` pointing at a Postgres with the schema

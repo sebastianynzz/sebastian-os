@@ -17,6 +17,12 @@ Staged plan from the research brief. Checked items exist in this repo.
 - [x] CSV order import UI with downloadable template
 - [x] SPR/SPH productivity metrics in analytics
 - [x] Move brand system applied (navy 534C / cielo 537C / lima 373C accent)
+- [x] Client portal (CLIENT role): each business logs in, creates orders with
+      pickup at its registered address, tracks them and sees only its own data
+- [x] Monthly green report (CO₂): per-fleet, per-vehicle-type and per-client
+      emissions + savings vs ICE baseline; client-facing version in the portal
+- [x] Realtime SSE streams (live map, safety alerts, orders, public tracking,
+      platform FaaS fleet) replacing frontend polling
 - [ ] WhatsApp Business API credentials in production (adapter ready)
 - [ ] Per-order pricing + free tier billing (suggested: first 100 orders free)
 - [x] Payments removed by product decision: MoveOS is delivery software only
@@ -36,7 +42,8 @@ Staged plan from the research brief. Checked items exist in this repo.
 - [ ] Per-vehicle + platform-fee enterprise pricing; white-label for
       telematics resellers
 - [ ] Routing engine upgrade: road-network distances (OSRM/VROOM) behind the
-      same constraint layer
+      same constraint layer — adapter shipped (`OSRM_URL`), self-host guide in
+      `docs/OSRM_RENDER.md`, pending host provisioning
 
 ## Stage 3 — Differentiation & expansion (18+ months)
 

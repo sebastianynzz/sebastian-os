@@ -1,5 +1,6 @@
 import { haversineKm } from "@moveos/shared";
 import { prisma } from "../lib/prisma.js";
+import { emitTenant } from "./realtime.js";
 
 /** Umbral de desviación de ruta para alerta de seguridad (km). */
 export const DEVIATION_THRESHOLD_KM = 5;
@@ -41,7 +42,7 @@ export async function checkRouteDeviation(
   });
   if (existing) return;
 
-  await prisma.safetyAlert.create({
+  const alert = await prisma.safetyAlert.create({
     data: {
       tenantId,
       driverId,
@@ -51,5 +52,10 @@ export async function checkRouteDeviation(
       lng,
       details: `Posición a ${minDistance.toFixed(1)} km de la ruta planificada`,
     },
+  });
+  emitTenant(tenantId, "safety", {
+    alertId: alert.id,
+    type: alert.type,
+    status: alert.status,
   });
 }

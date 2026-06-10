@@ -3,6 +3,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
+import { useRealtimeReload } from "../realtime";
 import { Button, Card, ModuleDisabled, PageHeader } from "../components/ui";
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 };
@@ -87,11 +88,9 @@ export default function MapaEnVivo() {
     }
   }
 
-  useEffect(() => {
-    void load();
-    const interval = setInterval(load, 3000); // refresco del mapa en vivo
-    return () => clearInterval(interval);
-  }, []);
+  // Tiempo real: cada ping de telemetría empuja un evento SSE (antes: sondeo
+  // cada 3 s). Regulado a 1.5 s para flotas que reportan en ráfaga.
+  useRealtimeReload(["telemetry"], () => void load(), { throttleMs: 1500 });
 
   const selectedEntry = useMemo(
     () => entries.find((e) => e.vehicle.id === selected) ?? null,
@@ -148,7 +147,7 @@ export default function MapaEnVivo() {
         title="Mapa en vivo"
         actions={
           <span className="text-xs text-navy/50">
-            {entries.filter((e) => e.ping).length} vehículos reportando · actualiza cada 3s
+            {entries.filter((e) => e.ping).length} vehículos reportando · en tiempo real
           </span>
         }
       />

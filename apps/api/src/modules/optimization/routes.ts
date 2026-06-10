@@ -11,6 +11,7 @@ import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
 import { logOrderEvents } from "../../services/orderEvents.js";
+import { emitOrderUpdate } from "../../services/realtime.js";
 import { buildTravelModel, toMinOfDayBogota } from "../../services/routing.js";
 
 const toMinOfDay = toMinOfDayBogota;
@@ -148,6 +149,12 @@ export default async function optimizationRoutes(app: FastifyInstance) {
             details: `Ruta ${plate ?? route.vehicleId}`,
           })),
         );
+        // Tiempo real: el dashboard y el portal del cliente ven la asignación.
+        const assigned = await prisma.order.findMany({
+          where: { id: { in: orderIds } },
+          select: { id: true, clientId: true, status: true, trackingNumber: true },
+        });
+        for (const order of assigned) emitOrderUpdate(tenantId, order);
         created.push(dbRoute);
       }
 
@@ -348,6 +355,10 @@ export default async function optimizationRoutes(app: FastifyInstance) {
           details: `Inserción express en ruta ${route.vehicle.plate} (posición ${result.insertedAt + 1})`,
         },
       ]);
+      emitOrderUpdate(tenantId, {
+        ...newOrder,
+        status: route.status === "PLANNED" ? "ASSIGNED" : "IN_TRANSIT",
+      });
 
       const updated = await prisma.route.findUnique({
         where: { id: route.id },

@@ -60,10 +60,18 @@ export default function Track() {
       }
     }
     void load();
-    // Refresco en vivo mientras está en camino.
-    const interval = setInterval(load, 20000);
+    // Tiempo real: el servidor empuja un "update" por SSE cuando el envío
+    // cambia de estado o el conductor reporta posición (antes: sondeo cada
+    // 20 s). Queda un respaldo lento por si el stream se cae.
+    let es: EventSource | null = null;
+    if (typeof EventSource !== "undefined") {
+      es = new EventSource(`${BASE_URL}/track/${token}/stream`);
+      es.addEventListener("update", () => void load());
+    }
+    const interval = setInterval(load, 60000);
     return () => {
       active = false;
+      es?.close();
       clearInterval(interval);
     };
   }, [token]);
