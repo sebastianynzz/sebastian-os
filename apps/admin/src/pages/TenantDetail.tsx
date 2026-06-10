@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { TrendChart } from "../components/charts";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
 
 interface TenantDetailData {
@@ -10,20 +11,76 @@ interface TenantDetailData {
   nit: string | null;
   status: string;
   plan: string;
+  operatorType: string;
+  businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; routes: number; clients: number };
   modules: { key: string; nombre: string; enabled: boolean }[];
 }
 
+interface TenantUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  manageable: boolean;
+}
+
+interface AuditEntry {
+  id: string;
+  adminEmail: string;
+  action: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+interface DayPoint {
+  date: string;
+  ordersCreated: number;
+  ordersDelivered: number;
+}
+
+const BUSINESS_MODEL_LABEL: Record<string, string> = {
+  SAAS: "SaaS autoservicio",
+  FAAS: "FaaS (flota de MOVE)",
+  LOGISTICS_3PL: "Logística 3PL",
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  TENANT_PROVISION: "Tenant aprovisionado",
+  TENANT_UPDATE: "Tenant actualizado",
+  MODULE_TOGGLE: "Módulo cambiado",
+  VEHICLE_ASSIGN: "Vehículo asignado",
+  USER_CREATE: "Usuario creado",
+  USER_UPDATE: "Usuario actualizado",
+  USER_RESET_PASSWORD: "Contraseña reseteada",
+  USER_DELETE: "Usuario eliminado",
+};
+
 export default function TenantDetail() {
   const { id } = useParams<{ id: string }>();
   const [t, setT] = useState<TenantDetailData | null>(null);
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [serie, setSerie] = useState<DayPoint[] | null>(null);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
-    setT(await api<TenantDetailData>("GET", `/tenants/${id}`));
+    const [tenant, staff, ts, log] = await Promise.all([
+      api<TenantDetailData>("GET", `/tenants/${id}`),
+      api<TenantUser[]>("GET", `/tenants/${id}/users`),
+      api<{ days: DayPoint[] }>("GET", `/metrics/timeseries?tenantId=${id}`),
+      api<{ entries: AuditEntry[] }>("GET", `/audit?tenantId=${id}&take=10`),
+    ]);
+    setT(tenant);
+    setUsers(staff);
+    setSerie(ts.days);
+    setAudit(log.entries);
   }
   useEffect(() => {
-    void load();
+    void load().catch((err) =>
+      setNotice(err instanceof Error ? err.message : "Error"),
+    );
   }, [id]);
 
   async function setStatus(status: "ACTIVE" | "SUSPENDED") {
@@ -44,6 +101,78 @@ export default function TenantDetail() {
   async function toggleModule(key: string, enabled: boolean) {
     await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
     await load();
+  }
+
+  /** Editar los datos de la empresa (todo editable desde el panel). */
+  async function saveCompany(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setNotice(null);
+    const data = new FormData(e.currentTarget);
+    try {
+      await api("PATCH", `/tenants/${id}`, {
+        name: data.get("name"),
+        nit: data.get("nit") || "",
+        city: data.get("city"),
+        operatorType: data.get("operatorType"),
+        businessModel: data.get("businessModel"),
+      });
+      setNotice("Empresa actualizada.");
+      await load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function createUser(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setNotice(null);
+    const data = new FormData(e.currentTarget);
+    try {
+      await api("POST", `/tenants/${id}/users`, {
+        name: data.get("userName"),
+        email: data.get("userEmail"),
+        role: data.get("userRole"),
+        password: data.get("userPassword"),
+      });
+      setNotice("Usuario creado.");
+      (e.target as HTMLFormElement).reset?.();
+      await load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function setUserRole(userId: string, role: string) {
+    setNotice(null);
+    try {
+      await api("PATCH", `/tenants/${id}/users/${userId}`, { role });
+      await load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function resetPassword(user: TenantUser) {
+    const newPassword = prompt(`Nueva contraseña para ${user.email} (mín. 8):`);
+    if (!newPassword) return;
+    setNotice(null);
+    try {
+      await api("PATCH", `/tenants/${id}/users/${user.id}`, { newPassword });
+      setNotice(`Contraseña de ${user.email} actualizada.`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function deleteUser(user: TenantUser) {
+    if (!confirm(`¿Eliminar a ${user.email}? Perderá el acceso.`)) return;
+    setNotice(null);
+    try {
+      await api("DELETE", `/tenants/${id}/users/${user.id}`);
+      await load();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
   }
 
   const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
@@ -82,7 +211,8 @@ export default function TenantDetail() {
         <div>
           <h1 className="text-xl font-bold">{t.name}</h1>
           <p className="text-sm text-cielo">
-            {t.city} {t.nit && `· NIT ${t.nit}`}
+            {t.city} {t.nit && `· NIT ${t.nit}`} ·{" "}
+            {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -99,7 +229,43 @@ export default function TenantDetail() {
         </div>
       </div>
 
+      {notice && <p className="text-sm font-medium text-lima">{notice}</p>}
+
       <div className="grid grid-cols-3 gap-4">
+        <Card title="Editar empresa">
+          <form onSubmit={saveCompany} className="space-y-2">
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Nombre</span>
+              <input name="name" className={inputClass} defaultValue={t.name} required minLength={2} />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">NIT</span>
+              <input name="nit" className={inputClass} defaultValue={t.nit ?? ""} />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Ciudad</span>
+              <input name="city" className={inputClass} defaultValue={t.city} required minLength={2} />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Tipo de operador</span>
+              <select name="operatorType" className={inputClass} defaultValue={t.operatorType}>
+                <option value="SELF_SERVE">Autoservicio</option>
+                <option value="SUB_OPERATOR">Sub-operador (FaaS)</option>
+                <option value="PLATFORM_FLEET">Flota MOVE</option>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Modelo de negocio</span>
+              <select name="businessModel" className={inputClass} defaultValue={t.businessModel}>
+                <option value="SAAS">SaaS autoservicio</option>
+                <option value="FAAS">FaaS (flota de MOVE)</option>
+                <option value="LOGISTICS_3PL">Logística 3PL</option>
+              </select>
+            </label>
+            <Button type="submit">Guardar</Button>
+          </form>
+        </Card>
+
         <Card title="Uso">
           <dl className="space-y-1 text-sm">
             <Row label="Usuarios" value={t.counts.users} />
@@ -131,15 +297,102 @@ export default function TenantDetail() {
             </p>
           </div>
         </Card>
-
-        <Card title="Estado">
-          <p className="text-sm text-cielo">
-            {t.status === "ACTIVE"
-              ? "La empresa opera con normalidad."
-              : "Suspendida: el acceso está bloqueado de inmediato."}
-          </p>
-        </Card>
       </div>
+
+      <Card title="Actividad (30 días)">
+        {serie === null ? (
+          <p className="text-sm text-white/30">Cargando…</p>
+        ) : (
+          <TrendChart
+            days={serie.map((d) => d.date)}
+            series={[
+              { label: "Entregados", values: serie.map((d) => d.ordersDelivered) },
+              { label: "Creados", values: serie.map((d) => d.ordersCreated) },
+            ]}
+          />
+        )}
+      </Card>
+
+      <Card title="Usuarios del equipo">
+        <table className="mb-4 w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
+              <th className="py-2">Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id} className="border-b border-white/5">
+                <td className="py-2">{u.name}</td>
+                <td className="text-cielo">{u.email}</td>
+                <td>
+                  {u.manageable ? (
+                    <select
+                      className="rounded border border-white/20 bg-white/5 px-2 py-1 text-xs"
+                      value={u.role}
+                      onChange={(e) => void setUserRole(u.id, e.target.value)}
+                    >
+                      <option value="ADMIN">ADMIN</option>
+                      <option value="DISPATCHER">DISPATCHER</option>
+                    </select>
+                  ) : (
+                    <span className="text-xs text-white/40">{u.role}</span>
+                  )}
+                </td>
+                <td className="space-x-3 whitespace-nowrap text-right text-xs">
+                  {u.manageable && (
+                    <>
+                      <button
+                        onClick={() => void resetPassword(u)}
+                        className="text-cielo hover:underline"
+                      >
+                        Resetear clave
+                      </button>
+                      <button
+                        onClick={() => void deleteUser(u)}
+                        className="text-red-400 hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-4 text-center text-white/30">
+                  Sin usuarios.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        <p className="mb-2 text-xs text-white/30">
+          Aquí se gestiona el staff (ADMIN/DISPATCHER). Conductores y usuarios
+          del portal se gestionan desde el dashboard del tenant.
+        </p>
+        <form onSubmit={createUser} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <input name="userName" className={inputClass} placeholder="Nombre" required minLength={2} />
+          <input name="userEmail" type="email" className={inputClass} placeholder="Correo" required />
+          <select name="userRole" className={inputClass} defaultValue="DISPATCHER">
+            <option value="ADMIN">ADMIN</option>
+            <option value="DISPATCHER">DISPATCHER</option>
+          </select>
+          <input
+            name="userPassword"
+            type="password"
+            className={inputClass}
+            placeholder="Contraseña inicial"
+            required
+            minLength={8}
+          />
+          <Button type="submit">Crear usuario</Button>
+        </form>
+      </Card>
 
       <Card title="Módulos activos (override de plataforma)">
         <div className="grid grid-cols-2 gap-3">
@@ -199,6 +452,32 @@ export default function TenantDetail() {
             <Button type="submit">Asignar</Button>
           </div>
         </form>
+      </Card>
+
+      <Card title="Actividad reciente del panel (auditoría)">
+        {audit.length === 0 ? (
+          <p className="text-sm text-white/30">Sin actividad registrada.</p>
+        ) : (
+          <ol className="space-y-1 text-xs">
+            {audit.map((a) => (
+              <li key={a.id} className="flex items-baseline gap-2">
+                <span className="font-mono text-white/30">
+                  {new Date(a.createdAt).toLocaleString("es-CO", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <span className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</span>
+                <span className="text-cielo">{a.adminEmail}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        <Link to="/auditoria" className="mt-2 inline-block text-xs text-lima hover:underline">
+          Ver toda la auditoría →
+        </Link>
       </Card>
     </div>
   );

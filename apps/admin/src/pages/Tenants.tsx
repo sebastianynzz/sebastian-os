@@ -10,6 +10,7 @@ interface TenantRow {
   status: string;
   plan: string;
   operatorType: string;
+  businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; clients: number };
   ordersLast30d: number;
 }
@@ -18,6 +19,12 @@ const OPERATOR_LABEL: Record<string, string> = {
   SELF_SERVE: "Autoservicio",
   SUB_OPERATOR: "Cliente FaaS",
   PLATFORM_FLEET: "Flota MOVE",
+};
+
+const BUSINESS_MODEL_LABEL: Record<string, string> = {
+  SAAS: "SaaS",
+  FAAS: "FaaS",
+  LOGISTICS_3PL: "3PL",
 };
 
 const inputClass =
@@ -49,6 +56,7 @@ export default function Tenants() {
         city: data.get("city") || "Bogotá",
         plan: data.get("plan"),
         operatorType: "SUB_OPERATOR",
+        businessModel: data.get("businessModel"),
         adminName: data.get("adminName"),
         adminEmail: data.get("adminEmail"),
         adminPassword: data.get("adminPassword"),
@@ -99,6 +107,17 @@ export default function Tenants() {
               </select>
             </label>
             <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Modelo de negocio</span>
+              <select name="businessModel" className={inputClass} defaultValue="FAAS">
+                <option value="FAAS">FaaS (flota de MOVE en sitio)</option>
+                <option value="LOGISTICS_3PL">Logística 3PL</option>
+                <option value="SAAS">SaaS autoservicio</option>
+              </select>
+              <span className="mt-1 block text-xs text-white/30">
+                Define el preset inicial de módulos; se pueden ajustar después.
+              </span>
+            </label>
+            <label className="block text-sm">
               <span className="mb-1 block text-cielo">Nombre del administrador</span>
               <input name="adminName" className={inputClass} required />
             </label>
@@ -125,6 +144,7 @@ export default function Tenants() {
             <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
               <th className="py-2">Empresa</th>
               <th>Tipo</th>
+              <th>Modelo</th>
               <th>Ciudad</th>
               <th>Plan</th>
               <th>Estado</th>
@@ -149,6 +169,11 @@ export default function Tenants() {
                     {OPERATOR_LABEL[t.operatorType] ?? t.operatorType}
                   </span>
                 </td>
+                <td>
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-cielo">
+                    {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
+                  </span>
+                </td>
                 <td className="text-cielo">{t.city}</td>
                 <td><PlanBadge plan={t.plan} /></td>
                 <td><StatusBadge status={t.status} /></td>
@@ -164,7 +189,7 @@ export default function Tenants() {
             ))}
             {tenants.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-white/30">
+                <td colSpan={10} className="py-8 text-center text-white/30">
                   Sin tenants.
                 </td>
               </tr>

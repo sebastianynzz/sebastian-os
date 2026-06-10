@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { TrendChart } from "../components/charts";
 import { Card } from "../components/ui";
 
 interface Metrics {
@@ -8,16 +9,24 @@ interface Metrics {
   moduleAdoption: { moduleKey: string; nombre: string; enabledCount: number; tenantCount: number }[];
 }
 
+interface DayPoint {
+  date: string;
+  ordersCreated: number;
+  ordersDelivered: number;
+}
+
 export default function Metricas() {
   const [m, setM] = useState<Metrics | null>(null);
+  const [serie, setSerie] = useState<DayPoint[] | null>(null);
 
   useEffect(() => {
     void api<Metrics>("GET", "/metrics").then(setM);
+    void api<{ days: DayPoint[] }>("GET", "/metrics/timeseries").then((r) =>
+      setSerie(r.days),
+    );
   }, []);
 
   if (!m) return <p className="text-cielo">Cargando…</p>;
-
-  const maxDay = Math.max(1, ...m.orders.byDay.map((d) => d.count));
 
   return (
     <div className="space-y-4">
@@ -34,21 +43,17 @@ export default function Metricas() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Card title="Pedidos por día (14 días)">
-          {m.orders.byDay.length === 0 ? (
-            <p className="text-sm text-white/30">Sin datos.</p>
+        <Card title="Pedidos por día (30 días, toda la plataforma)">
+          {serie === null ? (
+            <p className="text-sm text-white/30">Cargando…</p>
           ) : (
-            <div className="flex h-40 items-end gap-1">
-              {m.orders.byDay.map((d) => (
-                <div key={d.day} className="flex flex-1 flex-col items-center gap-1" title={`${d.day}: ${d.count}`}>
-                  <div
-                    className="w-full rounded-t bg-lima"
-                    style={{ height: `${(d.count / maxDay) * 100}%`, minHeight: 2 }}
-                  />
-                  <span className="text-[9px] text-white/30">{d.day.slice(5)}</span>
-                </div>
-              ))}
-            </div>
+            <TrendChart
+              days={serie.map((d) => d.date)}
+              series={[
+                { label: "Entregados", values: serie.map((d) => d.ordersDelivered) },
+                { label: "Creados", values: serie.map((d) => d.ordersCreated) },
+              ]}
+            />
           )}
         </Card>
 
