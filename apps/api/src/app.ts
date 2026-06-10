@@ -17,6 +17,7 @@ import vehiclesRoutes from "./modules/vehicles/routes.js";
 import optimizationRoutes from "./modules/optimization/routes.js";
 import routesRoutes from "./modules/routes/routes.js";
 import trackingRoutes from "./modules/tracking/routes.js";
+import publicTrackingRoutes from "./modules/tracking/public.js";
 import telematicsRoutes from "./modules/telematics/routes.js";
 import uploadsRoutes from "./modules/uploads/routes.js";
 import safetyRoutes from "./modules/safety/routes.js";
@@ -95,6 +96,9 @@ export async function buildApp() {
   });
 
   app.get("/health", async () => ({ ok: true, service: "moveos-api" }));
+
+  // Rastreo público (SIN autenticación): el negocio cliente sigue su envío.
+  await app.register(publicTrackingRoutes, { prefix: "/track" });
 
   // Núcleo
   await app.register(authRoutes, { prefix: "/auth" });

@@ -1,6 +1,16 @@
 import { prisma } from "../lib/prisma.js";
 
 /**
+ * URL pública de rastreo para un envío. Base configurable por entorno
+ * (PUBLIC_WEB_URL = dominio del dashboard); en desarrollo apunta a localhost.
+ */
+export function publicTrackingUrl(token: string | null): string | null {
+  if (!token) return null;
+  const base = process.env.PUBLIC_WEB_URL ?? "http://localhost:5173";
+  return `${base.replace(/\/$/, "")}/t/${token}`;
+}
+
+/**
  * Servicio de notificaciones B2B.
  *
  * MoveOS es software B2B: cuando un envío cambia de estado (despachado, en

@@ -33,6 +33,11 @@ export async function logOrderEvents(
   await prisma.orderEvent.createMany({ data: events });
 }
 
+/** Token opaco para la página pública de rastreo (no adivinable). */
+export function generateTrackingToken(): string {
+  return randomBytes(18).toString("base64url");
+}
+
 /** Número de guía legible: MV-XXXXXXXX (base32 sin caracteres ambiguos). */
 export function generateTrackingNumber(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
