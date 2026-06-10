@@ -79,7 +79,7 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 
 ## 4. Cross-cutting engineering
 
-**Backend** — Now: versioned `prisma migrate`; signed-URL POD upload pipeline (R2/S3); pagination on all lists; idempotency keys (CSV re-import safety); structured logs + request IDs; pg-boss job queue. Next: Postgres **RLS** defense-in-depth; **OSRM/VROOM** road-network distances behind the optimizer interface; telemetry partitioning + retention; event outbox for reliable webhooks; pico y placa rules as data per city; API versioning. Later: telemetry streaming pipeline; CQRS-lite read models; multi-region.
+**Backend** — Now: versioned `prisma migrate`; signed-URL POD upload pipeline (R2/S3); pagination on all lists; idempotency keys (CSV re-import safety); structured logs + request IDs; pg-boss job queue. Next: Postgres **RLS** defense-in-depth ✓ (live DB); **OSRM road-network distances ✓ (built: pluggable TravelModel + `/table` matrix with haversine fallback, `OSRM_URL` env)**; **dynamic express insertion ✓ (built)**; **sub-operator tenants + cross-tenant fleet (FaaS) ✓ (built)**; telemetry partitioning + retention; event outbox for reliable webhooks; pico y placa rules as data per city; API versioning. Later: telemetry streaming pipeline; CQRS-lite read models; multi-region.
 
 **Frontend** — Now: extract **shared UI package** (3 apps duplicate `ui.tsx`); TanStack Query; error boundaries/toasts; Playwright smoke per app; map marker clustering. Next: Move design-system tokens package; Storybook; **i18n** (es-CO → pt-BR, en); accessibility pass; printable manifests. Later: embeddable tracking widget.
 
