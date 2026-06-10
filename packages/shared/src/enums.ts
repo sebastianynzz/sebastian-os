@@ -54,6 +54,13 @@ export type TenantStatus = (typeof TENANT_STATUSES)[number];
 export const TENANT_PLANS = ["FREE", "PRO", "ENTERPRISE"] as const;
 export type TenantPlan = (typeof TENANT_PLANS)[number];
 
+export const TENANT_OPERATOR_TYPES = [
+  "SELF_SERVE",
+  "SUB_OPERATOR",
+  "PLATFORM_FLEET",
+] as const;
+export type TenantOperatorType = (typeof TENANT_OPERATOR_TYPES)[number];
+
 export const SAFETY_ALERT_TYPES = [
   "ROUTE_DEVIATION",
   "PANIC",

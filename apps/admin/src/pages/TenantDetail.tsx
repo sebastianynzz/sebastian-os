@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
@@ -44,6 +44,31 @@ export default function TenantDetail() {
   async function toggleModule(key: string, enabled: boolean) {
     await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
     await load();
+  }
+
+  const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
+
+  /** Asignar un vehículo de MOVE al tenant (fleet-as-a-service). */
+  async function assignVehicle(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setVehicleNotice(null);
+    const data = new FormData(e.currentTarget);
+    try {
+      const v = await api<{ plate: string }>("POST", `/tenants/${id}/vehicles`, {
+        plate: data.get("plate"),
+        type: data.get("type"),
+        capacityKg: Number(data.get("capacityKg")),
+        isElectric: data.get("isElectric") === "on",
+        batteryKwh: Number(data.get("batteryKwh")) || undefined,
+        nominalRangeKm: Number(data.get("nominalRangeKm")) || undefined,
+        ownerTenantId: data.get("ownerTenantId") || undefined,
+      });
+      setVehicleNotice(`Vehículo ${v.plate} asignado.`);
+      (e.target as HTMLFormElement).reset?.();
+      await load();
+    } catch (err) {
+      setVehicleNotice(err instanceof Error ? err.message : "Error");
+    }
   }
 
   if (!t) return <p className="text-cielo">Cargando…</p>;
@@ -128,6 +153,52 @@ export default function TenantDetail() {
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card title="Asignar vehículo de MOVE (fleet-as-a-service)">
+        <p className="mb-3 text-xs text-cielo">
+          El vehículo queda operado por esta empresa; la propiedad del activo
+          (ownerTenantId) se conserva para la vista de Flota en sitio.
+        </p>
+        {vehicleNotice && <p className="mb-2 text-sm text-lima">{vehicleNotice}</p>}
+        <form onSubmit={assignVehicle} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Placa</span>
+            <input name="plate" className={inputClass} required placeholder="ABC12D" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Tipo</span>
+            <select name="type" className={inputClass} defaultValue="MOTO">
+              <option value="MOTO">Moto</option>
+              <option value="BICICLETA">Bicicleta</option>
+              <option value="CARRO">Carro</option>
+              <option value="VAN">Van</option>
+              <option value="CAMION">Camión</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Capacidad (kg)</span>
+            <input name="capacityKg" type="number" className={inputClass} required />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Dueño (tenant id, opc.)</span>
+            <input name="ownerTenantId" className={inputClass} placeholder="id del tenant MOVE" />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-cielo">
+            <input type="checkbox" name="isElectric" /> Eléctrico
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Batería (kWh)</span>
+            <input name="batteryKwh" type="number" step="0.1" className={inputClass} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block text-cielo">Autonomía (km)</span>
+            <input name="nominalRangeKm" type="number" className={inputClass} />
+          </label>
+          <div className="flex items-end">
+            <Button type="submit">Asignar</Button>
+          </div>
+        </form>
       </Card>
     </div>
   );

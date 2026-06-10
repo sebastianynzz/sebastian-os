@@ -159,4 +159,74 @@ describe("panel de plataforma + seguridad de planos", () => {
     expect(res.body.moduleAdoption).toHaveLength(8);
     expect(Array.isArray(res.body.orders.byDay)).toBe(true);
   });
+
+  describe("fleet-as-a-service: aprovisionar sub-operador", () => {
+    let subTenantId: string;
+    const subAdminEmail = `sub-admin+${runId}@test.moveos.co`;
+
+    it("la plataforma crea un tenant SUB_OPERATOR con su admin", async () => {
+      const res = await api("POST", "/platform/tenants", platformToken, {
+        name: `Cliente FaaS ${runId}`,
+        city: "Bogotá",
+        plan: "PRO",
+        operatorType: "SUB_OPERATOR",
+        parentTenantId: tenantId, // MOVE como matriz
+        adminName: "Admin Cliente",
+        adminEmail: subAdminEmail,
+        adminPassword: "moveos123",
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.tenant.operatorType).toBe("SUB_OPERATOR");
+      expect(res.body.tenant.parentTenantId).toBe(tenantId);
+      subTenantId = res.body.tenant.id;
+    });
+
+    it("el admin del sub-operador puede iniciar sesión y opera AISLADO", async () => {
+      const login = await api("POST", "/auth/login", undefined, {
+        email: subAdminEmail,
+        password: "moveos123",
+      });
+      expect(login.status).toBe(200);
+      const subToken = login.body.token;
+      // Aislamiento: el sub-operador no ve pedidos del tenant matriz.
+      const orders = await api("GET", "/orders", subToken);
+      expect(orders.status).toBe(200);
+      expect(orders.body).toHaveLength(0);
+    });
+
+    it("la plataforma asigna un vehículo de MOVE (ownerTenantId) al sub-operador", async () => {
+      const res = await api(
+        "POST",
+        `/platform/tenants/${subTenantId}/vehicles`,
+        platformToken,
+        {
+          plate: "FAS99E",
+          type: "MOTO",
+          capacityKg: 20,
+          isElectric: true,
+          batteryKwh: 4,
+          nominalRangeKm: 80,
+          ownerTenantId: tenantId, // MOVE es el dueño
+        },
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.tenantId).toBe(subTenantId); // lo opera el sub-operador
+      expect(res.body.ownerTenantId).toBe(tenantId); // lo posee MOVE
+    });
+
+    it("la flota cruzada del dueño aparece en /platform/tenants/fleet/owned", async () => {
+      const res = await api("GET", "/platform/tenants/fleet/owned", platformToken);
+      expect(res.status).toBe(200);
+      const mine = res.body.find((v: { plate: string }) => v.plate === "FAS99E");
+      expect(mine).toBeDefined();
+      expect(mine.operatedBy.id).toBe(subTenantId);
+      expect(mine.ownerTenantId).toBe(tenantId);
+    });
+
+    afterAll(async () => {
+      if (subTenantId) {
+        await prisma.tenant.delete({ where: { id: subTenantId } }).catch(() => {});
+      }
+    });
+  });
 });
