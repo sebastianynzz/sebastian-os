@@ -39,6 +39,9 @@ async function main() {
         nit: "900.111.222-3",
         city: "Medellín",
         plan: "FREE",
+        // Cliente FaaS de demo: aprovisionado por MOVE con flota en sitio.
+        operatorType: "SUB_OPERATOR",
+        businessModel: "FAAS",
         entitlements: {
           create: MODULE_CATALOG.map((m) => ({
             moduleKey: m.key,
@@ -92,6 +95,7 @@ async function main() {
       nit: "901.234.567-8",
       city: "Bogotá",
       plan: "PRO",
+      businessModel: "LOGISTICS_3PL",
       entitlements: {
         create: MODULE_CATALOG.map((m) => ({
           moduleKey: m.key,
@@ -319,6 +323,45 @@ async function main() {
       data: [
         { orderId: created.id, type: "CREATED", details: `Guía ${trackingNumber}` },
         { orderId: created.id, type: "GEOCODED", details: "Fuente: CLIENT" },
+      ],
+    });
+  }
+
+  // Historial de 14 días: pedidos ya entregados (separados de los 12 activos
+  // para no afectar el demo de planificación) para que las tendencias de
+  // Analítica, el portal y el panel de plataforma rendericen con datos.
+  const historicalNames = [
+    "Hernán Quintero", "Lucía Ardila", "Tomás Pineda", "Isabela Franco",
+    "Samuel Ortiz", "Mariana Cubillos", "Nicolás Rey", "Gabriela Niño",
+    "Emilio Lara", "Antonia Vélez",
+  ];
+  for (const [i, name] of historicalNames.entries()) {
+    const daysAgo = 14 - i; // distribuidos en las últimas 2 semanas
+    const createdAt = new Date(Date.now() - daysAgo * 24 * 3600 * 1000);
+    const deliveredAt = new Date(createdAt.getTime() + 6 * 3600 * 1000);
+    const trackingNumber = generateTrackingNumber();
+    const historical = await prisma.order.create({
+      data: {
+        tenantId: tenant.id,
+        clientId: clientIds[i % clientIds.length],
+        trackingNumber,
+        trackingToken: generateTrackingToken(),
+        customerName: name,
+        customerPhone: `+57320100000${i}`,
+        addressRaw: `Cl ${40 + i} # ${10 + i}-2${i}, Bogotá`,
+        lat: 4.62 + i * 0.005,
+        lng: -74.08 + i * 0.003,
+        geocodeSource: "CLIENT",
+        status: "DELIVERED",
+        weightKg: 1 + (i % 4),
+        createdAt,
+        deliveredAt,
+      },
+    });
+    await prisma.orderEvent.createMany({
+      data: [
+        { orderId: historical.id, type: "CREATED", details: `Guía ${trackingNumber}`, createdAt },
+        { orderId: historical.id, type: "DELIVERED", details: "Entrega histórica demo", createdAt: deliveredAt },
       ],
     });
   }
