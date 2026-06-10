@@ -25,6 +25,9 @@ import { UPLOADS_DIR } from "./services/storage.js";
 import evRoutes from "./modules/ev/routes.js";
 import analyticsRoutes from "./modules/analytics/routes.js";
 import platformRoutes from "./modules/platform/routes.js";
+import portalRoutes from "./modules/portal/routes.js";
+import realtimeRoutes from "./modules/realtime/routes.js";
+import { closeAllStreams } from "./services/realtime.js";
 
 /**
  * Monolito modular: el núcleo (auth, pedidos, conductores, vehículos, rutas,
@@ -110,6 +113,13 @@ export async function buildApp() {
   await app.register(routesRoutes, { prefix: "/routes" });
   await app.register(trackingRoutes, { prefix: "/tracking" });
   await app.register(uploadsRoutes, { prefix: "/uploads" });
+
+  // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
+  await app.register(portalRoutes, { prefix: "/portal" });
+
+  // Streams SSE de tiempo real (sustituyen el sondeo de los frontends).
+  await app.register(realtimeRoutes, { prefix: "/realtime" });
+  app.addHook("onClose", async () => closeAllStreams());
 
   // Módulos activables
   await app.register(optimizationRoutes, { prefix: "/optimization" });

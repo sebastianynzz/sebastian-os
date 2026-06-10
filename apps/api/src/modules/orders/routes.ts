@@ -2,12 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { createOrderSchema, ORDER_STATUSES } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
-import { geocodeAddress } from "../../services/geocoding.js";
-import {
-  generateTrackingNumber,
-  generateTrackingToken,
-  logOrderEvents,
-} from "../../services/orderEvents.js";
+import { createOrder } from "../../services/orders.js";
 
 export default async function ordersRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -65,84 +60,4 @@ export default async function ordersRoutes(app: FastifyInstance) {
     }
     return reply.code(201).send({ created: orders.length, orders });
   });
-}
-
-async function createOrder(
-  tenantId: string,
-  input: ReturnType<typeof createOrderSchema.parse>,
-) {
-  let lat = input.lat;
-  let lng = input.lng;
-  let geocodeSource = lat !== undefined && lng !== undefined ? "CLIENT" : undefined;
-
-  let tenantCity: string | undefined;
-  if (lat === undefined || lng === undefined) {
-    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
-    tenantCity = tenant.city;
-    const geo = await geocodeAddress(tenantId, input.addressRaw, tenant.city);
-    lat = geo.lat;
-    lng = geo.lng;
-    geocodeSource = geo.source;
-  }
-
-  // Recogida en origen (opcional): geocodificar si se dio dirección sin coords.
-  let pickupLat = input.pickupLat;
-  let pickupLng = input.pickupLng;
-  if (
-    (pickupLat === undefined || pickupLng === undefined) &&
-    input.pickupAddressRaw
-  ) {
-    if (!tenantCity) {
-      tenantCity = (
-        await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
-      ).city;
-    }
-    const geo = await geocodeAddress(tenantId, input.pickupAddressRaw, tenantCity);
-    pickupLat = geo.lat;
-    pickupLng = geo.lng;
-  }
-
-  // Validar que el negocio cliente (si se indica) pertenezca al tenant.
-  if (input.clientId) {
-    const client = await prisma.client.findFirst({
-      where: { id: input.clientId, tenantId },
-      select: { id: true },
-    });
-    if (!client) {
-      throw Object.assign(new Error("Cliente no encontrado"), { statusCode: 400 });
-    }
-  }
-
-  const order = await prisma.order.create({
-    data: {
-      tenantId,
-      clientId: input.clientId,
-      trackingNumber: generateTrackingNumber(),
-      trackingToken: generateTrackingToken(),
-      externalRef: input.externalRef,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      addressRaw: input.addressRaw,
-      addressNotes: input.addressNotes,
-      lat,
-      lng,
-      geocodeSource,
-      pickupLat,
-      pickupLng,
-      pickupAddressRaw: input.pickupAddressRaw,
-      pickupNotes: input.pickupNotes,
-      status: "GEOCODED",
-      weightKg: input.weightKg ?? 1,
-      volumeM3: input.volumeM3,
-      timeWindowStart: input.timeWindowStart ? new Date(input.timeWindowStart) : undefined,
-      timeWindowEnd: input.timeWindowEnd ? new Date(input.timeWindowEnd) : undefined,
-      priority: input.priority,
-    },
-  });
-
-  await logOrderEvents([
-    { orderId: order.id, type: "CREATED", details: `Guía ${order.trackingNumber}` },
-    { orderId: order.id, type: "GEOCODED", details: `Fuente: ${geocodeSource}` },
-  ]);
-  return order;
 }

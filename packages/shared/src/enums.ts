@@ -45,7 +45,9 @@ export type StopStatus = (typeof STOP_STATUSES)[number];
 export const STOP_KINDS = ["PICKUP", "DELIVERY"] as const;
 export type StopKind = (typeof STOP_KINDS)[number];
 
-export const USER_ROLES = ["ADMIN", "DISPATCHER", "DRIVER"] as const;
+// CLIENT = usuario del portal de clientes: pertenece a un negocio cliente
+// (Client) del tenant y solo ve/crea pedidos de ese negocio.
+export const USER_ROLES = ["ADMIN", "DISPATCHER", "DRIVER", "CLIENT"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const TENANT_STATUSES = ["ACTIVE", "SUSPENDED"] as const;

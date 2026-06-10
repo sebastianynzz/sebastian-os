@@ -1,6 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { loginSchema, registerTenantSchema, MODULE_CATALOG } from "@moveos/shared";
+import {
+  loginSchema,
+  registerTenantSchema,
+  MODULE_CATALOG,
+  type UserRole,
+} from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 
 export default async function authRoutes(app: FastifyInstance) {
@@ -76,8 +81,9 @@ export default async function authRoutes(app: FastifyInstance) {
       typ: "tenant",
       sub: user.id,
       tenantId: user.tenantId,
-      role: user.role as "ADMIN" | "DISPATCHER" | "DRIVER",
+      role: user.role as UserRole,
       driverId: user.driverId ?? undefined,
+      clientId: user.clientId ?? undefined,
       name: user.name,
     });
     return {
@@ -93,7 +99,9 @@ export default async function authRoutes(app: FastifyInstance) {
 
   app.get(
     "/me",
-    { preHandler: [app.authenticate] },
+    // authenticateTenant: /me también responde a los usuarios del portal de
+    // clientes (rol CLIENT); el resto del plano operativo les está cerrado.
+    { preHandler: [app.authenticateTenant] },
     async (request) => {
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: request.user.sub },
@@ -116,6 +124,7 @@ function publicUser(user: {
   name: string;
   role: string;
   driverId?: string | null;
+  clientId?: string | null;
 }) {
   return {
     id: user.id,
@@ -123,5 +132,6 @@ function publicUser(user: {
     name: user.name,
     role: user.role,
     driverId: user.driverId ?? null,
+    clientId: user.clientId ?? null,
   };
 }

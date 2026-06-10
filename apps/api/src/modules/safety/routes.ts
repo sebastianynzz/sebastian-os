@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
+import { emitTenant } from "../../services/realtime.js";
 
 /**
  * Módulo de seguridad de carga (piratería terrestre): botón de pánico,
@@ -34,6 +35,12 @@ export default async function safetyRoutes(app: FastifyInstance) {
       },
     });
     // Producción: aquí se dispara llamada/SMS a central de monitoreo y PONAL.
+    // Tiempo real: la central de monitoreo lo ve sin esperar el sondeo.
+    emitTenant(request.user.tenantId, "safety", {
+      alertId: alert.id,
+      type: alert.type,
+      status: alert.status,
+    });
     return reply.code(201).send(alert);
   });
 
@@ -57,6 +64,15 @@ export default async function safetyRoutes(app: FastifyInstance) {
       where: { id, tenantId: request.user.tenantId },
     });
     if (!alert) return reply.code(404).send({ error: "Alerta no encontrada" });
-    return prisma.safetyAlert.update({ where: { id }, data: { status: body.status } });
+    const updated = await prisma.safetyAlert.update({
+      where: { id },
+      data: { status: body.status },
+    });
+    emitTenant(request.user.tenantId, "safety", {
+      alertId: updated.id,
+      type: updated.type,
+      status: updated.status,
+    });
+    return updated;
   });
 }

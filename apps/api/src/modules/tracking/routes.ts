@@ -3,6 +3,11 @@ import { trackingPingSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { isModuleEnabled } from "../../plugins/entitlements.js";
 import { checkRouteDeviation } from "../../services/safety.js";
+import {
+  emitOrder,
+  emitTenant,
+  hasOrderSubscribers,
+} from "../../services/realtime.js";
 
 /**
  * Tracking núcleo: telemetría por smartphone del conductor (cero hardware).
@@ -50,6 +55,29 @@ export default async function trackingRoutes(app: FastifyInstance) {
     // Detección de desviación de ruta (módulo SAFETY).
     if (input.routeId && (await isModuleEnabled(tenantId, "SAFETY"))) {
       await checkRouteDeviation(tenantId, request.user.driverId, input.routeId, input.lat, input.lng);
+    }
+
+    // Tiempo real: mapa del dispatcher y, si hay páginas de rastreo público
+    // abiertas, las entregas en curso de esta ruta.
+    emitTenant(tenantId, "telemetry", {
+      driverId: request.user.driverId,
+      routeId: input.routeId ?? null,
+      lat: input.lat,
+      lng: input.lng,
+      speedKmh: input.speedKmh ?? null,
+      recordedAt: ping.recordedAt.toISOString(),
+    });
+    if (input.routeId && hasOrderSubscribers()) {
+      const stops = await prisma.routeStop.findMany({
+        where: {
+          routeId: input.routeId,
+          route: { tenantId },
+          kind: "DELIVERY",
+          status: { in: ["PENDING", "ARRIVED"] },
+        },
+        select: { orderId: true },
+      });
+      for (const stop of stops) emitOrder(stop.orderId, { ping: true });
     }
 
     return reply.code(201).send(ping);

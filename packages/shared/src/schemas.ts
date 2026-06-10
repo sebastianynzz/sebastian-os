@@ -40,6 +40,12 @@ export const clientFields = z.object({
   phone: z.string().optional(),
   notifyChannel: z.enum(NOTIFY_CHANNELS).default("IN_APP"),
   webhookUrl: z.string().url().optional().or(z.literal("")),
+  // Dirección de recogida registrada: origen por defecto de los pedidos que
+  // el negocio crea desde su portal (recogida en su bodega/tienda).
+  pickupAddressRaw: z.string().min(3).optional().or(z.literal("")),
+  pickupNotes: z.string().optional(),
+  pickupLat: z.number().min(-90).max(90).optional(),
+  pickupLng: z.number().min(-180).max(180).optional(),
 });
 
 const requireWebhookUrl = (c: { notifyChannel?: string; webhookUrl?: string }) =>
@@ -72,6 +78,37 @@ export const createOrderSchema = z.object({
   pickupNotes: z.string().optional(),
   pickupLat: z.number().min(-90).max(90).optional(),
   pickupLng: z.number().min(-180).max(180).optional(),
+});
+
+/**
+ * Pedido creado por el negocio cliente desde SU portal. Versión restringida de
+ * createOrderSchema: el cliente queda fijado por el token, sin coordenadas
+ * manuales ni prioridad. La recogida sale de su dirección registrada
+ * (REGISTERED), de una dirección puntual (CUSTOM) o del depósito del operador
+ * (NONE).
+ */
+export const portalCreateOrderSchema = z
+  .object({
+    customerName: z.string().min(2),
+    customerPhone: z.string().min(7),
+    addressRaw: z.string().min(3),
+    addressNotes: z.string().optional(),
+    externalRef: z.string().optional(),
+    weightKg: z.number().positive().optional(),
+    pickupMode: z.enum(["REGISTERED", "CUSTOM", "NONE"]).default("REGISTERED"),
+    pickupAddressRaw: z.string().min(3).optional(),
+    pickupNotes: z.string().optional(),
+  })
+  .refine((o) => o.pickupMode !== "CUSTOM" || !!o.pickupAddressRaw, {
+    message: "La recogida puntual requiere pickupAddressRaw",
+    path: ["pickupAddressRaw"],
+  });
+
+/** Acceso de un negocio cliente al portal (lo crea el ADMIN del tenant). */
+export const createPortalAccessSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(2).optional(),
 });
 
 export const createDriverSchema = z.object({
@@ -164,6 +201,8 @@ export const failStopSchema = z.object({
   lng: z.number().optional(),
 });
 
+export type PortalCreateOrderInput = z.infer<typeof portalCreateOrderSchema>;
+export type CreatePortalAccessInput = z.infer<typeof createPortalAccessSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useRealtimeReload } from "../realtime";
 import {
   Banner,
   Button,
@@ -102,8 +103,9 @@ export default function Pedidos() {
       setLoading(false);
     }
   }
+  // Tiempo real: la lista refleja asignaciones/entregas sin recargar la página.
+  useRealtimeReload(["order"], () => void load(), { throttleMs: 2000 });
   useEffect(() => {
-    void load();
     void api<ClientOption[]>("GET", "/clients").then(setClients);
   }, []);
 

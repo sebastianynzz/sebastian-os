@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
+import { openSseStream, subscribeOrder } from "../../services/realtime.js";
 
 /**
  * Página pública de rastreo (SIN autenticación). El negocio cliente sigue su
@@ -23,6 +24,27 @@ const PUBLIC_EVENT_LABELS: Record<string, string> = {
 };
 
 export default async function publicTrackingRoutes(app: FastifyInstance) {
+  /**
+   * Stream SSE del rastreo público: empuja un "update" cuando el envío cambia
+   * de estado o el conductor reporta posición en una entrega en curso. La
+   * página /t/:token recarga al recibirlo en vez de sondear cada 20 s.
+   */
+  app.get(
+    "/:token/stream",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const { token } = z.object({ token: z.string().min(10) }).parse(request.params);
+      const order = await prisma.order.findUnique({
+        where: { trackingToken: token },
+        select: { id: true },
+      });
+      if (!order) return reply.code(404).send({ error: "Envío no encontrado" });
+
+      const { sub, onClose } = openSseStream(request, reply);
+      onClose(subscribeOrder(order.id, sub));
+    },
+  );
+
   app.get(
     "/:token",
     { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },

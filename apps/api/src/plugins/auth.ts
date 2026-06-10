@@ -11,30 +11,90 @@ export async function registerAuth(app: FastifyInstance) {
   });
 
   /**
-   * Autenticación de TENANT. Crítico para la seguridad multi-tenant: un token
-   * de plataforma NO debe llegar a una ruta de tenant, porque no trae
-   * `tenantId` y Prisma descarta silenciosamente un filtro `undefined` →
-   * fuga de datos entre tenants. Por eso se rechaza explícitamente cualquier
-   * token de plataforma o sin `tenantId`. Además bloquea tenants suspendidos.
+   * Verificación base de un token de TENANT. Crítico para la seguridad
+   * multi-tenant: un token de plataforma NO debe llegar a una ruta de tenant,
+   * porque no trae `tenantId` y Prisma descarta silenciosamente un filtro
+   * `undefined` → fuga de datos entre tenants. Por eso se rechaza
+   * explícitamente cualquier token de plataforma o sin `tenantId`. Además
+   * bloquea tenants suspendidos. Devuelve los claims, o null si ya respondió.
+   */
+  async function verifyTenantToken(
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<{ role?: string; clientId?: string } | null> {
+    try {
+      await request.jwtVerify();
+    } catch {
+      await reply.code(401).send({ error: "No autenticado" });
+      return null;
+    }
+    const claims = request.user as {
+      typ?: string;
+      tenantId?: string;
+      role?: string;
+      clientId?: string;
+    };
+    if (claims.typ === "platform" || !claims.tenantId) {
+      await reply.code(401).send({ error: "Token no válido para esta ruta" });
+      return null;
+    }
+    const status = await getTenantStatus(claims.tenantId);
+    if (status === "SUSPENDED") {
+      await reply.code(403).send({
+        error: "Cuenta suspendida. Contacte al administrador de la plataforma.",
+        code: "TENANT_SUSPENDED",
+      });
+      return null;
+    }
+    return claims;
+  }
+
+  /**
+   * Autenticación del PERSONAL del tenant (ADMIN/DISPATCHER/DRIVER). Los
+   * usuarios del portal de clientes (rol CLIENT) quedan excluidos por defecto
+   * de todo el plano operativo: cualquier módulo nuevo que use `authenticate`
+   * nace cerrado para ellos (fail-safe).
    */
   app.decorate(
     "authenticate",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      try {
-        await request.jwtVerify();
-      } catch {
-        return reply.code(401).send({ error: "No autenticado" });
-      }
-      const claims = request.user as { typ?: string; tenantId?: string };
-      if (claims.typ === "platform" || !claims.tenantId) {
-        return reply.code(401).send({ error: "Token no válido para esta ruta" });
-      }
-      const status = await getTenantStatus(claims.tenantId);
-      if (status === "SUSPENDED") {
+      const claims = await verifyTenantToken(request, reply);
+      if (!claims) return;
+      if (claims.role === "CLIENT") {
         return reply.code(403).send({
-          error: "Cuenta suspendida. Contacte al administrador de la plataforma.",
-          code: "TENANT_SUSPENDED",
+          error: "Función disponible solo para el equipo del operador",
+          code: "CLIENT_PORTAL_ONLY",
         });
+      }
+    },
+  );
+
+  /**
+   * Cualquier usuario del tenant, incluido el portal de clientes. Solo para
+   * endpoints de identidad (p. ej. /auth/me); las rutas de datos usan
+   * `authenticate` (personal) o `authenticateClient` (portal).
+   */
+  app.decorate(
+    "authenticateTenant",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      await verifyTenantToken(request, reply);
+    },
+  );
+
+  /**
+   * Autenticación del PORTAL DE CLIENTES: exige rol CLIENT con negocio
+   * asociado. Todas las consultas del portal filtran por `clientId` además
+   * del `tenantId`.
+   */
+  app.decorate(
+    "authenticateClient",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const claims = await verifyTenantToken(request, reply);
+      if (!claims) return;
+      if (claims.role !== "CLIENT" || !claims.clientId) {
+        return reply
+          .code(403)
+          .send({ error: "Requiere una cuenta del portal de clientes" });
       }
     },
   );

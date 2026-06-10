@@ -222,6 +222,23 @@ async function main() {
       contactName: "Carolina Ríos",
       email: "logistica@modaexpress.co",
       notifyChannel: "EMAIL",
+      // Dirección de recogida registrada: origen por defecto de los pedidos
+      // que el negocio crea desde su portal.
+      pickupAddressRaw: "Cra 9 # 60-15, Chapinero",
+      pickupLat: 4.6463,
+      pickupLng: -74.0628,
+      pickupNotes: "Local 2, preguntar por bodega",
+    },
+  });
+  // Usuario del portal de clientes (rol CLIENT) de Tienda Moda Express.
+  await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      email: "cliente@demo.moveos.co",
+      passwordHash,
+      name: "Carolina Ríos (Moda Express)",
+      role: "CLIENT",
+      clientId: tiendaModa.id,
     },
   });
   const distribuidora = await prisma.client.create({
@@ -312,6 +329,7 @@ async function main() {
   console.log("  despacho@demo.moveos.co / moveos123 (DISPATCHER)");
   console.log("  carlos@demo.moveos.co / moveos123 (DRIVER)");
   console.log("  maria@demo.moveos.co / moveos123 (DRIVER)");
+  console.log("  cliente@demo.moveos.co / moveos123 (CLIENT, portal Tienda Moda Express)");
   console.log("  --- Panel de plataforma ---");
   console.log("  ops@moveos.co / moveos123 (OPERADOR)");
 }

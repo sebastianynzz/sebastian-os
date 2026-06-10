@@ -7,6 +7,8 @@ interface TenantClaims {
   tenantId: string;
   role: UserRole;
   driverId?: string;
+  /** Portal de clientes: negocio cliente al que pertenece el usuario CLIENT. */
+  clientId?: string;
   name: string;
 }
 
@@ -33,6 +35,14 @@ declare module "@fastify/jwt" {
 declare module "fastify" {
   interface FastifyInstance {
     authenticate: (
+      request: import("fastify").FastifyRequest,
+      reply: import("fastify").FastifyReply,
+    ) => Promise<void>;
+    authenticateTenant: (
+      request: import("fastify").FastifyRequest,
+      reply: import("fastify").FastifyReply,
+    ) => Promise<void>;
+    authenticateClient: (
       request: import("fastify").FastifyRequest,
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;

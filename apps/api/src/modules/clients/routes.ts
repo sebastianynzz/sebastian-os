@@ -1,6 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { createClientSchema, updateClientSchema } from "@moveos/shared";
+import bcrypt from "bcryptjs";
+import {
+  createClientSchema,
+  createPortalAccessSchema,
+  updateClientSchema,
+} from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 
@@ -16,7 +21,7 @@ export default async function clientsRoutes(app: FastifyInstance) {
     return prisma.client.findMany({
       where: { tenantId: request.user.tenantId },
       orderBy: { name: "asc" },
-      include: { _count: { select: { orders: true } } },
+      include: { _count: { select: { orders: true, portalUsers: true } } },
     });
   });
 
@@ -24,7 +29,12 @@ export default async function clientsRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string() }).parse(request.params);
     const client = await prisma.client.findFirst({
       where: { id, tenantId: request.user.tenantId },
-      include: { _count: { select: { orders: true } } },
+      include: {
+        _count: { select: { orders: true } },
+        portalUsers: {
+          select: { id: true, email: true, name: true, createdAt: true },
+        },
+      },
     });
     if (!client) return reply.code(404).send({ error: "Cliente no encontrado" });
     return client;
@@ -58,6 +68,10 @@ export default async function clientsRoutes(app: FastifyInstance) {
           phone: input.phone || null,
           notifyChannel: input.notifyChannel,
           webhookUrl: input.webhookUrl || null,
+          pickupAddressRaw: input.pickupAddressRaw || null,
+          pickupLat: input.pickupLat,
+          pickupLng: input.pickupLng,
+          pickupNotes: input.pickupNotes,
         },
       });
       return reply.code(201).send(client);
@@ -83,7 +97,54 @@ export default async function clientsRoutes(app: FastifyInstance) {
           phone: input.phone,
           notifyChannel: input.notifyChannel,
           webhookUrl: input.webhookUrl === "" ? null : input.webhookUrl,
+          pickupAddressRaw:
+            input.pickupAddressRaw === "" ? null : input.pickupAddressRaw,
+          pickupLat: input.pickupLat,
+          pickupLng: input.pickupLng,
+          pickupNotes: input.pickupNotes,
         },
+      });
+    },
+  );
+
+  /**
+   * Acceso del negocio al portal de clientes: crea un usuario con rol CLIENT
+   * atado a este negocio. Solo el ADMIN del tenant entrega credenciales.
+   */
+  app.post(
+    "/:id/portal-access",
+    { preHandler: [requireRole("ADMIN")] },
+    async (request, reply) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const input = createPortalAccessSchema.parse(request.body);
+      const client = await prisma.client.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+      });
+      if (!client) return reply.code(404).send({ error: "Cliente no encontrado" });
+
+      const existing = await prisma.user.findUnique({
+        where: { email: input.email },
+      });
+      if (existing) {
+        return reply.code(409).send({ error: "El correo ya está registrado" });
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          tenantId: request.user.tenantId,
+          email: input.email,
+          passwordHash: await bcrypt.hash(input.password, 10),
+          name: input.name ?? client.contactName ?? client.name,
+          role: "CLIENT",
+          clientId: client.id,
+        },
+      });
+      return reply.code(201).send({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        clientId: client.id,
       });
     },
   );
