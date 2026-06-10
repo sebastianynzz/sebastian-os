@@ -1,4 +1,5 @@
 import type { LatLng, VehicleType } from "@moveos/shared";
+import type { TravelModel } from "./travel.js";
 
 export interface OptimizableOrder {
   id: string;
@@ -47,6 +48,11 @@ export interface PlanRequest {
     avgPayloadKg?: number;
     elevationGainM?: number;
   };
+  /**
+   * Modelo de viaje (distancias/tiempos). Por defecto haversine×1.4 con
+   * velocidades urbanas; la API inyecta una matriz OSRM cuando está disponible.
+   */
+  travel?: TravelModel;
 }
 
 export interface PlannedStop {

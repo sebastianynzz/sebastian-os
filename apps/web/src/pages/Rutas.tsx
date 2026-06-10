@@ -46,21 +46,32 @@ interface RouteData {
   }[];
 }
 
+interface PendingOrder {
+  id: string;
+  customerName: string;
+  addressRaw: string;
+}
+
 export default function Rutas() {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<Record<string, string>>({});
+  const [inserting, setInserting] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
     try {
-      const [r, d] = await Promise.all([
+      const [r, d, p] = await Promise.all([
         api<RouteData[]>("GET", "/routes"),
         api<Driver[]>("GET", "/drivers"),
+        api<PendingOrder[]>("GET", "/orders?status=GEOCODED"),
       ]);
       setRoutes(r);
       setDrivers(d);
+      setPendingOrders(p);
     } finally {
       setLoading(false);
     }
@@ -81,12 +92,37 @@ export default function Rutas() {
     }
   }
 
+  /** Inserción express: añade un pedido pendiente a una ruta activa. */
+  async function insertOrder(routeId: string) {
+    const orderId = inserting[routeId];
+    if (!orderId) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await api<{ insertedAt: number }>(
+        "POST",
+        `/optimization/routes/${routeId}/insert`,
+        { orderId },
+      );
+      setNotice(`Pedido insertado en la posición ${res.insertedAt + 1} de la ruta.`);
+      setInserting((s) => ({ ...s, [routeId]: "" }));
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader title="Rutas" />
       {error && (
         <Banner kind="error" onDismiss={() => setError(null)}>
           {error}
+        </Banner>
+      )}
+      {notice && (
+        <Banner kind="success" onDismiss={() => setNotice(null)}>
+          {notice}
         </Banner>
       )}
       {loading && (
@@ -209,6 +245,38 @@ export default function Rutas() {
             </tbody>
           </table>
           </div>
+
+          {/* Inserción express: pedidos pendientes a una ruta activa. */}
+          {["PLANNED", "DISPATCHED", "IN_PROGRESS"].includes(r.status) &&
+            pendingOrders.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-niebla pt-3">
+                <span className="text-xs font-semibold uppercase text-navy/50">
+                  Inserción express
+                </span>
+                <select
+                  aria-label="Pedido a insertar en la ruta"
+                  className="min-w-0 flex-1 rounded-lg border border-cielo bg-white px-2 py-1 text-sm text-navy focus:border-navy focus:outline-none sm:max-w-xs"
+                  value={inserting[r.id] ?? ""}
+                  onChange={(e) =>
+                    setInserting((s) => ({ ...s, [r.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Seleccionar pedido pendiente…</option>
+                  {pendingOrders.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.customerName} — {o.addressRaw}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="secondary"
+                  onClick={() => insertOrder(r.id)}
+                  disabled={!inserting[r.id]}
+                >
+                  Insertar en ruta
+                </Button>
+              </div>
+            )}
         </Card>
       ))}
     </div>
