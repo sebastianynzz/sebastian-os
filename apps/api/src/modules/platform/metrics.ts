@@ -1,9 +1,43 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { MODULE_CATALOG } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
+import {
+  getPlatformTimeseries,
+  getTenantTimeseries,
+  parseRange,
+} from "../../services/dailyMetrics.js";
 
 /** Métricas agregadas de toda la plataforma (operador). */
 export default async function platformMetricsRoutes(app: FastifyInstance) {
+  /**
+   * Serie diaria: con `tenantId` la salud operativa de UN tenant (vista de
+   * Customer Success); sin él, el agregado de toda la plataforma.
+   */
+  app.get("/timeseries", async (request, reply) => {
+    const query = z
+      .object({
+        tenantId: z.string().optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+
+    if (query.tenantId) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: query.tenantId },
+        select: { id: true },
+      });
+      if (!tenant) return reply.code(404).send({ error: "Tenant no encontrado" });
+      const days = await getTenantTimeseries(query.tenantId, range.from, range.to);
+      return { tenantId: query.tenantId, from: range.from, to: range.to, days };
+    }
+    const days = await getPlatformTimeseries(range.from, range.to);
+    return { from: range.from, to: range.to, days };
+  });
+
   app.get("/", async () => {
     const [tenants, ordersTotal, delivered, attempted, byPlan, adoption, byDay] =
       await Promise.all([
