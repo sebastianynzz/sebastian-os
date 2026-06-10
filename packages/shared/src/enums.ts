@@ -42,6 +42,9 @@ export const STOP_STATUSES = [
 ] as const;
 export type StopStatus = (typeof STOP_STATUSES)[number];
 
+export const STOP_KINDS = ["PICKUP", "DELIVERY"] as const;
+export type StopKind = (typeof STOP_KINDS)[number];
+
 export const USER_ROLES = ["ADMIN", "DISPATCHER", "DRIVER"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 

@@ -27,7 +27,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
       take: query.take,
       include: {
-        stop: { select: { routeId: true, sequence: true, etaMin: true, status: true } },
+        stops: { select: { routeId: true, kind: true, sequence: true, etaMin: true, status: true } },
         client: { select: { id: true, name: true, notifyChannel: true } },
       },
     });
@@ -38,7 +38,10 @@ export default async function ordersRoutes(app: FastifyInstance) {
     const order = await prisma.order.findFirst({
       where: { id, tenantId: request.user.tenantId },
       include: {
-        stop: { include: { pod: true, route: { select: { id: true, date: true, driverId: true } } } },
+        stops: {
+          orderBy: { sequence: "asc" },
+          include: { pod: true, route: { select: { id: true, date: true, driverId: true } } },
+        },
         events: { orderBy: { createdAt: "asc" } },
       },
     });
@@ -71,12 +74,31 @@ async function createOrder(
   let lng = input.lng;
   let geocodeSource = lat !== undefined && lng !== undefined ? "CLIENT" : undefined;
 
+  let tenantCity: string | undefined;
   if (lat === undefined || lng === undefined) {
     const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } });
+    tenantCity = tenant.city;
     const geo = await geocodeAddress(tenantId, input.addressRaw, tenant.city);
     lat = geo.lat;
     lng = geo.lng;
     geocodeSource = geo.source;
+  }
+
+  // Recogida en origen (opcional): geocodificar si se dio dirección sin coords.
+  let pickupLat = input.pickupLat;
+  let pickupLng = input.pickupLng;
+  if (
+    (pickupLat === undefined || pickupLng === undefined) &&
+    input.pickupAddressRaw
+  ) {
+    if (!tenantCity) {
+      tenantCity = (
+        await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } })
+      ).city;
+    }
+    const geo = await geocodeAddress(tenantId, input.pickupAddressRaw, tenantCity);
+    pickupLat = geo.lat;
+    pickupLng = geo.lng;
   }
 
   // Validar que el negocio cliente (si se indica) pertenezca al tenant.
@@ -103,6 +125,10 @@ async function createOrder(
       lat,
       lng,
       geocodeSource,
+      pickupLat,
+      pickupLng,
+      pickupAddressRaw: input.pickupAddressRaw,
+      pickupNotes: input.pickupNotes,
       status: "GEOCODED",
       weightKg: input.weightKg ?? 1,
       volumeM3: input.volumeM3,

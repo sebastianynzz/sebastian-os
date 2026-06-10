@@ -34,7 +34,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
             id: { in: input.orderIds },
             tenantId,
             status: { in: ["PENDING", "GEOCODED"] },
-            stop: null,
+            stops: { none: {} }, // aún no asignado a ninguna ruta
           },
         }),
         prisma.vehicle.findMany({
@@ -58,6 +58,10 @@ export default async function optimizationRoutes(app: FastifyInstance) {
         .map((o) => ({
           id: o.id,
           location: { lat: o.lat!, lng: o.lng! },
+          pickupLocation:
+            o.pickupLat !== null && o.pickupLng !== null
+              ? { lat: o.pickupLat, lng: o.pickupLng }
+              : undefined,
           weightKg: o.weightKg,
           volumeM3: o.volumeM3 ?? undefined,
           priority: o.priority,
@@ -109,6 +113,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
             stops: {
               create: route.stops.map((s) => ({
                 orderId: s.orderId,
+                kind: s.kind,
                 sequence: s.sequence,
                 etaMin: s.etaMin,
               })),
@@ -116,16 +121,18 @@ export default async function optimizationRoutes(app: FastifyInstance) {
           },
           include: { stops: { orderBy: { sequence: "asc" } } },
         });
+        // IDs únicos de pedidos (un pedido con recogida aparece en 2 paradas).
+        const orderIds = [...new Set(route.stops.map((s) => s.orderId))];
         await prisma.order.updateMany({
-          where: { id: { in: route.stops.map((s) => s.orderId) } },
+          where: { id: { in: orderIds } },
           data: { status: "ASSIGNED" },
         });
         const plate = dbVehicles.find((v) => v.id === route.vehicleId)?.plate;
         await logOrderEvents(
-          route.stops.map((s) => ({
-            orderId: s.orderId,
+          orderIds.map((orderId) => ({
+            orderId,
             type: "ASSIGNED" as const,
-            details: `Ruta ${plate ?? route.vehicleId}, parada ${s.sequence}`,
+            details: `Ruta ${plate ?? route.vehicleId}`,
           })),
         );
         created.push(dbRoute);

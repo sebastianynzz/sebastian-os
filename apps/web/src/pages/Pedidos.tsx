@@ -159,6 +159,8 @@ export default function Pedidos() {
         addressRaw: data.get("addressRaw"),
         addressNotes: data.get("addressNotes") || undefined,
         weightKg: Number(data.get("weightKg") || 1),
+        pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
+        pickupNotes: data.get("pickupNotes") || undefined,
       });
       setShowForm(false);
       await load();
@@ -246,6 +248,21 @@ export default function Pedidos() {
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
+            <div />
+            <div className="sm:col-span-2">
+              <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
+                <input
+                  name="pickupAddressRaw"
+                  className={inputClass}
+                  placeholder="Bodega/tienda del cliente donde se recoge el paquete"
+                />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="Referencias de recogida">
+                <input name="pickupNotes" className={inputClass} placeholder="Muelle 3, preguntar por despacho…" />
+              </Field>
+            </div>
             <div className="sm:col-span-2">
               <Button type="submit">Crear pedido</Button>
             </div>

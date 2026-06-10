@@ -167,6 +167,71 @@ describe("planRoutes (VRP)", () => {
     expect(result.unassigned[0]!.reason).toMatch(/Capacidad/);
   });
 
+  it("pickup→delivery: genera 2 paradas y la recogida precede a la entrega", () => {
+    const orders = [
+      // Pedido con recogida en un punto y entrega en otro.
+      order("p1", 4.66, -74.05, { pickupLocation: { lat: 4.65, lng: -74.06 } }),
+      // Pedido solo-entrega (desde depósito): 1 sola parada.
+      order("d1", 4.63, -74.07),
+    ];
+    const result = planRoutes({
+      date: ODD_DAY,
+      city: "Bogotá",
+      depot: DEPOT,
+      orders,
+      vehicles: [moto("m1")],
+    });
+
+    expect(result.unassigned).toHaveLength(0);
+    const route = result.routes[0]!;
+    // 3 paradas: pickup(p1) + delivery(p1) + delivery(d1).
+    expect(route.stops).toHaveLength(3);
+
+    const p1Stops = route.stops.filter((s) => s.orderId === "p1");
+    expect(p1Stops.map((s) => s.kind)).toEqual(["PICKUP", "DELIVERY"]);
+    // La recogida precede a la entrega en la secuencia.
+    expect(p1Stops[0]!.sequence).toBeLessThan(p1Stops[1]!.sequence);
+
+    // El pedido solo-entrega tiene una única parada DELIVERY.
+    const d1Stops = route.stops.filter((s) => s.orderId === "d1");
+    expect(d1Stops).toHaveLength(1);
+    expect(d1Stops[0]!.kind).toBe("DELIVERY");
+
+    // ETAs crecientes y secuencia contigua.
+    const etas = route.stops.map((s) => s.etaMin);
+    expect([...etas].sort((a, b) => a - b)).toEqual(etas);
+    expect(route.stops.map((s) => s.sequence)).toEqual([1, 2, 3]);
+  });
+
+  it("mantiene el par pickup→delivery adyacente tras 2-opt", () => {
+    // Varios pedidos con recogida: el par no debe separarse.
+    const orders = [
+      order("a", 4.60, -74.08, { pickupLocation: { lat: 4.61, lng: -74.075 } }),
+      order("b", 4.70, -74.04, { pickupLocation: { lat: 4.69, lng: -74.045 } }),
+      order("c", 4.62, -74.07, { pickupLocation: { lat: 4.63, lng: -74.065 } }),
+    ];
+    const result = planRoutes({
+      date: ODD_DAY,
+      city: "Bogotá",
+      depot: DEPOT,
+      orders,
+      vehicles: [moto("m1", "XYZ99E")],
+    });
+
+    const route = result.routes[0]!;
+    expect(route.stops).toHaveLength(6); // 3 pares
+    // Para cada pedido, su PICKUP aparece inmediatamente antes que su DELIVERY.
+    for (const id of ["a", "b", "c"]) {
+      const idx = route.stops
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => s.orderId === id);
+      expect(idx).toHaveLength(2);
+      expect(idx[0]!.s.kind).toBe("PICKUP");
+      expect(idx[1]!.s.kind).toBe("DELIVERY");
+      expect(idx[1]!.i).toBe(idx[0]!.i + 1); // adyacentes
+    }
+  });
+
   it("excluye vehículos por pico y placa y lo reporta", () => {
     const result = planRoutes({
       date: EVEN_DAY, // día par: placa terminada en 8 restringida

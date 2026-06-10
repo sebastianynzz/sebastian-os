@@ -13,6 +13,7 @@ export type OrderEventType =
   | "DISPATCHED"
   | "IN_TRANSIT"
   | "ARRIVED"
+  | "PICKED_UP"
   | "DELIVERED"
   | "FAILED"
   | "NOTIFIED";

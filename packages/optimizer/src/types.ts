@@ -2,7 +2,14 @@ import type { LatLng, VehicleType } from "@moveos/shared";
 
 export interface OptimizableOrder {
   id: string;
+  /** Destino de la entrega. */
   location: LatLng;
+  /**
+   * Origen de recogida (opcional). Si está presente, la ruta visita pickup
+   * antes que delivery (precedencia garantizada por construcción: el par se
+   * mantiene adyacente). Sin pickup = entrega desde el depósito.
+   */
+  pickupLocation?: LatLng;
   weightKg: number;
   volumeM3?: number;
   /** Ventana horaria en minutos desde medianoche (hora local). */
@@ -44,6 +51,7 @@ export interface PlanRequest {
 
 export interface PlannedStop {
   orderId: string;
+  kind: "PICKUP" | "DELIVERY";
   sequence: number;
   /** ETA en minutos desde medianoche. */
   etaMin: number;
