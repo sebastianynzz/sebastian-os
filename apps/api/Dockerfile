@@ -27,5 +27,6 @@ FROM base AS runner
 ENV NODE_ENV=production
 COPY --from=build /app /app
 EXPOSE 3000
-# Ejecuta migraciones/esquema y arranca la API.
-CMD ["sh", "-c", "pnpm --filter @moveos/api db:push && pnpm --filter @moveos/api start"]
+# Aplica migraciones versionadas (no destructivo) y arranca la API.
+# Antes usaba `db push` (peligroso en prod: podía recrear/soltar constraints).
+CMD ["sh", "-c", "pnpm --filter @moveos/api db:migrate:deploy && pnpm --filter @moveos/api start"]
