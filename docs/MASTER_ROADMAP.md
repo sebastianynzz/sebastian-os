@@ -35,7 +35,9 @@ flowchart LR
 | **Tenant SaaS** | Orders (tracking guía `MV-`, **bitácora** audit trail, CSV import + template), 4-step planning (pico y placa + EV range + capacity + time windows + map), dispatch, route monitoring, drivers, vehicles (SOAT/tecno expiry alerts), EV fleet (SoC/range), safety center, analytics (SPR/SPH/CO₂), **module entitlement toggles**, REST API |
 | **Telematics/IoT** | **GPS + CAN telemetry ingestion, live ops map, engine on/off immobilization with speed=0 interlock + audit, device simulator** (this round) |
 | **Security** | JWT (12 h), per-tenant query scoping, role guards, Zod validation, bcrypt, **rate limiting, CORS allowlist, helmet, fail-hard prod JWT secret** (this round) |
-| **Platform admin** | — (Round 2) |
+| **Platform admin** | Tenant list/detail, suspend/reactivate, module overrides, FaaS provisioning + vehicle assignment, **tenant editing (name/NIT/city/operator type/business model), tenant staff user management, `PlatformAuditLog` + Auditoría page, per-tenant & platform time-series** |
+| **Analytics** | KPI summary + green report (on-the-fly), **`DailyTenantMetric` rollups with lazy idempotent recompute + trend charts** (`docs/planning/ANALYTICS_ARCHITECTURE.md`) |
+| **Client portal** | Own orders + new shipment + green report, **operational dashboard `/portal/resumen` (KPIs, success rate, 30-day trend)** |
 | **End customer** | WhatsApp notification adapter (console in dev) |
 
 Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
@@ -59,8 +61,8 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 ### (c) Platform admin panel — stakeholder: platform operator (you)
 | Phase | Items |
 |---|---|
-| **Now ✓ (built)** | Separate JWT plane with cross-plane leak guard, tenant list/detail, suspend/reactivate (immediate, TTL-cached), plan label, module entitlement overrides, platform metrics (orders/day, module adoption), second demo tenant. `apps/admin` on :5175 |
-| **Next** | **Impersonation** ("enter as tenant") with mandatory audit trail; `PlatformAuditLog`; plan quotas (orders/seats) with soft enforcement + upgrade prompts (**usage reports only — invoicing stays outside the product**); tenant health/activation scores; feature flags decoupled from commercial modules; registration approval flow; entitlement `lockedByPlatform` |
+| **Now ✓ (built)** | Separate JWT plane with cross-plane leak guard, tenant list/detail, suspend/reactivate (immediate, TTL-cached), plan label, module entitlement overrides, platform metrics (orders/day, module adoption), second demo tenant. `apps/admin` on :5175. **This round: tenant editing (name/NIT/city/operator type), `Tenant.businessModel` (SAAS/FAAS/LOGISTICS_3PL) with module presets, tenant staff user management (create/role/password reset/delete, last-admin guard), `PlatformAuditLog` on every platform mutation + Auditoría page, per-tenant & platform-wide time-series** |
+| **Next** | **Impersonation** ("enter as tenant") with mandatory audit trail; plan quotas (orders/seats) with soft enforcement + upgrade prompts (**usage reports only — invoicing stays outside the product**); tenant health/activation scores; feature flags decoupled from commercial modules; registration approval flow; entitlement `lockedByPlatform` |
 | **Later** | Reseller/partner management (telematics channel); per-tenant data residency; usage anomaly detection; compliance evidence automation |
 
 ### (d) End-customer experience — stakeholder: end customer
@@ -76,6 +78,13 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 | **Now** | Ingestion + live map + engine on/off + simulator (✓) |
 | **Next** | **Aggregator adapter (Flespi/Wialon)** for real Teltonika/Queclink devices; phone-gateway BLE OBD in the driver app; geofenced safe corridors; trusted-stop enforcement; telemetry retention/partitioning |
 | **Later** | Predictive maintenance from CAN fault codes; driver-behavior scoring; OEM EV SoC APIs; insurance telematics integrations |
+
+### (f) Client portal — stakeholder: B2B business client (gerencia/bodega)
+| Phase | Items |
+|---|---|
+| **Now ✓ (built)** | CLIENT role with `tenantId+clientId` scoping; order creation (pickup REGISTERED/CUSTOM/NONE); own-order tracking + bitácora; green report; **operational dashboard `/portal/resumen` (KPIs, success rate, in-transit, 30-day trend) as portal landing** |
+| **Next** | Edit/cancel own orders; address book (reusing AddressPin); CSV import in portal; per-client SLA visibility; webhook self-service |
+| **Later** | White-label portals; delivery-slot booking for end customers |
 
 ## 4. Cross-cutting engineering
 
@@ -109,9 +118,14 @@ Test coverage: 15 optimizer unit tests + 16 API e2e tests (incl. telematics).
 
 ## 7. Stakeholder matrix
 
+Department-level breakdown (tenant ops/fleet/customer-service/finance/
+commercial; MOVE platform-ops/CS/commercial/finance) lives in
+`docs/planning/README.md`.
+
 | Stakeholder | Core needs | Key features | Phase emphasis |
 |---|---|---|---|
-| Platform operator (you) | Manage tenants, plans, health, support | Admin panel, metrics, impersonation, audit log | Round 2 / Next |
+| Platform operator (you) | Manage tenants, plans, health, support | Admin panel ✓, metrics ✓, tenant editing + staff mgmt ✓, audit log ✓, business models ✓, impersonation | Now ✓ → Next |
+| B2B client (portal) | Understand its own operation | Portal dashboard ✓, own orders ✓, green report ✓, edit/cancel | Now ✓ → Next |
 | Tenant admin | Configure ops, users, modules, compliance, branding | Module toggles ✓, user mgmt, RNDC, branding | Now → Next |
 | Dispatcher | Plan, monitor, resolve exceptions | Planning ✓, live map ✓, exception board, manual edit | Now |
 | Driver (employed) | Clear route, evidence, safety, shifts | Driver app ✓, checklists, document wallet | Now → Next |

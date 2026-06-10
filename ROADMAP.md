@@ -23,6 +23,19 @@ Staged plan from the research brief. Checked items exist in this repo.
       emissions + savings vs ICE baseline; client-facing version in the portal
 - [x] Realtime SSE streams (live map, safety alerts, orders, public tracking,
       platform FaaS fleet) replacing frontend polling
+- [x] Analytics foundation: daily rollups (`DailyTenantMetric`, lazy
+      idempotent recompute, Bogotá day boundary) + time-series charts in
+      tenant Analítica and platform Métricas (see
+      `docs/planning/ANALYTICS_ARCHITECTURE.md`)
+- [x] Platform admin editability: tenant details (name/NIT/city/operator
+      type/business model), tenant staff user management (create, role,
+      password reset, delete with last-admin guard), all actions recorded in
+      `PlatformAuditLog` with an Auditoría page
+- [x] Business models beyond FaaS: `Tenant.businessModel`
+      (SAAS | FAAS | LOGISTICS_3PL) with module presets at provisioning —
+      labels + packaging only, no payment processing
+- [x] Client portal dashboard (`/portal/resumen`): KPIs, success rate and
+      30-day trend so each business understands its own operation
 - [ ] WhatsApp Business API credentials in production (adapter ready)
 - [ ] Per-order pricing + free tier billing (suggested: first 100 orders free)
 - [x] Payments removed by product decision: MoveOS is delivery software only
