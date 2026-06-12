@@ -25,6 +25,37 @@ import { addDays, todayBogota } from "../../services/dailyMetrics.js";
 const MODEL = process.env.COPILOT_MODEL ?? "claude-opus-4-8";
 const MAX_LOOP = 8;
 
+/**
+ * Thinking adaptativo solo en los modelos que lo soportan (Opus/Sonnet 4.6+,
+ * Fable). En producción el roadmap fija COPILOT_MODEL=claude-haiku-4-5 por
+ * costo (P0.1) y Haiku no acepta el parámetro — se omite y el modelo
+ * responde directo, suficiente para narrar herramientas existentes.
+ */
+const SUPPORTS_ADAPTIVE_THINKING =
+  /claude-(opus-4-[6-9]|sonnet-4-[6-9]|fable|mythos)/.test(MODEL);
+const THINKING_PARAMS = SUPPORTS_ADAPTIVE_THINKING
+  ? ({ thinking: { type: "adaptive" } } as const)
+  : {};
+
+/**
+ * Prompt caching (P0.1): bloque de system con breakpoint — junto al de la
+ * última herramienta, cachea tools+system por tenant (el system cambia por
+ * día, por la fecha de Bogotá; el esquema de tools sobrevive igual porque
+ * se renderiza antes).
+ */
+function systemBlocks(tenant: {
+  name: string;
+  city: string;
+}): Anthropic.TextBlockParam[] {
+  return [
+    {
+      type: "text",
+      text: systemPrompt(tenant),
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+}
+
 let anthropic: Anthropic | null = null;
 function getClient(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) return null;
@@ -153,6 +184,9 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["orderId"],
       additionalProperties: false,
     },
+    // Prompt caching (P0.1): el breakpoint en la ÚLTIMA herramienta cachea
+    // todo el esquema de tools — estable entre tenants, días y peticiones.
+    cache_control: { type: "ephemeral" },
   },
 ];
 
@@ -489,8 +523,8 @@ export default async function copilotRoutes(app: FastifyInstance) {
         let response = await client.messages.create({
           model: MODEL,
           max_tokens: 4096,
-          thinking: { type: "adaptive" },
-          system: systemPrompt(tenant),
+          ...THINKING_PARAMS,
+          system: systemBlocks(tenant),
           tools: TOOLS,
           messages: history,
         });
@@ -527,8 +561,8 @@ export default async function copilotRoutes(app: FastifyInstance) {
           response = await client.messages.create({
             model: MODEL,
             max_tokens: 4096,
-            thinking: { type: "adaptive" },
-            system: systemPrompt(tenant),
+            ...THINKING_PARAMS,
+            system: systemBlocks(tenant),
             tools: TOOLS,
             messages: history,
           });

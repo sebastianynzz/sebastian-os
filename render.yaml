@@ -31,6 +31,8 @@ services:
         sync: false # opcional
       - key: ANTHROPIC_API_KEY
         sync: false # Copiloto IA (módulo AI_ADDONS); vacío = Copiloto deshabilitado
+      - key: COPILOT_MODEL
+        value: claude-haiku-4-5 # P0.1: control de gasto del Copiloto en producción
       - key: LUPAP_API_KEY
         sync: false # opcional: geocodificador colombiano en la cascada
       - key: GOOGLE_MAPS_API_KEY
@@ -45,3 +47,7 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         value: mailto:ops@moveos.co
+      - key: SENTRY_DSN
+        sync: false # P0.7 observabilidad (Sentry free); vacío = solo logs
+      - key: OSRM_URL
+        sync: false # OSRM con extracto de Colombia (docs/OSRM_RENDER.md); vacío = haversine

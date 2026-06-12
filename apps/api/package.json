@@ -26,6 +26,7 @@
     "@moveos/optimizer": "workspace:*",
     "@moveos/shared": "workspace:*",
     "@prisma/client": "^6.1.0",
+    "@sentry/node": "^10.57.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",

@@ -1,4 +1,6 @@
 import "dotenv/config";
+// Sentry debe inicializarse antes de construir la app (P0.7).
+import "./lib/sentry.js";
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
 

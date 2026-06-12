@@ -7,6 +7,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { ZodError } from "zod";
 import { config } from "./config.js";
+import { captureError } from "./lib/sentry.js";
 import { registerAuth } from "./plugins/auth.js";
 import authRoutes from "./modules/auth/routes.js";
 import modulesRoutes from "./modules/admin/modules.js";
@@ -96,7 +97,10 @@ export async function buildApp() {
     const err = error as { statusCode?: number; message?: string };
     const statusCode =
       typeof err.statusCode === "number" ? err.statusCode : 500;
-    if (statusCode >= 500) app.log.error(error);
+    if (statusCode >= 500) {
+      app.log.error(error);
+      captureError(error); // P0.7: no-op sin SENTRY_DSN
+    }
     return reply.code(statusCode).send({
       error: statusCode >= 500 ? "Error interno" : (err.message ?? "Error"),
     });
