@@ -27,12 +27,42 @@ interface CreatedOrder {
   trackingUrl: string | null;
 }
 
+interface AddressCheck {
+  confidence: number;
+  ambiguous: boolean;
+  knownAddress: boolean;
+  source: string;
+}
+
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
   const [pickupMode, setPickupMode] = useState<"REGISTERED" | "CUSTOM" | "NONE">("REGISTERED");
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedOrder | null>(null);
   const [busy, setBusy] = useState(false);
+  const [addressCheck, setAddressCheck] = useState<AddressCheck | null>(null);
+  const [checkingAddress, setCheckingAddress] = useState(false);
+
+  /**
+   * Validación de dirección al salir del campo (el moat como feature del
+   * cliente): avisa "dirección ambigua" ANTES de que el paquete salga.
+   */
+  async function validateAddress(addressRaw: string) {
+    if (addressRaw.trim().length < 5) {
+      setAddressCheck(null);
+      return;
+    }
+    setCheckingAddress(true);
+    try {
+      setAddressCheck(
+        await api<AddressCheck>("POST", "/portal/address/validate", { addressRaw }),
+      );
+    } catch {
+      setAddressCheck(null);
+    } finally {
+      setCheckingAddress(false);
+    }
+  }
 
   useEffect(() => {
     void api<PortalMe>("GET", "/portal/me").then((m) => {
@@ -116,8 +146,29 @@ export default function PortalNuevoEnvio() {
                 className={inputClass}
                 required
                 placeholder="Cra 13 # 54-20, Chapinero"
+                onBlur={(e) => void validateAddress(e.target.value)}
               />
             </Field>
+            {checkingAddress && (
+              <p className="mt-1 text-xs text-navy/50">Verificando dirección…</p>
+            )}
+            {addressCheck && !checkingAddress && (
+              <p
+                className={`mt-1 rounded px-2 py-1 text-xs ${
+                  addressCheck.knownAddress
+                    ? "bg-emerald-50 text-emerald-700"
+                    : addressCheck.ambiguous
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {addressCheck.knownAddress
+                  ? "✅ Dirección conocida: ya fue confirmada en entregas anteriores."
+                  : addressCheck.ambiguous
+                    ? "⚠️ Esta dirección es ambigua. Revisa la nomenclatura o agrega una referencia (ej: \"frente al colegio…\") para evitar una entrega fallida."
+                    : "✅ Dirección verificada."}
+              </p>
+            )}
           </div>
           <Field label="Indicaciones (opcional)">
             <input

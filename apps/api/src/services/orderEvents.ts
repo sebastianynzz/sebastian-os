@@ -16,7 +16,10 @@ export type OrderEventType =
   | "PICKED_UP"
   | "DELIVERED"
   | "FAILED"
-  | "NOTIFIED";
+  | "NOTIFIED"
+  | "ADDRESS_CONFIRMED"
+  | "RECOVERY_FLAGGED"
+  | "RECOVERY_RESCHEDULED";
 
 export async function logOrderEvent(
   orderId: string,

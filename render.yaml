@@ -29,3 +29,13 @@ services:
         sync: false # opcional: vacío hasta tener credenciales BSP
       - key: WHATSAPP_PHONE_NUMBER_ID
         sync: false # opcional
+      - key: ANTHROPIC_API_KEY
+        sync: false # Copiloto IA (módulo AI_ADDONS); vacío = Copiloto deshabilitado
+      - key: LUPAP_API_KEY
+        sync: false # opcional: geocodificador colombiano en la cascada
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false # opcional: fallback premium de geocodificación
+      - key: SENDGRID_API_KEY
+        sync: false # opcional: canal EMAIL de notificaciones B2B
+      - key: EMAIL_FROM
+        sync: false # remitente verificado en SendGrid

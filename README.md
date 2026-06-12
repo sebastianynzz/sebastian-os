@@ -40,7 +40,29 @@ API layer — a disabled module returns `403 MODULE_NOT_ENABLED`:
 | `COMPLIANCE_RNDC` | RNDC/MEC manifest generation (fase 2) |
 | `CUSTOMER_EXPERIENCE_PRO` | Branded WhatsApp notifications, live tracking page (fase 2) |
 | `ANALYTICS_PRO` | Delivery success rate, SPR/SPH productivity, distance, CO₂ estimate |
-| `AI_ADDONS` | Predictive ETAs, failed-delivery prediction, theft anomaly detection (fase 3) |
+| `AI_ADDONS` | **Copiloto IA** (Claude): NL planning over the optimizer, "¿por qué falló MV-…?" from the bitácora/POD, flywheel queries — with a confirm-before-acting guard (the model only *proposes*; the UI executes existing endpoints) |
+
+### Address Intelligence & operations cockpit (core)
+
+- **Triage de direcciones** (`/direcciones` + `GET /addresses/triage`): every order
+  carries `geoConfidence`; low-confidence pins are reviewed *before* planning —
+  fix 12 addresses, not 12 failed deliveries. Dispatcher pin fixes, driver
+  pin-drops (nudged when arrival is >300 m off) and portal validation-at-entry
+  all feed the learned `AddressPin` graph.
+- **Geocoding cascade** is now learned graph → Lupap (`LUPAP_API_KEY`) → Google
+  (`GOOGLE_MAPS_API_KEY`) → mock, with per-source daily counters: the **graph
+  hit rate** (paid calls avoided) is tracked as a core unit-economics metric and
+  visualized in the platform admin's **Data flywheel** page.
+- **Cockpit de excepciones** (`/excepciones`, the staff home screen): one
+  prioritized queue — panic, route deviations, late routes, silent vehicles,
+  low-battery EVs, failed deliveries and unconfirmed addresses — each with a
+  one-click action.
+- **Recuperación B2B**: dispatcher flags a failed delivery → the *merchant* is
+  notified and reschedules from their portal (new linked order). The end
+  consumer is never contacted.
+- **Driver app**: Waze/Google Maps deeplinks per stop, mandatory evidence photo
+  on disputable failures (ausente/rechazo), on-device POD quality check
+  (dark/blurry photos rejected at the source) and live route re-sequencing.
 
 Colombia-specific touches built into the core:
 

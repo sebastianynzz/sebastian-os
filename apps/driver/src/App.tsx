@@ -52,6 +52,71 @@ function formatEta(etaMin: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/** Distancia en metros entre dos puntos (haversine). */
+function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Si llega a >300 m del pin guardado, proponemos corregirlo (flywheel). */
+const ADDRESS_FIX_THRESHOLD_M = 300;
+
+/** Motivos de fallo disputables: exigen foto de evidencia. */
+const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
+
+/**
+ * Chequeo de calidad de la foto POD en el dispositivo (lite): brillo medio y
+ * varianza. Detiene fotos negras/quemadas en el origen, antes de subirlas.
+ */
+async function checkPhotoQuality(
+  blob: Blob,
+): Promise<{ ok: boolean; warning?: string }> {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const w = 64;
+    const h = Math.max(1, Math.round((bitmap.height / bitmap.width) * 64));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { ok: true };
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    let sum = 0;
+    const lums: number[] = [];
+    for (let i = 0; i < data.length; i += 4) {
+      const lum =
+        0.299 * (data[i] ?? 0) + 0.587 * (data[i + 1] ?? 0) + 0.114 * (data[i + 2] ?? 0);
+      lums.push(lum);
+      sum += lum;
+    }
+    const mean = sum / lums.length;
+    const variance = lums.reduce((a, l) => a + (l - mean) ** 2, 0) / lums.length;
+    if (mean < 35) return { ok: false, warning: "La foto se ve muy oscura — vuelve a tomarla" };
+    if (mean > 235) return { ok: false, warning: "La foto se ve quemada por la luz — vuelve a tomarla" };
+    if (variance < 80) {
+      return { ok: false, warning: "La foto se ve plana o tapada — verifica que el paquete sea visible" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}
+
+/** Deeplinks de navegación: integrar, nunca construir navegación propia. */
+function navLinks(lat: number, lng: number) {
+  return {
+    waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
+    gmaps: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+  };
+}
+
 function useGeo() {
   const pos = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
@@ -76,10 +141,31 @@ export default function App() {
   const [pending, setPending] = useState(queueSize());
   const geo = useGeo();
 
+  // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
+  // (inserciones exprés del despachador) sin perder el lugar del conductor.
+  const stopsSignature = useRef<string | null>(null);
+
   const load = useCallback(async () => {
     if (!getToken()) return;
     try {
-      setRoute(await api<DriverRoute | null>("GET", "/routes/driver/today"));
+      const next = await api<DriverRoute | null>("GET", "/routes/driver/today");
+      const signature = next
+        ? next.stops.map((s) => `${s.id}:${s.sequence}`).join("|")
+        : "";
+      if (
+        stopsSignature.current !== null &&
+        signature !== stopsSignature.current &&
+        next
+      ) {
+        const prevCount = stopsSignature.current.split("|").filter(Boolean).length;
+        if (next.stops.length > prevCount) {
+          setMessage("🆕 Despacho agregó una parada a tu ruta — revisa la secuencia");
+        } else if (signature !== "") {
+          setMessage("🔄 Tu ruta fue re-secuenciada por despacho");
+        }
+      }
+      stopsSignature.current = signature;
+      setRoute(next);
     } catch {
       // sin red: se mantiene la última vista
     }
@@ -88,6 +174,16 @@ export default function App() {
   useEffect(() => {
     void load();
   }, [load, authed]);
+
+  // Re-secuenciación en vivo: refrescar la ruta cada 45 s mientras esté
+  // activa, para absorber paradas insertadas sin que el conductor recargue.
+  useEffect(() => {
+    if (!route || !["DISPATCHED", "IN_PROGRESS"].includes(route.status)) return;
+    const interval = setInterval(() => {
+      if (navigator.onLine) void load();
+    }, 45000);
+    return () => clearInterval(interval);
+  }, [route, load]);
 
   // Cola offline: reintentar al volver la señal y refrescar contador.
   useEffect(() => {
@@ -328,6 +424,9 @@ function StopCard({
     ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
     : stop.order.addressRaw;
   const notes = isPickup ? stop.order.pickupNotes : stop.order.addressNotes;
+  const navLat = isPickup ? stop.order.pickupLat : stop.order.lat;
+  const navLng = isPickup ? stop.order.pickupLng : stop.order.lng;
+  const nav = navLat !== null && navLng !== null ? navLinks(navLat, navLng) : null;
   return (
     <div
       className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
@@ -363,6 +462,28 @@ function StopCard({
           📞
         </a>
       </div>
+
+      {/* Navegación: deeplink a Waze / Google Maps — integrar, no construir. */}
+      {nav && !done && (
+        <div className="mt-2 flex gap-2">
+          <a
+            href={nav.waze}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-lg bg-sky-100 py-2 text-center text-xs font-bold text-sky-800"
+          >
+            🧭 Waze
+          </a>
+          <a
+            href={nav.gmaps}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-lg bg-emerald-100 py-2 text-center text-xs font-bold text-emerald-800"
+          >
+            🗺️ Maps
+          </a>
+        </div>
+      )}
 
       {routeActive && !done && (
         <div className="mt-3 flex gap-2">
@@ -411,6 +532,8 @@ function StopActionSheet({
   const [failReason, setFailReason] = useState("CLIENTE_AUSENTE");
   const [error, setError] = useState<string | null>(null);
   const [photo, setPhoto] = useState<{ blob: Blob; preview: string } | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
+  const [fixPin, setFixPin] = useState(true);
   const [busy, setBusy] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
 
@@ -424,17 +547,32 @@ function StopActionSheet({
   const lat = geo?.lat ?? refLat ?? undefined;
   const lng = geo?.lng ?? refLng ?? undefined;
 
+  // Corrección de pin (el tap más valioso del producto): si el GPS real está
+  // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
+  // verdadera — cada confirmación enseña al grafo de direcciones.
+  const pinDriftM =
+    !isPickup && geo && refLat !== null && refLng !== null
+      ? Math.round(distanceM(geo, { lat: refLat, lng: refLng }))
+      : null;
+  const offerPinFix = pinDriftM !== null && pinDriftM > ADDRESS_FIX_THRESHOLD_M;
+
   async function onPickPhoto(file: File) {
     setError(null);
+    setPhotoWarning(null);
     setBusy(true);
     try {
       const blob = await compressImage(file);
+      // Chequeo de calidad en el dispositivo: detener mal POD en el origen.
+      const quality = await checkPhotoQuality(blob);
+      if (!quality.ok && quality.warning) setPhotoWarning(`⚠️ ${quality.warning}`);
       setPhoto((prev) => {
         if (prev) URL.revokeObjectURL(prev.preview);
         return { blob, preview: URL.createObjectURL(blob) };
       });
     } catch {
       setError("No se pudo procesar la foto");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -463,6 +601,13 @@ function StopActionSheet({
         lat,
         lng,
       });
+      // Pin-drop: aprender la ubicación real de la entrega si difiere del pin.
+      if (offerPinFix && fixPin && geo) {
+        await apiOrQueue(`/addresses/orders/${stop.order.id}/driver-fix`, {
+          lat: geo.lat,
+          lng: geo.lng,
+        });
+      }
       if (photoSkipped) {
         console.warn("Foto no subida (sin señal): entrega registrada sin foto");
       }
@@ -476,12 +621,25 @@ function StopActionSheet({
 
   async function fail() {
     setError(null);
+    // Motivos disputables exigen foto de evidencia (defensa ante disputas).
+    if (EVIDENCE_REQUIRED_REASONS.includes(failReason) && !photo) {
+      setError("Este motivo requiere foto de evidencia. Tómala antes de registrar.");
+      return;
+    }
     setBusy(true);
     try {
+      let photoUrl: string | undefined;
+      if (photo) {
+        const url = await uploadPodPhoto(photo.blob);
+        if (url) photoUrl = url;
+        // Sin señal: el fallo se registra igual; la foto quedó tomada en el
+        // dispositivo pero no se pudo subir.
+      }
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
         reason: failReason,
         lat,
         lng,
+        photoUrl,
       });
       onDone(queued);
     } catch (err) {
@@ -578,6 +736,33 @@ function StopActionSheet({
                 📷 Tomar foto de evidencia
               </button>
             )}
+            {photoWarning && (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span>{photoWarning}</span>
+                <button
+                  onClick={() => photoRef.current?.click()}
+                  className="shrink-0 font-bold underline"
+                >
+                  Repetir
+                </button>
+              </div>
+            )}
+
+            {/* Pin-drop: el tap que alimenta el grafo de direcciones. */}
+            {offerPinFix && (
+              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                <input
+                  type="checkbox"
+                  checked={fixPin}
+                  onChange={(e) => setFixPin(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Estás a ~{pinDriftM} m del pin guardado. Guardar tu ubicación
+                  actual como el punto correcto de esta dirección.
+                </span>
+              </label>
+            )}
 
             {error && (
               <p role="alert" className="text-sm text-red-600">
@@ -609,6 +794,41 @@ function StopActionSheet({
                 </button>
               ))}
             </div>
+
+            {/* Evidencia obligatoria en motivos disputables (defensa B2B). */}
+            {photo ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={photo.preview}
+                  alt="Evidencia del fallo"
+                  className="h-20 w-20 rounded-lg border border-cielo/60 object-cover"
+                />
+                <button
+                  onClick={() => photoRef.current?.click()}
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                >
+                  Cambiar foto
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => photoRef.current?.click()}
+                className={`w-full rounded-lg border border-dashed py-3 text-sm font-medium ${
+                  EVIDENCE_REQUIRED_REASONS.includes(failReason)
+                    ? "border-red-400 text-red-700"
+                    : "border-navy/40 text-navy/70"
+                }`}
+              >
+                📷 Foto de evidencia
+                {EVIDENCE_REQUIRED_REASONS.includes(failReason) && " (obligatoria)"}
+              </button>
+            )}
+            {photoWarning && (
+              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {photoWarning}
+              </div>
+            )}
+
             {error && (
               <p role="alert" className="text-sm text-red-600">
                 {error}

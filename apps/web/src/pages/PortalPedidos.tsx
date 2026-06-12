@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
 import {
+  Banner,
   Card,
   EmptyState,
   Loading,
@@ -27,6 +28,7 @@ interface PortalOrder {
   weightKg: number;
   failureReason: string | null;
   deliveredAt: string | null;
+  recoveryStatus: string;
   createdAt: string;
   trackingUrl: string | null;
 }
@@ -64,6 +66,8 @@ export default function PortalPedidos() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, PortalEvent[]>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [rescheduling, setRescheduling] = useState<string | null>(null);
+  const [rescheduleMsg, setRescheduleMsg] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -100,6 +104,30 @@ export default function PortalPedidos() {
     setTimeout(() => setCopied(null), 1500);
   }
 
+  /**
+   * Reprogramación B2B de una entrega fallida: crea un nuevo envío con la
+   * misma carga y destino, enlazado al fallido. El flujo es del comercio —
+   * nunca se contacta al consumidor final.
+   */
+  async function reschedule(order: PortalOrder) {
+    setRescheduling(order.id);
+    setRescheduleMsg(null);
+    try {
+      const reorder = await api<{ trackingNumber: string | null }>(
+        "POST",
+        `/portal/orders/${order.id}/reschedule`,
+      );
+      setRescheduleMsg(
+        `Reenvío creado con guía ${reorder.trackingNumber ?? ""} — saldrá en la próxima planificación`,
+      );
+      await load();
+    } catch (err) {
+      setRescheduleMsg(err instanceof Error ? err.message : "Error al reprogramar");
+    } finally {
+      setRescheduling(null);
+    }
+  }
+
   const inCourse = orders.filter((o) =>
     ["ASSIGNED", "IN_TRANSIT"].includes(o.status),
   ).length;
@@ -111,6 +139,12 @@ export default function PortalPedidos() {
         subtitle="Estado en vivo de todo lo que tu operador mueve por ti. Comparte el
           enlace de rastreo con tu cliente final."
       />
+
+      {rescheduleMsg && (
+        <Banner kind="info" onDismiss={() => setRescheduleMsg(null)}>
+          {rescheduleMsg}
+        </Banner>
+      )}
 
       {summary && (
         <div className="grid grid-cols-3 gap-3">
@@ -171,6 +205,19 @@ export default function PortalPedidos() {
                         {new Date(o.createdAt).toLocaleDateString("es-CO")}
                       </td>
                       <td className="space-x-2 whitespace-nowrap text-right text-xs">
+                        {["FAILED", "REJECTED"].includes(o.status) &&
+                          o.recoveryStatus !== "RESCHEDULED" && (
+                            <button
+                              onClick={() => void reschedule(o)}
+                              disabled={rescheduling === o.id}
+                              className="rounded bg-lima px-2 py-1 font-bold text-navy disabled:opacity-50"
+                            >
+                              {rescheduling === o.id ? "…" : "Reprogramar"}
+                            </button>
+                          )}
+                        {o.recoveryStatus === "RESCHEDULED" && (
+                          <span className="text-emerald-700">↻ Reprogramado</span>
+                        )}
                         {o.trackingUrl && (
                           <button
                             onClick={() => void copyTracking(o)}
