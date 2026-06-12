@@ -3,12 +3,14 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import {
   createVehicleSchema,
+  CORE_MODULE_KEYS,
   MODULE_CATALOG,
   MODULE_PRESETS_BY_BUSINESS_MODEL,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
   updateTenantSchema,
+  type ModuleKey,
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { invalidateTenantStatus } from "../../plugins/tenantStatus.js";
@@ -245,7 +247,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       modules: MODULE_CATALOG.map((m) => ({
         key: m.key,
         nombre: m.nombre,
-        enabled: enabledByKey.get(m.key) ?? false,
+        // Núcleo: siempre activo (EV-only — restricción dura 1.3).
+        enabled: m.core === true || (enabledByKey.get(m.key) ?? false),
+        core: m.core === true,
       })),
     };
   });
@@ -317,6 +321,12 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
     const body = z.object({ enabled: z.boolean() }).parse(request.body);
     if (!MODULE_CATALOG.some((m) => m.key === params.key)) {
       return reply.code(400).send({ error: "Módulo desconocido" });
+    }
+    if (CORE_MODULE_KEYS.has(params.key as ModuleKey)) {
+      return reply.code(400).send({
+        error: "Este módulo es parte del núcleo y no puede desactivarse",
+        code: "CORE_MODULE",
+      });
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: params.id } });
     if (!tenant) return reply.code(404).send({ error: "Tenant no encontrado" });

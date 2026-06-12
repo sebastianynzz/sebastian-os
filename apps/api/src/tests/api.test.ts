@@ -64,13 +64,17 @@ describe("flujo completo MoveOS", () => {
     adminToken = res.body.token;
   });
 
-  it("activa módulos adicionales para el tenant (EV, seguridad, analítica)", async () => {
-    // Los módulos premium nacen apagados: el admin los activa según contrato.
+  it("activa módulos adicionales para el tenant (seguridad, analítica)", async () => {
+    // EV es NÚCLEO (plataforma EV-only): disponible sin activar nada.
     const ev = await api("GET", "/ev/overview", adminToken);
-    expect(ev.status).toBe(403);
-    expect(ev.body.code).toBe("MODULE_NOT_ENABLED");
+    expect(ev.status).toBe(200);
 
-    for (const key of ["EV_MANAGEMENT", "SAFETY", "ANALYTICS_PRO"]) {
+    // Los módulos premium nacen apagados: el admin los activa según contrato.
+    const safety = await api("GET", "/safety/alerts", adminToken);
+    expect(safety.status).toBe(403);
+    expect(safety.body.code).toBe("MODULE_NOT_ENABLED");
+
+    for (const key of ["SAFETY", "ANALYTICS_PRO"]) {
       const res = await api("PATCH", `/modules/${key}`, adminToken, {
         enabled: true,
       });

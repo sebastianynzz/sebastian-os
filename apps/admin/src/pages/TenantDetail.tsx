@@ -14,7 +14,7 @@ interface TenantDetailData {
   operatorType: string;
   businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; routes: number; clients: number };
-  modules: { key: string; nombre: string; enabled: boolean }[];
+  modules: { key: string; nombre: string; enabled: boolean; core?: boolean }[];
 }
 
 interface TenantUser {
@@ -402,7 +402,13 @@ export default function TenantDetail() {
               className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2"
             >
               <span className="text-sm">{m.nombre}</span>
-              <Toggle on={m.enabled} onClick={() => toggleModule(m.key, !m.enabled)} />
+              {m.core ? (
+                <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
+                  Núcleo
+                </span>
+              ) : (
+                <Toggle on={m.enabled} onClick={() => toggleModule(m.key, !m.enabled)} />
+              )}
             </div>
           ))}
         </div>

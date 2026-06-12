@@ -120,6 +120,9 @@ export async function buildApp() {
   // excepciones: núcleo operativo, sin módulo de pago.
   await app.register(addressesRoutes, { prefix: "/addresses" });
   await app.register(exceptionsRoutes, { prefix: "/exceptions" });
+  // Flota eléctrica: NÚCLEO (MoveOS es EV-only; restricción dura 1.3).
+  // Autonomía, SoC y directorio de carga nunca se gatean por entitlement.
+  await app.register(evRoutes, { prefix: "/ev" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });
@@ -132,7 +135,6 @@ export async function buildApp() {
   await app.register(optimizationRoutes, { prefix: "/optimization" });
   await app.register(telematicsRoutes, { prefix: "/telematics" });
   await app.register(safetyRoutes, { prefix: "/safety" });
-  await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
   // Copiloto IA (módulo AI_ADDONS): narra y propone sobre sistemas existentes.
   await app.register(copilotRoutes, { prefix: "/copilot" });

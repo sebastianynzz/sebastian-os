@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { MODULE_CATALOG, MODULE_KEYS } from "@moveos/shared";
+import { CORE_MODULE_KEYS, MODULE_CATALOG, MODULE_KEYS } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 
@@ -15,7 +15,8 @@ export default async function modulesRoutes(app: FastifyInstance) {
     const byKey = new Map(entitlements.map((e) => [e.moduleKey, e.enabled]));
     return MODULE_CATALOG.map((m) => ({
       ...m,
-      enabled: byKey.get(m.key) ?? false,
+      // Núcleo: siempre activo, sin importar lo que diga el entitlement.
+      enabled: m.core === true || (byKey.get(m.key) ?? false),
     }));
   });
 
@@ -27,6 +28,13 @@ export default async function modulesRoutes(app: FastifyInstance) {
         .object({ key: z.enum(MODULE_KEYS) })
         .parse(request.params);
       const body = z.object({ enabled: z.boolean() }).parse(request.body);
+      if (CORE_MODULE_KEYS.has(params.key)) {
+        return reply.code(400).send({
+          error: "Este módulo es parte del núcleo y no puede desactivarse",
+          code: "CORE_MODULE",
+          moduleKey: params.key,
+        });
+      }
 
       const entitlement = await prisma.moduleEntitlement.upsert({
         where: {

@@ -27,6 +27,118 @@ async function main() {
     update: {},
   });
 
+  // Directorio de carga pública (P0.4b): compartido entre tenants
+  // (tenantId null). Redes reales en Colombia: Terpel Voltex, Enel X,
+  // EPM y Celsia. Idempotente: solo siembra si está vacío.
+  const publicStations = await prisma.chargingStation.count({
+    where: { tenantId: null },
+  });
+  if (publicStations === 0) {
+    await prisma.chargingStation.createMany({
+      data: [
+        {
+          name: "Terpel Voltex — Calle 100",
+          network: "Terpel Voltex",
+          address: "Ac 100 # 19-61",
+          city: "Bogotá",
+          lat: 4.6864,
+          lng: -74.0521,
+          connectors: ["CCS", "TYPE_2"],
+          powerKw: 50,
+          dcFast: true,
+        },
+        {
+          name: "Terpel Voltex — Av. Boyacá",
+          network: "Terpel Voltex",
+          address: "Av. Boyacá # 12B-12",
+          city: "Bogotá",
+          lat: 4.6612,
+          lng: -74.1149,
+          connectors: ["CCS", "CHADEMO"],
+          powerKw: 50,
+          dcFast: true,
+        },
+        {
+          name: "Terpel Voltex — Autopista Norte",
+          network: "Terpel Voltex",
+          address: "Autopista Norte # 193-30",
+          city: "Bogotá",
+          lat: 4.7649,
+          lng: -74.0463,
+          connectors: ["CCS"],
+          powerKw: 100,
+          dcFast: true,
+        },
+        {
+          name: "Enel X — Parque de la 93",
+          network: "Enel X",
+          address: "Cl 93A # 13-45",
+          city: "Bogotá",
+          lat: 4.6766,
+          lng: -74.0488,
+          connectors: ["TYPE_2"],
+          powerKw: 22,
+          dcFast: false,
+        },
+        {
+          name: "Enel X — Centro Mayor",
+          network: "Enel X",
+          address: "Cl 38A Sur # 34D-51",
+          city: "Bogotá",
+          lat: 4.5781,
+          lng: -74.1206,
+          connectors: ["TYPE_2", "CCS"],
+          powerKw: 50,
+          dcFast: true,
+        },
+        {
+          name: "Celsia — Zona Industrial Montevideo",
+          network: "Celsia",
+          address: "Cra 68D # 17-11",
+          city: "Bogotá",
+          lat: 4.6253,
+          lng: -74.1247,
+          connectors: ["CCS"],
+          powerKw: 50,
+          dcFast: true,
+        },
+        {
+          name: "EPM — Edificio Inteligente",
+          network: "EPM",
+          address: "Cra 58 # 42-125",
+          city: "Medellín",
+          lat: 6.2447,
+          lng: -75.5748,
+          connectors: ["TYPE_2"],
+          powerKw: 22,
+          dcFast: false,
+        },
+        {
+          name: "EPM — Premium Plaza",
+          network: "EPM",
+          address: "Cra 43A # 30-25",
+          city: "Medellín",
+          lat: 6.2381,
+          lng: -75.566,
+          connectors: ["CCS", "TYPE_2"],
+          powerKw: 50,
+          dcFast: true,
+        },
+        {
+          name: "Celsia — El Poblado",
+          network: "Celsia",
+          address: "Cra 43A # 1A Sur-69",
+          city: "Medellín",
+          lat: 6.2087,
+          lng: -75.5658,
+          connectors: ["TYPE_2"],
+          powerKw: 22,
+          dcFast: false,
+        },
+      ],
+    });
+  }
+
   // Segundo tenant demo (plan FREE, solo módulos por defecto) para que el
   // panel de plataforma tenga una lista con datos distintos.
   const medellin = await prisma.tenant.findFirst({
@@ -174,6 +286,8 @@ async function main() {
   const in11Months = new Date(Date.now() + 330 * 24 * 3600 * 1000);
   const in20Days = new Date(Date.now() + 20 * 24 * 3600 * 1000);
 
+  // Flota 100% eléctrica (MoveOS es EV-only — restricción dura 1):
+  // e-motos urbanas, carro utilitario eléctrico y e-van de carga.
   await prisma.vehicle.createMany({
     data: [
       {
@@ -181,6 +295,10 @@ async function main() {
         plate: "ABC12D",
         type: "MOTO",
         capacityKg: 15,
+        isElectric: true,
+        batteryKwh: 4,
+        nominalRangeKm: 90,
+        socPercent: 92,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
       },
@@ -189,6 +307,10 @@ async function main() {
         plate: "XYZ34E",
         type: "MOTO",
         capacityKg: 18,
+        isElectric: true,
+        batteryKwh: 3.5,
+        nominalRangeKm: 80,
+        socPercent: 22, // batería baja: demo del cockpit y de excludedVehicles[]
         soatExpiresAt: in20Days, // alerta de vencimiento próxima
         tecnoExpiresAt: in11Months,
       },
@@ -198,6 +320,10 @@ async function main() {
         type: "CARRO",
         capacityKg: 350,
         capacityM3: 1.5,
+        isElectric: true,
+        batteryKwh: 60,
+        nominalRangeKm: 300,
+        socPercent: 64,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
       },
@@ -215,6 +341,23 @@ async function main() {
         tecnoExpiresAt: in11Months,
       },
     ],
+  });
+
+  // Cargador del depósito del tenant demo (la red pública se siembra aparte,
+  // compartida entre tenants con tenantId null).
+  await prisma.chargingStation.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Depósito MOVE — Chapinero",
+      network: "DEPOSITO",
+      address: "Cl 57 # 10-32, Chapinero",
+      city: "Bogotá",
+      lat: 4.6486,
+      lng: -74.0628,
+      connectors: ["TYPE_2", "SCHUKO"],
+      powerKw: 22,
+      dcFast: false,
+    },
   });
 
   // Negocios cliente del tenant (B2B): originan los envíos y reciben las

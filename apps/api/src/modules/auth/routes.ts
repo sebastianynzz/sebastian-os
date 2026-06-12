@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import {
   loginSchema,
   registerTenantSchema,
+  CORE_MODULE_KEYS,
   MODULE_CATALOG,
   type UserRole,
 } from "@moveos/shared";
@@ -90,9 +91,7 @@ export default async function authRoutes(app: FastifyInstance) {
       token,
       user: publicUser(user),
       tenant: { id: user.tenant.id, name: user.tenant.name, city: user.tenant.city },
-      modules: user.tenant.entitlements
-        .filter((e) => e.enabled)
-        .map((e) => e.moduleKey),
+      modules: sessionModules(user.tenant.entitlements),
     };
     },
   );
@@ -110,12 +109,24 @@ export default async function authRoutes(app: FastifyInstance) {
       return {
         user: publicUser(user),
         tenant: { id: user.tenant.id, name: user.tenant.name, city: user.tenant.city },
-        modules: user.tenant.entitlements
-          .filter((e) => e.enabled)
-          .map((e) => e.moduleKey),
+        modules: sessionModules(user.tenant.entitlements),
       };
     },
   );
+}
+
+/**
+ * Módulos visibles de la sesión: entitlements activos + módulos de núcleo
+ * (siempre presentes — p. ej. EV_MANAGEMENT en una plataforma EV-only).
+ */
+function sessionModules(
+  entitlements: { moduleKey: string; enabled: boolean }[],
+): string[] {
+  const keys = new Set(
+    entitlements.filter((e) => e.enabled).map((e) => e.moduleKey),
+  );
+  for (const key of CORE_MODULE_KEYS) keys.add(key);
+  return [...keys];
 }
 
 function publicUser(user: {

@@ -22,6 +22,12 @@ export interface ModuleDescriptor {
   descripcion: string;
   /** Incluido por defecto al crear un tenant nuevo (plan de entrada). */
   defaultEnabled: boolean;
+  /**
+   * Parte del núcleo obligatorio: siempre activo para todo tenant y no
+   * desactivable. MoveOS es EV-only — autonomía y carga son núcleo, no un
+   * módulo de pago (restricción dura 1.3 de CLAUDE.md).
+   */
+  core?: boolean;
 }
 
 import type { TenantBusinessModel } from "./enums.js";
@@ -40,6 +46,11 @@ export const MODULE_PRESETS_BY_BUSINESS_MODEL: Record<
   FAAS: ["TELEMATICS", "EV_MANAGEMENT", "SAFETY", "ANALYTICS_PRO"],
   LOGISTICS_3PL: ["ANALYTICS_PRO", "CUSTOMER_EXPERIENCE_PRO"],
 };
+
+/** Claves de los módulos de núcleo: siempre activos, jamás togglables. */
+export const CORE_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
+  "EV_MANAGEMENT",
+]);
 
 export const MODULE_CATALOG: ModuleDescriptor[] = [
   {
@@ -60,8 +71,9 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     key: "EV_MANAGEMENT",
     nombre: "Gestión de flota eléctrica",
     descripcion:
-      "Estado de carga (SoC), estimación dinámica de autonomía (carga, terreno, clima) y rutas conscientes de batería.",
-    defaultEnabled: false,
+      "Estado de carga (SoC), estimación dinámica de autonomía (carga, terreno, clima), rutas conscientes de batería y directorio de carga. Parte del núcleo: una flota 100% eléctrica no opera sin esto.",
+    defaultEnabled: true,
+    core: true,
   },
   {
     key: "SAFETY",

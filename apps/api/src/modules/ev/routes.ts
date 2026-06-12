@@ -1,18 +1,22 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { estimateUsableRangeKm } from "@moveos/optimizer";
+import { haversineKm } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
-import { requireModule } from "../../plugins/entitlements.js";
 
 /**
- * Módulo de gestión de flota eléctrica: SoC, autonomía dinámica y red de carga.
+ * Gestión de flota eléctrica: SoC, autonomía dinámica y red de carga.
  * Colombia es líder EV en LatAm pero con infraestructura de carga escasa
  * (~774 puntos oficiales a dic 2025): la planificación de autonomía importa
  * más que en mercados maduros.
+ *
+ * NÚCLEO, no módulo de pago: MoveOS es EV-only (restricción dura 1.3) —
+ * autonomía y carga están disponibles para todo tenant, sin requireModule.
+ * El conductor (rol DRIVER) también consulta estos endpoints: SoC en vivo y
+ * cargador más cercano son parte de su jornada.
  */
 export default async function evRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
-  app.addHook("preHandler", requireModule("EV_MANAGEMENT"));
 
   /** Estado de la flota eléctrica con autonomía útil estimada. */
   app.get("/overview", async (request) => {
@@ -88,19 +92,53 @@ export default async function evRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Red de carga (datos estáticos de arranque; en producción se integran las
-   * APIs de Terpel Voltex, Enel X, EPM y Celsia, más OCPP para cargadores
-   * propios del depósito).
+   * Directorio de carga: red pública compartida (tenantId null) + cargadores
+   * de depósito del tenant. Con ?lat&lng ordena por cercanía (haversine) —
+   * es la consulta del "cargador más cercano" del conductor. La
+   * disponibilidad en vivo (OCPP) es fase 3.
    */
-  app.get("/charging-stations", async () => {
-    return CHARGING_STATIONS_BOGOTA;
+  app.get("/charging-stations", async (request) => {
+    const query = z
+      .object({
+        lat: z.coerce.number().min(-90).max(90).optional(),
+        lng: z.coerce.number().min(-180).max(180).optional(),
+        city: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(50).optional(),
+      })
+      .parse(request.query);
+
+    const stations = await prisma.chargingStation.findMany({
+      where: {
+        status: "ACTIVE",
+        OR: [{ tenantId: null }, { tenantId: request.user.tenantId }],
+        ...(query.city ? { city: query.city } : {}),
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const origin =
+      query.lat !== undefined && query.lng !== undefined
+        ? { lat: query.lat, lng: query.lng }
+        : null;
+    const result = stations.map((s) => ({
+      id: s.id,
+      name: s.name,
+      network: s.network,
+      address: s.address,
+      city: s.city,
+      lat: s.lat,
+      lng: s.lng,
+      connectors: s.connectors,
+      powerKw: s.powerKw,
+      dcFast: s.dcFast,
+      isDepot: s.tenantId !== null,
+      distanceKm: origin
+        ? Number(haversineKm(origin, { lat: s.lat, lng: s.lng }).toFixed(2))
+        : null,
+    }));
+    if (origin) {
+      result.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+    }
+    return query.limit ? result.slice(0, query.limit) : result;
   });
 }
-
-const CHARGING_STATIONS_BOGOTA = [
-  { name: "Terpel Voltex — Calle 100", network: "Terpel Voltex", lat: 4.6864, lng: -74.0521, connectors: ["CCS", "Type 2"], dc: true },
-  { name: "Terpel Voltex — Av. Boyacá", network: "Terpel Voltex", lat: 4.6612, lng: -74.1149, connectors: ["CCS", "CHAdeMO"], dc: true },
-  { name: "Enel X — Parque de la 93", network: "Enel X", lat: 4.6766, lng: -74.0488, connectors: ["Type 2"], dc: false },
-  { name: "Enel X — Centro Mayor", network: "Enel X", lat: 4.5781, lng: -74.1206, connectors: ["Type 2", "CCS"], dc: true },
-  { name: "Celsia — Zona Industrial Montevideo", network: "Celsia", lat: 4.6253, lng: -74.1247, connectors: ["CCS"], dc: true },
-];

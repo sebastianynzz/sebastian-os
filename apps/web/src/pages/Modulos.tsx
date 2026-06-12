@@ -8,6 +8,8 @@ interface ModuleInfo {
   nombre: string;
   descripcion: string;
   enabled: boolean;
+  /** Módulo de núcleo (p. ej. flota eléctrica): siempre activo, no togglable. */
+  core?: boolean;
 }
 
 /**
@@ -69,22 +71,28 @@ export default function Modulos() {
                 <h3 className="font-semibold">{m.nombre}</h3>
                 <p className="mt-1 text-sm text-navy/60">{m.descripcion}</p>
               </div>
-              <button
-                role="switch"
-                aria-checked={m.enabled}
-                aria-label={`${m.enabled ? "Desactivar" : "Activar"} ${m.nombre}`}
-                disabled={!isAdmin}
-                onClick={() => toggle(m.key, !m.enabled)}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 ${
-                  m.enabled ? "bg-lima" : "bg-cielo/60"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
-                    m.enabled ? "left-5.5" : "left-0.5"
+              {m.core ? (
+                <span className="shrink-0 rounded-full bg-lima/30 px-3 py-1 text-xs font-bold text-navy">
+                  Núcleo
+                </span>
+              ) : (
+                <button
+                  role="switch"
+                  aria-checked={m.enabled}
+                  aria-label={`${m.enabled ? "Desactivar" : "Activar"} ${m.nombre}`}
+                  disabled={!isAdmin}
+                  onClick={() => toggle(m.key, !m.enabled)}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 ${
+                    m.enabled ? "bg-lima" : "bg-cielo/60"
                   }`}
-                />
-              </button>
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                      m.enabled ? "left-5.5" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              )}
             </div>
           </Card>
         ))}

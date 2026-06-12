@@ -41,7 +41,8 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/mapa", label: "Mapa en vivo", module: "TELEMATICS" },
   { to: "/conductores", label: "Conductores" },
   { to: "/vehiculos", label: "Vehículos" },
-  { to: "/ev", label: "Flota eléctrica", module: "EV_MANAGEMENT" },
+  // Flota eléctrica: núcleo EV-only, siempre visible (restricción dura 1.3).
+  { to: "/ev", label: "Flota eléctrica" },
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
