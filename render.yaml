@@ -50,4 +50,17 @@ services:
       - key: SENTRY_DSN
         sync: false # P0.7 observabilidad (Sentry free); vacío = solo logs
       - key: OSRM_URL
-        sync: false # OSRM con extracto de Colombia (docs/OSRM_RENDER.md); vacío = haversine
+        sync: false # poner http://moveos-osrm:5000 al aprobar el servicio de abajo; vacío = haversine
+
+  # OSRM con el grafo vial de Colombia (P0.4, docs/OSRM_RENDER.md). Servicio
+  # PRIVADO: solo la API lo consume por la red interna (http://moveos-osrm:5000).
+  # El build descarga y preprocesa el extracto de Geofabrik UNA vez; el mapa
+  # cambia poco para logística urbana → autoDeploy off, redeploy manual cada
+  # 3-6 meses para refrescar el extracto.
+  - type: pserv
+    name: moveos-osrm
+    runtime: docker
+    dockerfilePath: ./infra/osrm/Dockerfile
+    dockerContext: ./infra/osrm
+    plan: standard # osrm-routed con Colombia usa ~1.5-2 GB de RAM; free no alcanza
+    autoDeploy: false
