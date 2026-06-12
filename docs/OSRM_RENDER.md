@@ -15,9 +15,9 @@ Un servicio Docker con dos etapas:
 2. **Runtime**: `osrm-routed` sirviendo `/route` y `/table` sobre el grafo ya
    procesado.
 
-## Paso 1 — Dockerfile
+## Paso 1 — Dockerfile (✅ ya en el repo: `infra/osrm/Dockerfile`)
 
-Crear `infra/osrm/Dockerfile` (o usar este archivo donde prefieras):
+Contenido de referencia:
 
 ```dockerfile
 # Etapa 1: preprocesar el grafo de Colombia (perfil carro).
@@ -40,9 +40,11 @@ CMD ["osrm-routed", "--algorithm", "mld", "--max-table-size", "8000", "/data/col
 > haya tiempo, se copia un `moto.lua` ajustado (velocidades urbanas, permisos
 > de vías) y se cambia el `-p`.
 
-## Paso 2 — Servicio en Render
+## Paso 2 — Servicio en Render (✅ ya en `render.yaml` como private service)
 
-En `render.yaml` (o desde el dashboard → New → Web Service → Docker):
+El blueprint ya declara `moveos-osrm` (type: pserv, plan standard,
+autoDeploy off). Al sincronizar el blueprint, Render pedirá aprobar el
+servicio nuevo. Referencia equivalente si se creara a mano:
 
 ```yaml
   - type: web
@@ -65,7 +67,7 @@ Notas de tamaño/costo:
 - Mejor **Private Service** si la API vive en el mismo Render: OSRM no
   necesita ser público (y evita abuso del endpoint).
 
-## Paso 3 — Conectar la API
+## Paso 3 — Conectar la API (único paso manual)
 
 En el servicio `moveos-api` añadir la variable:
 
