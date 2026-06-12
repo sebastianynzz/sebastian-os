@@ -224,7 +224,11 @@ model Order {
   addressNotes    String?
   lat             Float?
   lng             Float?
-  geocodeSource   String? // CLIENT | ADDRESS_PIN | MOCK | GOOGLE | LUPAP
+  geocodeSource   String? // CLIENT | ADDRESS_PIN | MOCK | GOOGLE | LUPAP | MANUAL_PIN | DRIVER_PIN
+  // Inteligencia de direcciones: confianza del geocodificado (0–1) y momento
+  // en que un humano (despachador, conductor o cliente) confirmó el pin.
+  geoConfidence     Float?
+  addressVerifiedAt DateTime?
   // Recogida en origen (opcional): si está presente, el conductor recoge aquí
   // antes de entregar (modelo pickup→delivery). Sin pickup = flujo desde depósito.
   pickupLat       Float?
@@ -240,6 +244,11 @@ model Order {
   priority        Int       @default(0)
   failureReason   String?
   deliveredAt     DateTime?
+  // Recuperación B2B de entregas fallidas: el despachador marca el pedido y el
+  // comercio (cliente) lo reprograma desde su portal. Nunca se contacta al
+  // consumidor final.
+  recoveryStatus    String  @default("NONE") // NONE | FLAGGED | RESCHEDULED | RESOLVED
+  rescheduledFromId String? // pedido fallido que originó este reenvío
   createdAt       DateTime  @default(now())
 
   // Un pedido puede tener hasta 2 paradas: PICKUP (si hay recogida) y DELIVERY.
@@ -272,12 +281,29 @@ model AddressPin {
   addressKey     String // dirección normalizada (clave de búsqueda)
   lat            Float
   lng            Float
+  city           String? // cobertura por ciudad para el monitor del flywheel
   referenceNotes String?
-  source         String   @default("DELIVERY_CONFIRMED")
+  source         String   @default("DELIVERY_CONFIRMED") // DELIVERY_CONFIRMED | DRIVER_CONFIRMED | DISPATCHER_CONFIRMED
   useCount       Int      @default(0)
+  createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@unique([tenantId, addressKey])
+  @@index([tenantId, createdAt])
+}
+
+/// Contador diario de geocodificaciones por fuente. Es la métrica de unit
+/// economics del grafo de direcciones: cada acierto del grafo (ADDRESS_PIN)
+/// es una llamada a Google/Lupap que NO se pagó ("graph hit rate").
+model GeocodeDailyStat {
+  id       String @id @default(cuid())
+  tenantId String
+  date     String // YYYY-MM-DD (día local Bogotá)
+  source   String // ADDRESS_PIN | LUPAP | GOOGLE | MOCK
+  count    Int    @default(0)
+
+  @@unique([tenantId, date, source])
+  @@index([date])
 }
 
 model Route {

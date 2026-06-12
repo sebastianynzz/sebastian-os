@@ -315,8 +315,29 @@ export default async function routesRoutes(app: FastifyInstance) {
           failureReason: input.reason,
         },
       }),
+      // Evidencia del fallo (foto + GPS): defensa ante disputas del comercio.
+      ...(input.photoUrl
+        ? [
+            prisma.proofOfDelivery.upsert({
+              where: { stopId },
+              create: {
+                stopId,
+                types: ["PHOTO"],
+                photoUrl: input.photoUrl,
+                notes: `Evidencia de fallo: ${input.reason}${input.notes ? ` — ${input.notes}` : ""}`,
+                lat: input.lat,
+                lng: input.lng,
+              },
+              update: { photoUrl: input.photoUrl, lat: input.lat, lng: input.lng },
+            }),
+          ]
+        : []),
     ]);
-    await logOrderEvent(stop.orderId, "FAILED", `Motivo: ${input.reason}`);
+    await logOrderEvent(
+      stop.orderId,
+      "FAILED",
+      `Motivo: ${input.reason}${input.photoUrl ? " (con foto de evidencia)" : ""}`,
+    );
     emitOrderUpdate(request.user.tenantId, {
       ...stop.order,
       status: isRejection ? "REJECTED" : "FAILED",

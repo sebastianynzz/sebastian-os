@@ -15,6 +15,13 @@ import {
   MONTH_RE,
 } from "../../services/greenReport.js";
 import { publicTrackingUrl } from "../../services/notifications.js";
+import {
+  geocodeAddress,
+  normalizeAddress,
+  LOW_CONFIDENCE_THRESHOLD,
+} from "../../services/geocoding.js";
+import { logOrderEvent } from "../../services/orderEvents.js";
+import { emitOrderUpdate } from "../../services/realtime.js";
 
 /** Campos del pedido que el portal expone (sin datos internos de la operación). */
 const portalOrderSelect = {
@@ -32,6 +39,8 @@ const portalOrderSelect = {
   weightKg: true,
   failureReason: true,
   deliveredAt: true,
+  recoveryStatus: true,
+  rescheduledFromId: true,
   createdAt: true,
 } as const;
 
@@ -151,6 +160,90 @@ export default async function portalRoutes(app: FastifyInstance) {
       ...pickup,
     });
     return reply.code(201).send(withTrackingUrl(order));
+  });
+
+  /**
+   * Validación de dirección al crear el envío: el moat como feature del
+   * cliente. Avisa "esta dirección es ambigua" ANTES de que el paquete salga.
+   */
+  app.post("/address/validate", async (request) => {
+    const body = z.object({ addressRaw: z.string().min(5) }).parse(request.body);
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: { city: true },
+    });
+    const geo = await geocodeAddress(request.user.tenantId, body.addressRaw, tenant.city);
+    return {
+      lat: geo.lat,
+      lng: geo.lng,
+      source: geo.source,
+      confidence: geo.confidence,
+      normalized: normalizeAddress(body.addressRaw),
+      ambiguous: geo.confidence < LOW_CONFIDENCE_THRESHOLD,
+      knownAddress: geo.source === "ADDRESS_PIN",
+    };
+  });
+
+  /**
+   * Reprogramación de una entrega fallida por el COMERCIO (flujo B2B limpio):
+   * crea un nuevo envío enlazado al fallido, con la misma carga y destino.
+   */
+  app.post("/orders/:id/reschedule", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = z
+      .object({
+        addressRaw: z.string().min(5).optional(),
+        addressNotes: z.string().max(500).optional(),
+      })
+      .parse(request.body ?? {});
+
+    const original = await prisma.order.findFirst({
+      where: { id, tenantId: request.user.tenantId, clientId: request.user.clientId },
+    });
+    if (!original) return reply.code(404).send({ error: "Envío no encontrado" });
+    if (!["FAILED", "REJECTED"].includes(original.status)) {
+      return reply.code(409).send({ error: "Solo se reprograman envíos fallidos" });
+    }
+    if (original.recoveryStatus === "RESCHEDULED") {
+      return reply.code(409).send({ error: "Este envío ya fue reprogramado" });
+    }
+
+    const reorder = await createOrder(request.user.tenantId, {
+      clientId: original.clientId ?? undefined,
+      customerName: original.customerName,
+      customerPhone: original.customerPhone,
+      addressRaw: body.addressRaw ?? original.addressRaw,
+      addressNotes: body.addressNotes ?? original.addressNotes ?? undefined,
+      externalRef: original.externalRef ?? undefined,
+      weightKg: original.weightKg,
+      priority: 5, // un reintento debe salir pronto
+      // Sin dirección nueva: reusar el pin original (puede haber sido
+      // corregido en campo por el conductor en el intento fallido).
+      ...(body.addressRaw
+        ? {}
+        : original.lat !== null && original.lng !== null
+          ? { lat: original.lat, lng: original.lng }
+          : {}),
+      pickupAddressRaw: original.pickupAddressRaw ?? undefined,
+      pickupLat: original.pickupLat ?? undefined,
+      pickupLng: original.pickupLng ?? undefined,
+      pickupNotes: original.pickupNotes ?? undefined,
+    });
+    const linked = await prisma.order.update({
+      where: { id: reorder.id },
+      data: { rescheduledFromId: original.id },
+    });
+    const closed = await prisma.order.update({
+      where: { id: original.id },
+      data: { recoveryStatus: "RESCHEDULED" },
+    });
+    await logOrderEvent(
+      original.id,
+      "RECOVERY_RESCHEDULED",
+      `Reprogramado por el comercio → nueva guía ${reorder.trackingNumber}`,
+    );
+    emitOrderUpdate(request.user.tenantId, closed);
+    return reply.code(201).send(withTrackingUrl(linked));
   });
 
   /**

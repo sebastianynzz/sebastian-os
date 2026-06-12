@@ -24,6 +24,9 @@ import safetyRoutes from "./modules/safety/routes.js";
 import { UPLOADS_DIR } from "./services/storage.js";
 import evRoutes from "./modules/ev/routes.js";
 import analyticsRoutes from "./modules/analytics/routes.js";
+import addressesRoutes from "./modules/addresses/routes.js";
+import exceptionsRoutes from "./modules/exceptions/routes.js";
+import copilotRoutes from "./modules/copilot/routes.js";
 import platformRoutes from "./modules/platform/routes.js";
 import portalRoutes from "./modules/portal/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
@@ -113,6 +116,10 @@ export async function buildApp() {
   await app.register(routesRoutes, { prefix: "/routes" });
   await app.register(trackingRoutes, { prefix: "/tracking" });
   await app.register(uploadsRoutes, { prefix: "/uploads" });
+  // Inteligencia de direcciones (triage + correcciones de pin) y cockpit de
+  // excepciones: núcleo operativo, sin módulo de pago.
+  await app.register(addressesRoutes, { prefix: "/addresses" });
+  await app.register(exceptionsRoutes, { prefix: "/exceptions" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });
@@ -127,6 +134,8 @@ export async function buildApp() {
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
+  // Copiloto IA (módulo AI_ADDONS): narra y propone sobre sistemas existentes.
+  await app.register(copilotRoutes, { prefix: "/copilot" });
 
   // Plano del operador de plataforma (autenticación separada).
   await app.register(platformRoutes, { prefix: "/platform" });

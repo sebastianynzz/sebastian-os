@@ -98,7 +98,37 @@ async function dispatchToChannel(
       // Sin credenciales: cae a consola.
     }
 
-    // EMAIL e IN_APP por ahora solo se registran (visibles en el dashboard).
+    if (channel === "EMAIL" && client.email) {
+      const sendgridKey = process.env.SENDGRID_API_KEY;
+      const from = process.env.EMAIL_FROM;
+      if (sendgridKey && from) {
+        const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sendgridKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: client.email }] }],
+            from: { email: from, name: "MoveOS" },
+            subject: `MoveOS — ${message.template.replace(/_/g, " ")}`,
+            content: [
+              {
+                type: "text/plain",
+                value: Object.entries(message.payload)
+                  .filter(([, v]) => v !== null && v !== undefined)
+                  .map(([k, v]) => `${k}: ${String(v)}`)
+                  .join("\n"),
+              },
+            ],
+          }),
+        });
+        return { channel: "EMAIL", recipient: client.email, ok: res.ok };
+      }
+      // Sin credenciales SendGrid: cae a consola.
+    }
+
+    // IN_APP (y canales sin credenciales) solo se registran (feed del dashboard).
     const recipient =
       channel === "EMAIL" && client.email ? client.email : client.name;
     console.log(

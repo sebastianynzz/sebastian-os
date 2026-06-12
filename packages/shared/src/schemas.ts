@@ -201,6 +201,9 @@ export const failStopSchema = z.object({
   notes: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  // Foto de evidencia del fallo. La app la exige para los motivos disputables
+  // (CLIENTE_AUSENTE, RECHAZO_PRODUCTO): defensa ante disputas del comercio.
+  photoUrl: z.string().url().optional(),
 });
 
 export type PortalCreateOrderInput = z.infer<typeof portalCreateOrderSchema>;

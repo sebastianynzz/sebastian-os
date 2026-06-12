@@ -22,13 +22,19 @@ import Seguridad from "./pages/Seguridad";
 import Analitica from "./pages/Analitica";
 import Sostenibilidad from "./pages/Sostenibilidad";
 import Track from "./pages/Track";
+import Excepciones from "./pages/Excepciones";
+import Direcciones from "./pages/Direcciones";
+import Copilot from "./pages/Copilot";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
 import PortalVerde from "./pages/PortalVerde";
 
 const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
+  { to: "/excepciones", label: "Excepciones" },
   { to: "/pedidos", label: "Pedidos" },
+  { to: "/direcciones", label: "Direcciones" },
+  { to: "/copiloto", label: "Copiloto IA", module: "AI_ADDONS" },
   { to: "/clientes", label: "Clientes" },
   { to: "/planificacion", label: "Planificación", module: "ROUTE_OPTIMIZATION" },
   { to: "/rutas", label: "Rutas" },
@@ -122,12 +128,12 @@ function Shell() {
   );
 }
 
-/** Inicio según el tipo de cuenta: portal para CLIENT, pedidos para el equipo. */
+/** Inicio según cuenta: portal para CLIENT, cockpit de excepciones para el equipo. */
 function Home() {
   const { session } = useAuth();
   return (
     <Navigate
-      to={session?.user.role === "CLIENT" ? "/portal/resumen" : "/pedidos"}
+      to={session?.user.role === "CLIENT" ? "/portal/resumen" : "/excepciones"}
       replace
     />
   );
@@ -148,6 +154,9 @@ export default function App() {
           }
         >
           <Route path="/" element={<Home />} />
+          <Route path="/excepciones" element={<Excepciones />} />
+          <Route path="/direcciones" element={<Direcciones />} />
+          <Route path="/copiloto" element={<Copilot />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/clientes" element={<Clientes />} />
           <Route path="/planificacion" element={<Planificacion />} />

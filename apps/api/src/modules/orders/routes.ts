@@ -3,6 +3,10 @@ import { z } from "zod";
 import { createOrderSchema, ORDER_STATUSES } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { createOrder } from "../../services/orders.js";
+import { requireRole } from "../../plugins/auth.js";
+import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
+import { logOrderEvent } from "../../services/orderEvents.js";
+import { emitOrderUpdate } from "../../services/realtime.js";
 
 export default async function ordersRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -60,4 +64,56 @@ export default async function ordersRoutes(app: FastifyInstance) {
     }
     return reply.code(201).send({ created: orders.length, orders });
   });
+
+  /**
+   * Recuperación B2B de una entrega fallida: el despachador marca el pedido y
+   * se notifica al COMERCIO (nunca al consumidor final) para que reprograme
+   * desde su portal. La inteligencia es nuestra; la relación es del comercio.
+   */
+  app.post(
+    "/:id/recovery/flag",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const order = await prisma.order.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+        include: { client: true },
+      });
+      if (!order) return reply.code(404).send({ error: "Pedido no encontrado" });
+      if (!["FAILED", "REJECTED"].includes(order.status)) {
+        return reply
+          .code(409)
+          .send({ error: "Solo se recuperan pedidos fallidos o rechazados" });
+      }
+      if (order.recoveryStatus !== "NONE") {
+        return reply.code(409).send({ error: "La recuperación ya fue iniciada" });
+      }
+
+      const updated = await prisma.order.update({
+        where: { id: order.id },
+        data: { recoveryStatus: "FLAGGED" },
+      });
+      await logOrderEvent(
+        order.id,
+        "RECOVERY_FLAGGED",
+        "Marcado para reprogramación por el comercio",
+      );
+      await notifyClient({
+        tenantId: order.tenantId,
+        orderId: order.id,
+        client: order.client,
+        template: "entrega_fallida_reprogramar",
+        payload: {
+          trackingNumber: order.trackingNumber,
+          customerName: order.customerName,
+          failureReason: order.failureReason,
+          trackingUrl: publicTrackingUrl(order.trackingToken),
+          mensaje:
+            "La entrega no pudo completarse. Puede reprogramarla desde su portal MoveOS.",
+        },
+      });
+      emitOrderUpdate(order.tenantId, updated);
+      return updated;
+    },
+  );
 }

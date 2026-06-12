@@ -16,7 +16,11 @@ import { emitOrderUpdate } from "./realtime.js";
 export async function createOrder(tenantId: string, input: CreateOrderInput) {
   let lat = input.lat;
   let lng = input.lng;
-  let geocodeSource = lat !== undefined && lng !== undefined ? "CLIENT" : undefined;
+  const clientProvidedCoords = lat !== undefined && lng !== undefined;
+  let geocodeSource = clientProvidedCoords ? "CLIENT" : undefined;
+  // Coordenadas dadas por el integrador = máxima confianza, ya verificadas.
+  let geoConfidence: number | undefined = clientProvidedCoords ? 1 : undefined;
+  let addressVerifiedAt: Date | undefined = clientProvidedCoords ? new Date() : undefined;
 
   let tenantCity: string | undefined;
   if (lat === undefined || lng === undefined) {
@@ -26,6 +30,9 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     lat = geo.lat;
     lng = geo.lng;
     geocodeSource = geo.source;
+    geoConfidence = geo.confidence;
+    // Un pin del grafo ya fue confirmado en campo alguna vez.
+    if (geo.source === "ADDRESS_PIN") addressVerifiedAt = new Date();
   }
 
   // Recogida en origen (opcional): geocodificar si se dio dirección sin coords.
@@ -70,6 +77,8 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
       lat,
       lng,
       geocodeSource,
+      geoConfidence,
+      addressVerifiedAt,
       pickupLat,
       pickupLng,
       pickupAddressRaw: input.pickupAddressRaw,
