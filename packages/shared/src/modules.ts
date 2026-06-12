@@ -47,11 +47,6 @@ export const MODULE_PRESETS_BY_BUSINESS_MODEL: Record<
   LOGISTICS_3PL: ["ANALYTICS_PRO", "CUSTOMER_EXPERIENCE_PRO"],
 };
 
-/** Claves de los módulos de núcleo: siempre activos, jamás togglables. */
-export const CORE_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set<ModuleKey>([
-  "EV_MANAGEMENT",
-]);
-
 export const MODULE_CATALOG: ModuleDescriptor[] = [
   {
     key: "ROUTE_OPTIMIZATION",
@@ -111,3 +106,31 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     defaultEnabled: false,
   },
 ];
+
+/**
+ * Claves de los módulos de núcleo: siempre activos, jamás togglables.
+ * Derivado del catálogo — una sola fuente de verdad (`core: true`).
+ */
+export const CORE_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set(
+  MODULE_CATALOG.filter((m) => m.core === true).map((m) => m.key),
+);
+
+/**
+ * Módulos iniciales al aprovisionar un tenant para un modelo de negocio:
+ * defaults del catálogo ∪ preset comercial ∪ núcleo. La ÚNICA fórmula —
+ * la usan el asistente de onboarding (admin) y el aprovisionamiento (API)
+ * para que nunca diverjan.
+ */
+export function initialModulesForBusinessModel(
+  businessModel: TenantBusinessModel,
+): Set<ModuleKey> {
+  const keys = new Set<ModuleKey>(
+    MODULE_CATALOG.filter((m) => m.defaultEnabled || m.core === true).map(
+      (m) => m.key,
+    ),
+  );
+  for (const key of MODULE_PRESETS_BY_BUSINESS_MODEL[businessModel]) {
+    keys.add(key);
+  }
+  return keys;
+}

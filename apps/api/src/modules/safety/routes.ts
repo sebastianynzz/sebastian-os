@@ -42,9 +42,9 @@ export default async function safetyRoutes(app: FastifyInstance) {
       type: alert.type,
       status: alert.status,
     });
-    // Push al despacho aunque tenga el dashboard cerrado: un pánico no
-    // puede depender de una pestaña abierta.
-    await sendPushToStaff(request.user.tenantId, {
+    // Push al despacho aunque tenga el dashboard cerrado: fire-and-forget —
+    // la respuesta al conductor en peligro jamás espera al push service.
+    void sendPushToStaff(request.user.tenantId, {
       title: "🚨 Botón de pánico activado",
       body: `${request.user.name} necesita ayuda — abre Seguridad`,
       url: "/seguridad",

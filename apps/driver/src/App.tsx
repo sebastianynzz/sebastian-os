@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   api,
   apiOrQueue,
@@ -10,6 +17,7 @@ import {
   uploadPodPhoto,
 } from "./api";
 import { ChargerSheet, RangeBanner, remainingRouteKm } from "./EnergyPanel";
+import { navLinks } from "./nav";
 import RouteMap, { type MapStop } from "./RouteMap";
 import ScanSheet, { type ScanResult } from "./Scan";
 import { canOfferPush, enablePushAlerts, precacheRouteTiles } from "./sw";
@@ -123,14 +131,6 @@ async function checkPhotoQuality(
   }
 }
 
-/** Deeplinks de navegación: integrar, nunca construir navegación propia. */
-function navLinks(lat: number, lng: number) {
-  return {
-    waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
-    gmaps: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-  };
-}
-
 function useGeo() {
   const pos = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
@@ -176,6 +176,10 @@ export default function App() {
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
   const geo = useGeo();
+
+  // Una sola derivación por cambio de ruta: estabiliza la identidad del
+  // array para que RouteMap no redibuje/re-encuadre en cada render.
+  const mapStops = useMemo(() => (route ? toMapStops(route) : []), [route]);
 
   // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
   // (inserciones exprés del despachador) sin perder el lugar del conductor.
@@ -363,9 +367,7 @@ export default function App() {
         )}
 
         {/* Mapa offline de la ruta (D2): tiles pre-cacheados, nunca en blanco. */}
-        {route && toMapStops(route).length > 0 && (
-          <RouteMap stops={toMapStops(route)} geo={geo} />
-        )}
+        {route && mapStops.length > 0 && <RouteMap stops={mapStops} geo={geo} />}
 
         {/* D7: SoC en vivo + "¿alcanza para terminar?" (núcleo EV-only). */}
         {route && (
@@ -373,7 +375,7 @@ export default function App() {
             vehicle={route.vehicle}
             remainingKm={remainingRouteKm(
               geo.current,
-              toMapStops(route).filter((s) => !s.done),
+              mapStops.filter((s) => !s.done),
               { lat: route.depotLat, lng: route.depotLng },
             )}
             onFindCharger={() => setShowChargers(true)}

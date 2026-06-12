@@ -107,6 +107,13 @@ export default async function evRoutes(app: FastifyInstance) {
       })
       .parse(request.query);
 
+    const origin =
+      query.lat !== undefined && query.lng !== undefined
+        ? { lat: query.lat, lng: query.lng }
+        : null;
+
+    // Con origen hay que traer todo para ordenar por cercanía (sin PostGIS);
+    // sin origen el límite sí se empuja a la base.
     const stations = await prisma.chargingStation.findMany({
       where: {
         status: "ACTIVE",
@@ -114,12 +121,8 @@ export default async function evRoutes(app: FastifyInstance) {
         ...(query.city ? { city: query.city } : {}),
       },
       orderBy: { name: "asc" },
+      ...(origin === null && query.limit ? { take: query.limit } : {}),
     });
-
-    const origin =
-      query.lat !== undefined && query.lng !== undefined
-        ? { lat: query.lat, lng: query.lng }
-        : null;
     const result = stations.map((s) => ({
       id: s.id,
       name: s.name,

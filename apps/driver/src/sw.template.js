@@ -23,7 +23,12 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_URLS))
+      // add() por URL, tolerando fallos: addAll es atómico y un 404 en un
+      // asset secundario (p. ej. ícono renombrado) dejaría al SW nuevo sin
+      // instalarse NUNCA — matando el auto-update de toda la flota.
+      .then((cache) =>
+        Promise.all(SHELL_URLS.map((url) => cache.add(url).catch(() => null))),
+      )
       .then(() => self.skipWaiting()),
   );
 });

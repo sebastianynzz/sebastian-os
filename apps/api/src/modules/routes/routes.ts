@@ -83,9 +83,10 @@ export default async function routesRoutes(app: FastifyInstance) {
         data: { driverId: driver.id, status: "DISPATCHED" },
       });
 
-      // Aviso instantáneo al conductor (roadmap D5): web push gratuito; si no
-      // está configurado, el refresco periódico de la app lo cubre.
-      await sendPushToDriver(request.user.tenantId, driver.id, {
+      // Aviso instantáneo al conductor (roadmap D5): fire-and-forget — la
+      // bitácora y las notificaciones B2B nunca esperan ni dependen del push
+      // (si falla o no está configurado, el refresco de 45 s lo cubre).
+      void sendPushToDriver(request.user.tenantId, driver.id, {
         title: "Nueva ruta asignada",
         body: `${route.stops.length} paradas te esperan — ábrela en la app`,
         url: "/",

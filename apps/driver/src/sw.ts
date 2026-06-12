@@ -115,6 +115,9 @@ function tileXY(lat: number, lng: number, zoom: number): { x: number; y: number 
   return { x, y };
 }
 
+/** Tope del caché de tiles compartido con el service worker. */
+const MAX_TILE_CACHE_ENTRIES = 600;
+
 /**
  * Pre-cachea los tiles OSM alrededor de cada parada de la ruta (D2): si el
  * conductor entra a una zona muerta, el mapa de la ruta sigue visible.
@@ -125,23 +128,25 @@ export async function precacheRouteTiles(
   zooms: number[] = [14, 15],
 ): Promise<void> {
   if (!("caches" in window) || !navigator.onLine || points.length === 0) return;
-  const urls = new Set<string>();
+  const candidates = new Set<string>();
   for (const zoom of zooms) {
     for (const p of points) {
       const { x, y } = tileXY(p.lat, p.lng, zoom);
       // La parada y su vecindario inmediato (3×3).
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
-          urls.add(`${TILE_BASE}/${zoom}/${x + dx}/${y + dy}.png`);
-          if (urls.size >= MAX_PRECACHE_TILES) break;
+          candidates.add(`${TILE_BASE}/${zoom}/${x + dx}/${y + dy}.png`);
         }
       }
     }
   }
+  // El tope se aplica al CONJUNTO final (un break interno no acota los
+  // bucles externos): datos móviles del conductor primero.
+  const urls = [...candidates].slice(0, MAX_PRECACHE_TILES);
   try {
     const cache = await caches.open(TILE_CACHE);
     await Promise.all(
-      [...urls].map(async (url) => {
+      urls.map(async (url) => {
         if (await cache.match(url)) return;
         try {
           const res = await fetch(url, { mode: "cors" });
@@ -151,6 +156,13 @@ export async function precacheRouteTiles(
         }
       }),
     );
+    // El precache escribe directo al caché del SW: aplicar aquí el mismo
+    // recorte FIFO para que el tope global no dependa de un miss del SW.
+    const keys = await cache.keys();
+    for (let i = 0; i < keys.length - MAX_TILE_CACHE_ENTRIES; i++) {
+      const key = keys[i];
+      if (key) await cache.delete(key);
+    }
   } catch {
     // caches no disponible (modo incógnito estricto): no es crítico
   }

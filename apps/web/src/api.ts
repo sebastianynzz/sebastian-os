@@ -10,13 +10,32 @@ export class ApiError extends Error {
   }
 }
 
+const IMPERSONATION_KEY = "moveos_impersonation_token";
+
+/**
+ * El token de impersonación (consola de soporte) vive en sessionStorage:
+ * aislado POR PESTAÑA y no persistente — jamás pisa la sesión normal de
+ * otras pestañas abiertas ni sobrevive al cierre.
+ */
+export function setImpersonationToken(token: string): void {
+  sessionStorage.setItem(IMPERSONATION_KEY, token);
+}
+
 export function getToken(): string | null {
-  return localStorage.getItem("moveos_token");
+  return (
+    sessionStorage.getItem(IMPERSONATION_KEY) ??
+    localStorage.getItem("moveos_token")
+  );
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem("moveos_token", token);
-  else localStorage.removeItem("moveos_token");
+  if (token) {
+    localStorage.setItem("moveos_token", token);
+  } else {
+    localStorage.removeItem("moveos_token");
+  }
+  // Cualquier login/logout explícito termina la sesión de soporte de la pestaña.
+  sessionStorage.removeItem(IMPERSONATION_KEY);
 }
 
 export async function api<T = unknown>(

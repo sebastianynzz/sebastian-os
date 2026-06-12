@@ -5,30 +5,51 @@ import { prisma } from "../lib/prisma.js";
  * Web Push (VAPID) para conductor y despachador (roadmap P0.6).
  *
  * Canal gratuito de avisos instantáneos: ruta asignada, parada insertada,
- * pánico. Degradación elegante como el resto de proveedores: sin
- * VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY el servicio queda en no-op y la
+ * pánico. Degradación elegante como el resto de proveedores: sin claves
+ * VAPID (o con claves mal formadas) el servicio queda en no-op y la
  * operación continúa (el conductor ve los cambios en el refresco de 45 s).
  *
- * Las suscripciones muertas (endpoint 404/410 del push service) se podan
- * automáticamente para no acumular basura ni reenviar a dispositivos idos.
+ * El envío JAMÁS lanza: los llamadores lo disparan con `void` fuera de su
+ * ruta crítica (bitácora y notificaciones B2B nunca dependen del push).
+ * Las suscripciones muertas (404/410 del push service) se podan solas.
  */
 
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:ops@moveos.co";
+const VAPID_SUBJECT_DEFAULT = "mailto:ops@moveos.co";
 
-let configured = false;
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  configured = true;
-}
+// Configuración perezosa: se evalúa en el primer envío, no al importar el
+// módulo — así un entrypoint sin dotenv no congela un estado equivocado y
+// una clave mal pegada no tumba la API al arrancar.
+let configured: boolean | null = null;
 
-export function isPushConfigured(): boolean {
+function ensureConfigured(): boolean {
+  if (configured !== null) return configured;
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey) {
+    configured = false;
+    return false;
+  }
+  try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT ?? VAPID_SUBJECT_DEFAULT,
+      publicKey,
+      privateKey,
+    );
+    configured = true;
+  } catch (err) {
+    // Clave VAPID inválida (truncada, con salto de línea…): no-op, no crash.
+    console.error("Claves VAPID inválidas: web push deshabilitado.", err);
+    configured = false;
+  }
   return configured;
 }
 
+export function isPushConfigured(): boolean {
+  return ensureConfigured();
+}
+
 export function getVapidPublicKey(): string | null {
-  return configured ? VAPID_PUBLIC_KEY : null;
+  return ensureConfigured() ? (process.env.VAPID_PUBLIC_KEY ?? null) : null;
 }
 
 export interface PushPayload {
@@ -42,7 +63,7 @@ async function sendToSubscriptions(
   subs: { id: string; endpoint: string; p256dh: string; auth: string }[],
   payload: PushPayload,
 ): Promise<void> {
-  if (!configured || subs.length === 0) return;
+  if (subs.length === 0) return;
   const body = JSON.stringify(payload);
   await Promise.all(
     subs.map(async (sub) => {
@@ -70,48 +91,58 @@ async function sendToSubscriptions(
   );
 }
 
-/** Notifica a TODOS los dispositivos suscritos de un usuario. */
+/** Notifica a TODOS los dispositivos suscritos de un usuario. Nunca lanza. */
 export async function sendPushToUser(
   tenantId: string,
   userId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!configured) return;
-  const subs = await prisma.pushSubscription.findMany({
-    where: { tenantId, userId },
-  });
-  await sendToSubscriptions(subs, payload);
+  if (!ensureConfigured()) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({
+      where: { tenantId, userId },
+    });
+    await sendToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error("Error en push a usuario:", err);
+  }
 }
 
-/** Notifica al conductor (busca su cuenta de usuario por driverId). */
+/** Notifica al conductor (su cuenta de usuario, vía relación). Nunca lanza. */
 export async function sendPushToDriver(
   tenantId: string,
   driverId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!configured) return;
-  const user = await prisma.user.findFirst({
-    where: { tenantId, driverId },
-    select: { id: true },
-  });
-  if (!user) return;
-  await sendPushToUser(tenantId, user.id, payload);
+  if (!ensureConfigured()) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({
+      where: { tenantId, user: { driverId } },
+    });
+    await sendToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error("Error en push a conductor:", err);
+  }
 }
 
 /**
  * Notifica al personal de despacho del tenant (ADMIN + DISPATCHER), p. ej.
- * un botón de pánico con el dashboard cerrado.
+ * un botón de pánico con el dashboard cerrado. Nunca lanza.
  */
 export async function sendPushToStaff(
   tenantId: string,
   payload: PushPayload,
 ): Promise<void> {
-  if (!configured) return;
-  const subs = await prisma.pushSubscription.findMany({
-    where: {
-      tenantId,
-      user: { role: { in: ["ADMIN", "DISPATCHER"] } },
-    },
-  });
-  await sendToSubscriptions(subs, payload);
+  if (!ensureConfigured()) return;
+  try {
+    const subs = await prisma.pushSubscription.findMany({
+      where: {
+        tenantId,
+        user: { role: { in: ["ADMIN", "DISPATCHER"] } },
+      },
+    });
+    await sendToSubscriptions(subs, payload);
+  } catch (err) {
+    console.error("Error en push al despacho:", err);
+  }
 }

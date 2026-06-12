@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setToken } from "./api";
+import { api, getToken, setImpersonationToken, setToken } from "./api";
 
 interface Session {
   user: { id: string; name: string; email: string; role: string };
@@ -26,20 +26,21 @@ const AuthContext = createContext<AuthContextValue>(null!);
 
 /**
  * Consola de soporte (A4): el panel de plataforma abre el dashboard con
- * ?impersonar=<token de 30 min>. Se adopta el token ANTES de cargar la
- * sesión y se limpia la URL para no dejar el token en el historial.
+ * #impersonar=<token de 30 min>. FRAGMENTO, no query string: el fragmento
+ * nunca viaja en la petición HTTP, así el token no queda en logs del host
+ * estático ni de proxies. Se guarda en sessionStorage (aislado por pestaña
+ * — no pisa la sesión normal de otras pestañas) y se limpia de la URL.
  */
 function adoptImpersonationToken(): void {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("impersonar");
+  const hash = window.location.hash;
+  if (!hash.startsWith("#impersonar=")) return;
+  const token = decodeURIComponent(hash.slice("#impersonar=".length));
   if (!token) return;
-  setToken(token);
-  params.delete("impersonar");
-  const query = params.toString();
+  setImpersonationToken(token);
   window.history.replaceState(
     null,
     "",
-    window.location.pathname + (query ? `?${query}` : ""),
+    window.location.pathname + window.location.search,
   );
 }
 

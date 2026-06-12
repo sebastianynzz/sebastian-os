@@ -42,7 +42,14 @@ export default function RouteMap({
       attributionControl: true,
     });
     map.attributionControl.setPrefix(false);
-    L.tileLayer(TILE_URL, { attribution: ATTRIBUTION, maxZoom: 19 }).addTo(map);
+    // crossOrigin: las peticiones de tiles salen en modo CORS — sin esto el
+    // service worker recibe respuestas opacas (response.ok === false) y los
+    // tiles navegados JAMÁS entrarían al caché offline (D2).
+    L.tileLayer(TILE_URL, {
+      attribution: ATTRIBUTION,
+      maxZoom: 19,
+      crossOrigin: true,
+    }).addTo(map);
     map.setView([4.654, -74.084], 12); // Bogotá por defecto hasta tener paradas
     mapRef.current = map;
     return () => {
@@ -51,10 +58,18 @@ export default function RouteMap({
     };
   }, []);
 
-  // Redibujar paradas/trazo cuando cambia la secuencia (re-secuenciación viva).
+  // Redibujar paradas/trazo SOLO cuando cambia la secuencia real (firma),
+  // no por identidad del array: el fitBounds no debe robarle el encuadre al
+  // conductor en cada refresco de 45 s.
+  const drawnSignature = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const signature = stops
+      .map((s) => `${s.id}:${s.sequence}:${s.done ? 1 : 0}`)
+      .join("|");
+    if (signature === drawnSignature.current) return;
+    drawnSignature.current = signature;
     overlayRef.current?.remove();
     const overlay = L.layerGroup();
     overlayRef.current = overlay;

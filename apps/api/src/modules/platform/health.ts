@@ -46,8 +46,15 @@ async function timedPing(
 }
 
 async function checkDatabase(): Promise<IntegrationHealth> {
+  // Prisma no acepta AbortSignal: acotar con una carrera explícita para que
+  // el panel responda incluso con la base colgada (justo cuando más se usa).
   const { ok, latencyMs } = await timedPing(async () => {
-    await prisma.$queryRaw`SELECT 1`;
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), PING_TIMEOUT_MS),
+      ),
+    ]);
     return true;
   });
   return {
@@ -233,8 +240,9 @@ async function computeHealth(): Promise<IntegrationHealth[]> {
 
 export default async function platformHealthRoutes(app: FastifyInstance) {
   app.get("/health", async (request) => {
+    // Nota: NO usar z.coerce.boolean() aquí — "false" coercería a true.
     const query = z
-      .object({ refresh: z.coerce.boolean().optional() })
+      .object({ refresh: z.enum(["1", "true"]).optional() })
       .parse(request.query);
     if (!query.refresh && cache && Date.now() - cache.at < CACHE_TTL_MS) {
       return { cachedAt: new Date(cache.at).toISOString(), results: cache.results };

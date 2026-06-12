@@ -26,13 +26,13 @@ const MODEL = process.env.COPILOT_MODEL ?? "claude-opus-4-8";
 const MAX_LOOP = 8;
 
 /**
- * Thinking adaptativo solo en los modelos que lo soportan (Opus/Sonnet 4.6+,
- * Fable). En producción el roadmap fija COPILOT_MODEL=claude-haiku-4-5 por
- * costo (P0.1) y Haiku no acepta el parámetro — se omite y el modelo
- * responde directo, suficiente para narrar herramientas existentes.
+ * Thinking adaptativo en todos los modelos salvo Haiku, que no acepta el
+ * parámetro (en producción el roadmap fija COPILOT_MODEL=claude-haiku-4-5
+ * por costo, P0.1 — sin thinking responde directo, suficiente para narrar
+ * herramientas existentes). Regla por exclusión y no por lista de
+ * versiones: un modelo futuro no degrada en silencio.
  */
-const SUPPORTS_ADAPTIVE_THINKING =
-  /claude-(opus-4-[6-9]|sonnet-4-[6-9]|fable|mythos)/.test(MODEL);
+const SUPPORTS_ADAPTIVE_THINKING = !MODEL.includes("haiku");
 const THINKING_PARAMS = SUPPORTS_ADAPTIVE_THINKING
   ? ({ thinking: { type: "adaptive" } } as const)
   : {};

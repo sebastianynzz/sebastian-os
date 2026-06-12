@@ -70,6 +70,10 @@ export default function ScanSheet({
     detectorRef.current = getBarcodeDetector();
     let stream: MediaStream | null = null;
     let interval: ReturnType<typeof setInterval> | null = null;
+    // Si el conductor cierra la hoja mientras getUserMedia sigue en vuelo,
+    // el cleanup corre con stream=null: la bandera apaga la cámara recién
+    // adquirida en vez de dejarla encendida el resto del turno.
+    let cancelled = false;
 
     void (async () => {
       if (!detectorRef.current || !navigator.mediaDevices?.getUserMedia) {
@@ -82,7 +86,10 @@ export default function ScanSheet({
           audio: false,
         });
         const video = videoRef.current;
-        if (!video) return;
+        if (cancelled || !video) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         video.srcObject = stream;
         await video.play();
         interval = setInterval(() => {
@@ -103,6 +110,7 @@ export default function ScanSheet({
     })();
 
     return () => {
+      cancelled = true;
       if (interval) clearInterval(interval);
       stream?.getTracks().forEach((t) => t.stop());
     };

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  initialModulesForBusinessModel,
   MODULE_CATALOG,
-  MODULE_PRESETS_BY_BUSINESS_MODEL,
   type ModuleKey,
   type TenantBusinessModel,
 } from "@moveos/shared";
 import { api } from "../api";
-import { Card, PlanBadge, StatusBadge } from "../components/ui";
+import { Card, inputClass, PlanBadge, StatusBadge } from "../components/ui";
 
 interface TenantRow {
   id: string;
@@ -32,18 +32,6 @@ const BUSINESS_MODEL_LABEL: Record<string, string> = {
   FAAS: "FaaS",
   LOGISTICS_3PL: "3PL",
 };
-
-const inputClass =
-  "w-full rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-niebla placeholder:text-white/30 focus:border-lima focus:outline-none";
-
-/** Módulos iniciales para un modelo de negocio: defaults + preset comercial. */
-function presetModules(model: TenantBusinessModel): Set<ModuleKey> {
-  const keys = new Set<ModuleKey>(
-    MODULE_CATALOG.filter((m) => m.defaultEnabled).map((m) => m.key),
-  );
-  for (const key of MODULE_PRESETS_BY_BUSINESS_MODEL[model]) keys.add(key);
-  return keys;
-}
 
 interface WizardData {
   name: string;
@@ -80,7 +68,7 @@ function OnboardingWizard({
     city: "Bogotá",
     plan: "PRO",
     businessModel: "FAAS",
-    modules: presetModules("FAAS"),
+    modules: initialModulesForBusinessModel("FAAS"),
     adminName: "",
     adminEmail: "",
     adminPassword: "",
@@ -195,7 +183,7 @@ function OnboardingWizard({
                 setData((d) => ({
                   ...d,
                   businessModel: model,
-                  modules: presetModules(model),
+                  modules: initialModulesForBusinessModel(model),
                 }));
               }}
             >

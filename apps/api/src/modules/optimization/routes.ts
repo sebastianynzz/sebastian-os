@@ -361,10 +361,10 @@ export default async function optimizationRoutes(app: FastifyInstance) {
         status: route.status === "PLANNED" ? "ASSIGNED" : "IN_TRANSIT",
       });
 
-      // Aviso instantáneo al conductor en ruta activa: la app también
-      // re-secuencia sola en el refresco, pero el push evita sorpresas.
+      // Aviso instantáneo al conductor en ruta activa: fire-and-forget (la
+      // app también re-secuencia sola en el refresco de 45 s).
       if (route.driverId && route.status !== "PLANNED") {
-        await sendPushToDriver(tenantId, route.driverId, {
+        void sendPushToDriver(tenantId, route.driverId, {
           title: "Parada agregada a tu ruta",
           body: `${newOrder.customerName} — revisa la nueva secuencia`,
           url: "/",

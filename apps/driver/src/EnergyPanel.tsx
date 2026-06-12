@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { estimateUsableRangeKm } from "@moveos/optimizer";
+import { haversineKm, URBAN_DETOUR_FACTOR } from "@moveos/shared";
 import { api } from "./api";
+import { navLinks } from "./nav";
 
 /**
  * Energía del conductor (núcleo EV-only):
@@ -14,9 +16,6 @@ import { api } from "./api";
  * con deeplink a Waze/Google Maps. El último resultado se guarda en
  * localStorage para que el botón sirva incluso sin señal.
  */
-
-/** Las calles no son líneas rectas: factor vial sobre el haversine. */
-const ROAD_FACTOR = 1.3;
 
 const CHARGERS_CACHE_KEY = "moveos_driver_chargers";
 
@@ -42,21 +41,12 @@ interface ChargingStation {
   distanceKm: number | null;
 }
 
-function haversineKmLocal(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-
-/** Km que faltan: posición actual → paradas pendientes en orden → depósito. */
+/**
+ * Km que faltan: posición actual → paradas pendientes en orden → depósito.
+ * Usa el MISMO modelo vial que el optimizador (@moveos/shared:
+ * haversine × URBAN_DETOUR_FACTOR) — si los factores divergieran, el
+ * banner podría decir "alcanza" cuando el planificador dice que no.
+ */
 export function remainingRouteKm(
   from: { lat: number; lng: number } | null,
   pendingStops: { lat: number; lng: number }[],
@@ -68,10 +58,10 @@ export function remainingRouteKm(
   let km = 0;
   let prev = from ?? path[0]!;
   for (const point of path) {
-    km += haversineKmLocal(prev, point);
+    km += haversineKm(prev, point);
     prev = point;
   }
-  return km * ROAD_FACTOR;
+  return km * URBAN_DETOUR_FACTOR;
 }
 
 export function RangeBanner({
@@ -84,7 +74,33 @@ export function RangeBanner({
   onFindCharger: () => void;
 }) {
   if (!vehicle.isElectric || vehicle.nominalRangeKm === null) return null;
-  const soc = vehicle.socPercent ?? 100;
+
+  // Sin telemetría de SoC NO se asume batería llena: una falsa confianza
+  // ("alcanza") es exactamente lo que D7 existe para evitar.
+  if (vehicle.socPercent === null) {
+    return (
+      <div
+        role="status"
+        className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-bold">⚡ Batería sin telemetría</span>
+          <button
+            onClick={onFindCharger}
+            className="shrink-0 font-bold underline opacity-70"
+          >
+            🔌 Cargadores
+          </button>
+        </div>
+        <div className="mt-1 text-xs">
+          Confirma la carga del vehículo antes de salir — faltan ~
+          {Math.max(1, Math.round(remainingKm))} km de ruta.
+        </div>
+      </div>
+    );
+  }
+
+  const soc = vehicle.socPercent;
   const usableKm = estimateUsableRangeKm({
     nominalRangeKm: vehicle.nominalRangeKm,
     socPercent: soc,
@@ -131,13 +147,6 @@ export function RangeBanner({
       )}
     </div>
   );
-}
-
-function navLinks(lat: number, lng: number) {
-  return {
-    waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
-    gmaps: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-  };
 }
 
 export function ChargerSheet({

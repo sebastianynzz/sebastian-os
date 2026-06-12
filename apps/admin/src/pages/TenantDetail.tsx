@@ -115,9 +115,11 @@ export default function TenantDetail() {
         `/tenants/${id}/impersonate`,
         {},
       );
+      // Fragmento (#), no query: el token jamás viaja al servidor estático
+      // ni queda en logs de acceso/proxies.
       const base = res.webUrl ?? "http://localhost:5173";
       window.open(
-        `${base.replace(/\/$/, "")}/?impersonar=${encodeURIComponent(res.token)}`,
+        `${base.replace(/\/$/, "")}/#impersonar=${encodeURIComponent(res.token)}`,
         "_blank",
         "noopener",
       );

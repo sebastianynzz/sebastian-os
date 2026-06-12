@@ -4,9 +4,9 @@ import { z } from "zod";
 import {
   createVehicleSchema,
   CORE_MODULE_KEYS,
+  initialModulesForBusinessModel,
   MODULE_CATALOG,
   MODULE_KEYS,
-  MODULE_PRESETS_BY_BUSINESS_MODEL,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
@@ -96,12 +96,12 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       if (!parent) return reply.code(400).send({ error: "parentTenantId no existe" });
     }
 
-    // Preset por modelo de negocio (o la selección explícita del asistente):
-    // enciende, además de los default del catálogo, los módulos que la
-    // oferta comercial incluye de entrada. Los de núcleo siempre activos.
-    const preset = new Set(
-      input.modules ?? MODULE_PRESETS_BY_BUSINESS_MODEL[input.businessModel],
-    );
+    // Selección explícita del asistente, o la fórmula única compartida
+    // (defaults ∪ preset comercial ∪ núcleo) — la misma que usa el wizard
+    // del panel, así nunca divergen. Los de núcleo siempre activos.
+    const enabledKeys = input.modules
+      ? new Set(input.modules)
+      : initialModulesForBusinessModel(input.businessModel);
     const tenant = await prisma.tenant.create({
       data: {
         name: input.name,
@@ -114,11 +114,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         entitlements: {
           create: MODULE_CATALOG.map((m) => ({
             moduleKey: m.key,
-            enabled:
-              m.core === true ||
-              (input.modules
-                ? preset.has(m.key)
-                : m.defaultEnabled || preset.has(m.key)),
+            enabled: m.core === true || enabledKeys.has(m.key),
           })),
         },
       },
