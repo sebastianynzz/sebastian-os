@@ -21,10 +21,13 @@ interface EvVehicle {
   lowBattery: boolean;
 }
 interface Station {
+  id: string;
   name: string;
   network: string;
   connectors: string[];
-  dc: boolean;
+  powerKw: number | null;
+  dcFast: boolean;
+  isDepot: boolean;
 }
 
 export default function Ev() {
@@ -123,11 +126,14 @@ export default function Ev() {
           </thead>
           <tbody>
             {stations.map((s) => (
-              <tr key={s.name} className={tableRowClass}>
-                <td className="py-1.5">{s.name}</td>
+              <tr key={s.id} className={tableRowClass}>
+                <td className="py-1.5">{s.isDepot ? `🏠 ${s.name}` : s.name}</td>
                 <td>{s.network}</td>
                 <td className="text-xs">{s.connectors.join(", ")}</td>
-                <td>{s.dc ? "⚡ DC" : "AC"}</td>
+                <td>
+                  {s.dcFast ? "⚡ DC" : "AC"}
+                  {s.powerKw ? ` · ${s.powerKw} kW` : ""}
+                </td>
               </tr>
             ))}
           </tbody>

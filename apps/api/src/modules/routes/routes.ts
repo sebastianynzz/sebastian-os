@@ -6,6 +6,7 @@ import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
+import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
@@ -80,6 +81,15 @@ export default async function routesRoutes(app: FastifyInstance) {
       const updated = await prisma.route.update({
         where: { id },
         data: { driverId: driver.id, status: "DISPATCHED" },
+      });
+
+      // Aviso instantáneo al conductor (roadmap D5): fire-and-forget — la
+      // bitácora y las notificaciones B2B nunca esperan ni dependen del push
+      // (si falla o no está configurado, el refresco de 45 s lo cubre).
+      void sendPushToDriver(request.user.tenantId, driver.id, {
+        title: "Nueva ruta asignada",
+        body: `${route.stops.length} paradas te esperan — ábrela en la app`,
+        url: "/",
       });
 
       // Un pedido con recogida tiene 2 paradas; deduplicar por pedido para no
@@ -174,6 +184,32 @@ export default async function routesRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
     });
     return route ?? null;
+  });
+
+  /**
+   * Escaneo del paquete (D3): vincula el bulto a la parada y deja registro
+   * de cadena de custodia en la bitácora. La app valida localmente (sirve
+   * offline); el servidor re-verifica y registra el resultado real.
+   */
+  app.post("/stops/:stopId/scan", async (request, reply) => {
+    const { stopId } = z.object({ stopId: z.string() }).parse(request.params);
+    const input = z
+      .object({ code: z.string().trim().min(3).max(64) })
+      .parse(request.body);
+    const stop = await findStopForUser(request, stopId);
+    if (!stop) return reply.code(404).send({ error: "Parada no encontrada" });
+
+    const expected = stop.order.trackingNumber?.toUpperCase() ?? null;
+    const scanned = input.code.toUpperCase();
+    const match = expected !== null && scanned === expected;
+    await logOrderEvent(
+      stop.orderId,
+      match ? "SCANNED" : "SCAN_MISMATCH",
+      match
+        ? `Paquete escaneado en ${stop.kind === "PICKUP" ? "recogida" : "entrega"}`
+        : `Escaneo no coincide con la guía: ${scanned}`,
+    );
+    return { match };
   });
 
   app.post("/stops/:stopId/arrive", async (request, reply) => {

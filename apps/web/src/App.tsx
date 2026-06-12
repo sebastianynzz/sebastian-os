@@ -6,7 +6,7 @@ import {
   Route,
   Routes,
 } from "react-router-dom";
-import { AuthProvider, useAuth } from "./auth";
+import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
 import { Loading } from "./components/ui";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
@@ -41,7 +41,8 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/mapa", label: "Mapa en vivo", module: "TELEMATICS" },
   { to: "/conductores", label: "Conductores" },
   { to: "/vehiculos", label: "Vehículos" },
-  { to: "/ev", label: "Flota eléctrica", module: "EV_MANAGEMENT" },
+  // Flota eléctrica: núcleo EV-only, siempre visible (restricción dura 1.3).
+  { to: "/ev", label: "Flota eléctrica" },
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
@@ -122,6 +123,22 @@ function Shell() {
         </div>
       </aside>
       <main className="min-w-0 flex-1 p-4 md:p-6">
+        {/* Sesión de soporte: visible siempre, para que nadie opere "como
+            tenant" sin que se note. La emisión quedó en PlatformAuditLog. */}
+        {getImpersonatedBy() && (
+          <div
+            role="status"
+            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+          >
+            <span>
+              🛟 Sesión de soporte: actuando como <b>{session.user.email}</b>{" "}
+              (operador: {getImpersonatedBy()}, expira en ≤30 min)
+            </span>
+            <button onClick={logout} className="shrink-0 font-bold underline">
+              Salir
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

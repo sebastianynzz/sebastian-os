@@ -7,6 +7,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { ZodError } from "zod";
 import { config } from "./config.js";
+import { captureError } from "./lib/sentry.js";
 import { registerAuth } from "./plugins/auth.js";
 import authRoutes from "./modules/auth/routes.js";
 import modulesRoutes from "./modules/admin/modules.js";
@@ -29,6 +30,7 @@ import exceptionsRoutes from "./modules/exceptions/routes.js";
 import copilotRoutes from "./modules/copilot/routes.js";
 import platformRoutes from "./modules/platform/routes.js";
 import portalRoutes from "./modules/portal/routes.js";
+import pushRoutes from "./modules/push/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
@@ -95,7 +97,10 @@ export async function buildApp() {
     const err = error as { statusCode?: number; message?: string };
     const statusCode =
       typeof err.statusCode === "number" ? err.statusCode : 500;
-    if (statusCode >= 500) app.log.error(error);
+    if (statusCode >= 500) {
+      app.log.error(error);
+      captureError(error); // P0.7: no-op sin SENTRY_DSN
+    }
     return reply.code(statusCode).send({
       error: statusCode >= 500 ? "Error interno" : (err.message ?? "Error"),
     });
@@ -120,6 +125,11 @@ export async function buildApp() {
   // excepciones: núcleo operativo, sin módulo de pago.
   await app.register(addressesRoutes, { prefix: "/addresses" });
   await app.register(exceptionsRoutes, { prefix: "/exceptions" });
+  // Flota eléctrica: NÚCLEO (MoveOS es EV-only; restricción dura 1.3).
+  // Autonomía, SoC y directorio de carga nunca se gatean por entitlement.
+  await app.register(evRoutes, { prefix: "/ev" });
+  // Web Push (VAPID): avisos instantáneos a conductor y despachador.
+  await app.register(pushRoutes, { prefix: "/push" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });
@@ -132,7 +142,6 @@ export async function buildApp() {
   await app.register(optimizationRoutes, { prefix: "/optimization" });
   await app.register(telematicsRoutes, { prefix: "/telematics" });
   await app.register(safetyRoutes, { prefix: "/safety" });
-  await app.register(evRoutes, { prefix: "/ev" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
   // Copiloto IA (módulo AI_ADDONS): narra y propone sobre sistemas existentes.
   await app.register(copilotRoutes, { prefix: "/copilot" });

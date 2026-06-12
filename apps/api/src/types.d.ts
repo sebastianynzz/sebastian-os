@@ -10,6 +10,8 @@ interface TenantClaims {
   /** Portal de clientes: negocio cliente al que pertenece el usuario CLIENT. */
   clientId?: string;
   name: string;
+  /** Consola de soporte: email del operador de plataforma que impersona. */
+  impersonatedBy?: string;
 }
 
 interface PlatformClaims {

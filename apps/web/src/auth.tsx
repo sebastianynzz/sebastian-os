@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setToken } from "./api";
+import { api, getToken, setImpersonationToken, setToken } from "./api";
 
 interface Session {
   user: { id: string; name: string; email: string; role: string };
@@ -24,7 +24,46 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue>(null!);
 
+/**
+ * Consola de soporte (A4): el panel de plataforma abre el dashboard con
+ * #impersonar=<token de 30 min>. FRAGMENTO, no query string: el fragmento
+ * nunca viaja en la petición HTTP, así el token no queda en logs del host
+ * estático ni de proxies. Se guarda en sessionStorage (aislado por pestaña
+ * — no pisa la sesión normal de otras pestañas) y se limpia de la URL.
+ */
+function adoptImpersonationToken(): void {
+  const hash = window.location.hash;
+  if (!hash.startsWith("#impersonar=")) return;
+  const token = decodeURIComponent(hash.slice("#impersonar=".length));
+  if (!token) return;
+  setImpersonationToken(token);
+  window.history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
+}
+
+/** Email del operador de plataforma si la sesión es de soporte (claim JWT). */
+export function getImpersonatedBy(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const payload = JSON.parse(
+      atob(part.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { impersonatedBy?: unknown };
+    return typeof payload.impersonatedBy === "string"
+      ? payload.impersonatedBy
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  adoptImpersonationToken();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 

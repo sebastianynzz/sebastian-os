@@ -22,6 +22,12 @@ export interface ModuleDescriptor {
   descripcion: string;
   /** Incluido por defecto al crear un tenant nuevo (plan de entrada). */
   defaultEnabled: boolean;
+  /**
+   * Parte del núcleo obligatorio: siempre activo para todo tenant y no
+   * desactivable. MoveOS es EV-only — autonomía y carga son núcleo, no un
+   * módulo de pago (restricción dura 1.3 de CLAUDE.md).
+   */
+  core?: boolean;
 }
 
 import type { TenantBusinessModel } from "./enums.js";
@@ -60,8 +66,9 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     key: "EV_MANAGEMENT",
     nombre: "Gestión de flota eléctrica",
     descripcion:
-      "Estado de carga (SoC), estimación dinámica de autonomía (carga, terreno, clima) y rutas conscientes de batería.",
-    defaultEnabled: false,
+      "Estado de carga (SoC), estimación dinámica de autonomía (carga, terreno, clima), rutas conscientes de batería y directorio de carga. Parte del núcleo: una flota 100% eléctrica no opera sin esto.",
+    defaultEnabled: true,
+    core: true,
   },
   {
     key: "SAFETY",
@@ -99,3 +106,31 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     defaultEnabled: false,
   },
 ];
+
+/**
+ * Claves de los módulos de núcleo: siempre activos, jamás togglables.
+ * Derivado del catálogo — una sola fuente de verdad (`core: true`).
+ */
+export const CORE_MODULE_KEYS: ReadonlySet<ModuleKey> = new Set(
+  MODULE_CATALOG.filter((m) => m.core === true).map((m) => m.key),
+);
+
+/**
+ * Módulos iniciales al aprovisionar un tenant para un modelo de negocio:
+ * defaults del catálogo ∪ preset comercial ∪ núcleo. La ÚNICA fórmula —
+ * la usan el asistente de onboarding (admin) y el aprovisionamiento (API)
+ * para que nunca diverjan.
+ */
+export function initialModulesForBusinessModel(
+  businessModel: TenantBusinessModel,
+): Set<ModuleKey> {
+  const keys = new Set<ModuleKey>(
+    MODULE_CATALOG.filter((m) => m.defaultEnabled || m.core === true).map(
+      (m) => m.key,
+    ),
+  );
+  for (const key of MODULE_PRESETS_BY_BUSINESS_MODEL[businessModel]) {
+    keys.add(key);
+  }
+  return keys;
+}

@@ -27,6 +27,10 @@ async function main() {
     update: {},
   });
 
+  // El directorio público de carga (tenantId null) lo siembra la MIGRACIÓN
+  // 20260612120000_ev_core_data — producción solo corre migrate deploy,
+  // nunca este seed demo. Aquí no se duplica.
+
   // Segundo tenant demo (plan FREE, solo módulos por defecto) para que el
   // panel de plataforma tenga una lista con datos distintos.
   const medellin = await prisma.tenant.findFirst({
@@ -85,7 +89,43 @@ async function main() {
     where: { name: "Demo Logística Bogotá" },
   });
   if (existing) {
-    console.log("Tenant Bogotá ya existe; operador y 2º tenant verificados.");
+    // Camino de upgrade para bases ya sembradas: la flota demo pasó a ser
+    // 100% eléctrica (restricción dura 1) — convertir los vehículos viejos
+    // y garantizar el cargador del depósito, sin duplicar nada más.
+    await Promise.all([
+      prisma.vehicle.updateMany({
+        where: { tenantId: existing.id, plate: "ABC12D", isElectric: false },
+        data: { isElectric: true, batteryKwh: 4, nominalRangeKm: 90, socPercent: 92 },
+      }),
+      prisma.vehicle.updateMany({
+        where: { tenantId: existing.id, plate: "XYZ34E", isElectric: false },
+        data: { isElectric: true, batteryKwh: 3.5, nominalRangeKm: 80, socPercent: 22 },
+      }),
+      prisma.vehicle.updateMany({
+        where: { tenantId: existing.id, plate: "JDK457", isElectric: false },
+        data: { isElectric: true, batteryKwh: 60, nominalRangeKm: 300, socPercent: 64 },
+      }),
+    ]);
+    const depotCharger = await prisma.chargingStation.findFirst({
+      where: { tenantId: existing.id, network: "DEPOSITO" },
+    });
+    if (!depotCharger) {
+      await prisma.chargingStation.create({
+        data: {
+          tenantId: existing.id,
+          name: "Depósito MOVE — Chapinero",
+          network: "DEPOSITO",
+          address: "Cl 57 # 10-32, Chapinero",
+          city: "Bogotá",
+          lat: 4.6486,
+          lng: -74.0628,
+          connectors: ["TYPE_2", "SCHUKO"],
+          powerKw: 22,
+          dcFast: false,
+        },
+      });
+    }
+    console.log("Tenant Bogotá ya existe; flota EV y cargador de depósito verificados.");
     return;
   }
 
@@ -174,6 +214,8 @@ async function main() {
   const in11Months = new Date(Date.now() + 330 * 24 * 3600 * 1000);
   const in20Days = new Date(Date.now() + 20 * 24 * 3600 * 1000);
 
+  // Flota 100% eléctrica (MoveOS es EV-only — restricción dura 1):
+  // e-motos urbanas, carro utilitario eléctrico y e-van de carga.
   await prisma.vehicle.createMany({
     data: [
       {
@@ -181,6 +223,10 @@ async function main() {
         plate: "ABC12D",
         type: "MOTO",
         capacityKg: 15,
+        isElectric: true,
+        batteryKwh: 4,
+        nominalRangeKm: 90,
+        socPercent: 92,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
       },
@@ -189,6 +235,10 @@ async function main() {
         plate: "XYZ34E",
         type: "MOTO",
         capacityKg: 18,
+        isElectric: true,
+        batteryKwh: 3.5,
+        nominalRangeKm: 80,
+        socPercent: 22, // batería baja: alerta del cockpit y presupuesto de autonomía corto
         soatExpiresAt: in20Days, // alerta de vencimiento próxima
         tecnoExpiresAt: in11Months,
       },
@@ -198,6 +248,10 @@ async function main() {
         type: "CARRO",
         capacityKg: 350,
         capacityM3: 1.5,
+        isElectric: true,
+        batteryKwh: 60,
+        nominalRangeKm: 300,
+        socPercent: 64,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
       },
@@ -215,6 +269,23 @@ async function main() {
         tecnoExpiresAt: in11Months,
       },
     ],
+  });
+
+  // Cargador del depósito del tenant demo (la red pública se siembra aparte,
+  // compartida entre tenants con tenantId null).
+  await prisma.chargingStation.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Depósito MOVE — Chapinero",
+      network: "DEPOSITO",
+      address: "Cl 57 # 10-32, Chapinero",
+      city: "Bogotá",
+      lat: 4.6486,
+      lng: -74.0628,
+      connectors: ["TYPE_2", "SCHUKO"],
+      powerKw: 22,
+      dcFast: false,
+    },
   });
 
   // Negocios cliente del tenant (B2B): originan los envíos y reciben las

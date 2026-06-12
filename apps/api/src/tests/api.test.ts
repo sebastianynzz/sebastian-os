@@ -64,13 +64,17 @@ describe("flujo completo MoveOS", () => {
     adminToken = res.body.token;
   });
 
-  it("activa módulos adicionales para el tenant (EV, seguridad, analítica)", async () => {
-    // Los módulos premium nacen apagados: el admin los activa según contrato.
+  it("activa módulos adicionales para el tenant (seguridad, analítica)", async () => {
+    // EV es NÚCLEO (plataforma EV-only): disponible sin activar nada.
     const ev = await api("GET", "/ev/overview", adminToken);
-    expect(ev.status).toBe(403);
-    expect(ev.body.code).toBe("MODULE_NOT_ENABLED");
+    expect(ev.status).toBe(200);
 
-    for (const key of ["EV_MANAGEMENT", "SAFETY", "ANALYTICS_PRO"]) {
+    // Los módulos premium nacen apagados: el admin los activa según contrato.
+    const safety = await api("GET", "/safety/alerts", adminToken);
+    expect(safety.status).toBe(403);
+    expect(safety.body.code).toBe("MODULE_NOT_ENABLED");
+
+    for (const key of ["SAFETY", "ANALYTICS_PRO"]) {
       const res = await api("PATCH", `/modules/${key}`, adminToken, {
         enabled: true,
       });
@@ -182,6 +186,30 @@ describe("flujo completo MoveOS", () => {
 
     const start = await api("POST", `/routes/${routeId}/start`, driverToken);
     expect(start.status).toBe(200);
+  });
+
+  it("escanea el paquete y registra la cadena de custodia (D3)", async () => {
+    const order = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
+    const guia = order.body.trackingNumber as string;
+
+    // Código equivocado: queda el evento de no-coincidencia.
+    const wrong = await api("POST", `/routes/stops/${firstStopId}/scan`, driverToken, {
+      code: "MV-NOEXISTE",
+    });
+    expect(wrong.status).toBe(200);
+    expect(wrong.body.match).toBe(false);
+
+    // Guía correcta (case-insensitive): vincula el bulto a la parada.
+    const ok = await api("POST", `/routes/stops/${firstStopId}/scan`, driverToken, {
+      code: guia.toLowerCase(),
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.match).toBe(true);
+
+    const detail = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
+    const types = detail.body.events.map((e: { type: string }) => e.type);
+    expect(types).toContain("SCANNED");
+    expect(types).toContain("SCAN_MISMATCH");
   });
 
   it("reporta posición (tracking) y completa la entrega con POD georreferenciado", async () => {

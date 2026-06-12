@@ -56,6 +56,8 @@ model Tenant {
   safetyAlerts  SafetyAlert[]
   notifications NotificationLog[]
   dailyMetrics  DailyTenantMetric[]
+  chargingStations ChargingStation[]
+  pushSubscriptions PushSubscription[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -125,8 +127,28 @@ model User {
   client       Client? @relation(fields: [clientId], references: [id])
   clientId     String?
   createdAt    DateTime @default(now())
+  pushSubscriptions PushSubscription[]
 
   @@index([clientId])
+}
+
+/// Suscripción Web Push (VAPID) de un usuario del tenant: el canal gratuito
+/// de avisos instantáneos al conductor (ruta asignada / parada insertada) y
+/// al despachador (pánico). Un usuario puede tener varios dispositivos.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, userId])
 }
 
 model Driver {
@@ -359,6 +381,32 @@ model ProofOfDelivery {
   lng          Float?
   geofenceOk   Boolean?
   createdAt    DateTime  @default(now())
+}
+
+/// Directorio de estaciones de carga (núcleo EV, roadmap P0.4b). Las redes
+/// públicas (Terpel Voltex, Enel X, EPM, Celsia) se comparten entre tenants
+/// con tenantId null; un cargador de depósito pertenece a su tenant. La
+/// disponibilidad en vivo (OCPP) es fase 3 — aquí vive el directorio estático
+/// que alimenta la planificación con autonomía y el "cargador más cercano"
+/// del conductor desde el día uno.
+model ChargingStation {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  network    String // Terpel Voltex | Enel X | EPM | Celsia | DEPOSITO | ...
+  address    String?
+  city       String   @default("Bogotá")
+  lat        Float
+  lng        Float
+  connectors String[] // CCS | CHAdeMO | TYPE_2 | SCHUKO
+  powerKw    Float?
+  dcFast     Boolean  @default(false)
+  status     String   @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt  DateTime @default(now())
+
+  @@index([city])
+  @@index([tenantId])
 }
 
 model TelemetryPing {

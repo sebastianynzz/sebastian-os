@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   api,
   apiOrQueue,
@@ -9,6 +16,11 @@ import {
   setToken,
   uploadPodPhoto,
 } from "./api";
+import { ChargerSheet, RangeBanner, remainingRouteKm } from "./EnergyPanel";
+import { navLinks } from "./nav";
+import RouteMap, { type MapStop } from "./RouteMap";
+import ScanSheet, { type ScanResult } from "./Scan";
+import { canOfferPush, enablePushAlerts, precacheRouteTiles } from "./sw";
 
 interface Stop {
   id: string;
@@ -18,6 +30,7 @@ interface Stop {
   status: string;
   order: {
     id: string;
+    trackingNumber: string | null;
     customerName: string;
     customerPhone: string;
     addressRaw: string;
@@ -34,7 +47,16 @@ interface Stop {
 interface DriverRoute {
   id: string;
   status: string;
-  vehicle: { plate: string; type: string; isElectric: boolean };
+  depotLat: number;
+  depotLng: number;
+  vehicle: {
+    plate: string;
+    type: string;
+    isElectric: boolean;
+    batteryKwh: number | null;
+    nominalRangeKm: number | null;
+    socPercent: number | null;
+  };
   stops: Stop[];
 }
 
@@ -109,14 +131,6 @@ async function checkPhotoQuality(
   }
 }
 
-/** Deeplinks de navegación: integrar, nunca construir navegación propia. */
-function navLinks(lat: number, lng: number) {
-  return {
-    waze: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
-    gmaps: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-  };
-}
-
 function useGeo() {
   const pos = useRef<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
@@ -133,17 +147,45 @@ function useGeo() {
   return pos;
 }
 
+/** Coordenadas de cada parada para el mapa offline (D2). */
+function toMapStops(route: DriverRoute): MapStop[] {
+  const result: MapStop[] = [];
+  for (const stop of route.stops) {
+    const isPickup = stop.kind === "PICKUP";
+    const lat = isPickup ? stop.order.pickupLat : stop.order.lat;
+    const lng = isPickup ? stop.order.pickupLng : stop.order.lng;
+    if (lat === null || lng === null) continue;
+    result.push({
+      id: stop.id,
+      lat,
+      lng,
+      sequence: stop.sequence,
+      done: stop.status === "COMPLETED" || stop.status === "FAILED",
+      isPickup,
+    });
+  }
+  return result;
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
   const [route, setRoute] = useState<DriverRoute | null>(null);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(queueSize());
+  const [pushOffer, setPushOffer] = useState(canOfferPush());
+  const [showChargers, setShowChargers] = useState(false);
   const geo = useGeo();
+
+  // Una sola derivación por cambio de ruta: estabiliza la identidad del
+  // array para que RouteMap no redibuje/re-encuadre en cada render.
+  const mapStops = useMemo(() => (route ? toMapStops(route) : []), [route]);
 
   // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
   // (inserciones exprés del despachador) sin perder el lugar del conductor.
   const stopsSignature = useRef<string | null>(null);
+  // Pre-cachear los tiles de la ruta UNA vez por secuencia (datos móviles).
+  const tilesSignature = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!getToken()) return;
@@ -166,6 +208,11 @@ export default function App() {
       }
       stopsSignature.current = signature;
       setRoute(next);
+      // D2: dejar los tiles de la ruta listos para zonas sin señal.
+      if (next && signature !== tilesSignature.current) {
+        tilesSignature.current = signature;
+        void precacheRouteTiles(toMapStops(next));
+      }
     } catch {
       // sin red: se mantiene la última vista
     }
@@ -292,6 +339,24 @@ export default function App() {
       )}
 
       <main className="flex-1 space-y-3 p-4">
+        {/* Avisos push (D5): requiere un toque del conductor (gesto). */}
+        {pushOffer && (
+          <button
+            onClick={async () => {
+              const ok = await enablePushAlerts();
+              setPushOffer(false);
+              setMessage(
+                ok
+                  ? "🔔 Avisos activados: te llegará una notificación con cada ruta"
+                  : "No se pudieron activar los avisos en este dispositivo",
+              );
+            }}
+            className="w-full rounded-xl border border-navy/30 bg-white py-3 text-sm font-bold text-navy shadow-sm"
+          >
+            🔔 Activar avisos de rutas asignadas
+          </button>
+        )}
+
         {!route && (
           <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
             No tiene ruta asignada hoy.
@@ -299,6 +364,22 @@ export default function App() {
               Actualizar
             </button>
           </div>
+        )}
+
+        {/* Mapa offline de la ruta (D2): tiles pre-cacheados, nunca en blanco. */}
+        {route && mapStops.length > 0 && <RouteMap stops={mapStops} geo={geo} />}
+
+        {/* D7: SoC en vivo + "¿alcanza para terminar?" (núcleo EV-only). */}
+        {route && (
+          <RangeBanner
+            vehicle={route.vehicle}
+            remainingKm={remainingRouteKm(
+              geo.current,
+              mapStops.filter((s) => !s.done),
+              { lat: route.depotLat, lng: route.depotLng },
+            )}
+            onFindCharger={() => setShowChargers(true)}
+          />
         )}
 
         {route?.status === "DISPATCHED" && (
@@ -337,6 +418,11 @@ export default function App() {
             await load();
           }}
         />
+      )}
+
+      {/* D8: cargador más cercano con deeplink (directorio de carga). */}
+      {showChargers && (
+        <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
       )}
     </div>
   );
@@ -535,6 +621,9 @@ function StopActionSheet({
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
   const [fixPin, setFixPin] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Escaneo del paquete (D3): vínculo bulto↔parada, validado localmente.
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scan, setScan] = useState<ScanResult | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const isPickup = stop.kind === "PICKUP";
@@ -691,6 +780,36 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Escaneo del paquete: evita entregar el bulto equivocado. */}
+            {scan === null ? (
+              <button
+                onClick={() => setScanOpen(true)}
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+              >
+                📷 Escanear paquete {stop.order.trackingNumber ?? ""}
+              </button>
+            ) : scan.match ? (
+              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                ✅ Paquete verificado ({scan.code})
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+                <span>
+                  ❌ Este paquete es de otra guía ({scan.code}) — esperada{" "}
+                  {stop.order.trackingNumber}
+                </span>
+                <button
+                  onClick={() => {
+                    setScan(null);
+                    setScanOpen(true);
+                  }}
+                  className="shrink-0 font-bold underline"
+                >
+                  Repetir
+                </button>
+              </div>
+            )}
+
             {!isPickup && (
               <input
                 className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
@@ -844,6 +963,18 @@ function StopActionSheet({
           </div>
         )}
       </div>
+
+      {scanOpen && (
+        <ScanSheet
+          stopId={stop.id}
+          expected={stop.order.trackingNumber}
+          onResult={(result) => {
+            setScan(result);
+            setScanOpen(false);
+          }}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
     </div>
   );
 }

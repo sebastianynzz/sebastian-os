@@ -14,7 +14,7 @@ interface TenantDetailData {
   operatorType: string;
   businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; routes: number; clients: number };
-  modules: { key: string; nombre: string; enabled: boolean }[];
+  modules: { key: string; nombre: string; enabled: boolean; core?: boolean }[];
 }
 
 interface TenantUser {
@@ -101,6 +101,32 @@ export default function TenantDetail() {
   async function toggleModule(key: string, enabled: boolean) {
     await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
     await load();
+  }
+
+  /**
+   * Consola de soporte (A4): token de tenant de 30 min, auditado en
+   * PlatformAuditLog. Abre el dashboard del tenant en otra pestaña.
+   */
+  async function impersonate() {
+    setNotice(null);
+    try {
+      const res = await api<{ token: string; webUrl: string | null; user: { email: string } }>(
+        "POST",
+        `/tenants/${id}/impersonate`,
+        {},
+      );
+      // Fragmento (#), no query: el token jamás viaja al servidor estático
+      // ni queda en logs de acceso/proxies.
+      const base = res.webUrl ?? "http://localhost:5173";
+      window.open(
+        `${base.replace(/\/$/, "")}/#impersonar=${encodeURIComponent(res.token)}`,
+        "_blank",
+        "noopener",
+      );
+      setNotice(`Sesión de soporte abierta como ${res.user.email} (30 min, auditada).`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
   }
 
   /** Editar los datos de la empresa (todo editable desde el panel). */
@@ -217,6 +243,11 @@ export default function TenantDetail() {
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={t.status} />
+          {t.status === "ACTIVE" && (
+            <Button disabled={busy} onClick={() => void impersonate()}>
+              Entrar como tenant
+            </Button>
+          )}
           {t.status === "ACTIVE" ? (
             <Button variant="danger" disabled={busy} onClick={() => setStatus("SUSPENDED")}>
               Suspender
@@ -402,7 +433,13 @@ export default function TenantDetail() {
               className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2"
             >
               <span className="text-sm">{m.nombre}</span>
-              <Toggle on={m.enabled} onClick={() => toggleModule(m.key, !m.enabled)} />
+              {m.core ? (
+                <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
+                  Núcleo
+                </span>
+              ) : (
+                <Toggle on={m.enabled} onClick={() => toggleModule(m.key, !m.enabled)} />
+              )}
             </div>
           ))}
         </div>

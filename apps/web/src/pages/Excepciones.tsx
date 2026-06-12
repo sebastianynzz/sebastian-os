@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { canOfferStaffPush, enableStaffPush } from "../push";
 import { useRealtimeReload } from "../realtime";
 import {
   Banner,
@@ -52,6 +53,7 @@ export default function Excepciones() {
   const [items, setItems] = useState<ExceptionItem[] | null>(null);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pushOffer, setPushOffer] = useState(canOfferStaffPush());
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +102,32 @@ export default function Excepciones() {
       {banner && (
         <Banner kind={banner.kind} onDismiss={() => setBanner(null)}>
           {banner.text}
+        </Banner>
+      )}
+
+      {/* P0.6: sin esta suscripción, el push de pánico no tiene a quién llegar. */}
+      {pushOffer && (
+        <Banner kind="info" onDismiss={() => setPushOffer(false)}>
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Recibe el botón de pánico y alertas críticas aunque el dashboard
+              esté cerrado.
+            </span>
+            <button
+              onClick={async () => {
+                const ok = await enableStaffPush();
+                setPushOffer(false);
+                setBanner(
+                  ok
+                    ? { kind: "success", text: "🔔 Avisos activados en este dispositivo." }
+                    : { kind: "error", text: "No se pudieron activar los avisos." },
+                );
+              }}
+              className="shrink-0 rounded-lg bg-navy px-3 py-1.5 text-xs font-bold text-white"
+            >
+              🔔 Activar avisos
+            </button>
+          </span>
         </Banner>
       )}
 

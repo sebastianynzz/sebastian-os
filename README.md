@@ -35,7 +35,7 @@ API layer — a disabled module returns `403 MODULE_NOT_ENABLED`:
 |---|---|
 | `ROUTE_OPTIMIZATION` | Multi-stop VRP: capacity, time windows, **pico y placa** (plate/city/date), vehicle speed profiles (moto vs van), EV range budget |
 | `TELEMATICS` | **GPS + CAN-bus telemetry** (RPM/odometer/fuel/temp), live ops map, **engine on/off immobilization** (relay model, speed=0 safety interlock, audit log). Device simulator included; real hardware via aggregator (fase 2) |
-| `EV_MANAGEMENT` | SoC tracking, dynamic usable-range estimation (temp/payload/elevation), charging network map |
+| `EV_MANAGEMENT` | **Core, always on** (MoveOS is EV-only): SoC tracking, dynamic usable-range estimation (temp/payload/elevation), charging directory |
 | `SAFETY` | Panic button, automatic route-deviation alerts (piratería terrestre) |
 | `COMPLIANCE_RNDC` | RNDC/MEC manifest generation (fase 2) |
 | `CUSTOMER_EXPERIENCE_PRO` | Branded WhatsApp notifications, live tracking page (fase 2) |
@@ -148,10 +148,11 @@ applied (`pnpm --filter @moveos/api db:push`).
 ## Demo flow (5 minutes)
 
 1. Log in to the dashboard as admin — the seed has 12 geocoded Bogotá orders
-   and a mixed fleet: 2 motos, 1 gas car, 1 electric van.
-2. **Planificación** → Optimizar: on an odd-numbered weekday the car with
-   plate `JDK457` is excluded by pico y placa; motos and the EV (exempt)
-   absorb the orders.
+   and a 100% electric fleet: 2 e-motos, 1 electric car, 1 e-van.
+2. **Planificación** → Optimizar: every vehicle is an EV and therefore
+   exempt from pico y placa (Ley 1964/2019 — a core selling point). The
+   e-moto `XYZ34E` is at 22% SoC, so its usable-range budget is short:
+   plans that exceed it leave orders unassigned with the reason exposed.
 3. **Rutas** → assign a driver and dispatch (customers get notified).
 4. Open the driver app as `carlos@…` → start the route → deliver stops with
    geo-stamped POD; deliveries work offline and sync later.
