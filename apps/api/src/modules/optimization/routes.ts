@@ -11,6 +11,7 @@ import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
 import { logOrderEvents } from "../../services/orderEvents.js";
+import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 import { buildTravelModel, toMinOfDayBogota } from "../../services/routing.js";
 
@@ -359,6 +360,16 @@ export default async function optimizationRoutes(app: FastifyInstance) {
         ...newOrder,
         status: route.status === "PLANNED" ? "ASSIGNED" : "IN_TRANSIT",
       });
+
+      // Aviso instantáneo al conductor en ruta activa: la app también
+      // re-secuencia sola en el refresco, pero el push evita sorpresas.
+      if (route.driverId && route.status !== "PLANNED") {
+        await sendPushToDriver(tenantId, route.driverId, {
+          title: "Parada agregada a tu ruta",
+          body: `${newOrder.customerName} — revisa la nueva secuencia`,
+          url: "/",
+        });
+      }
 
       const updated = await prisma.route.findUnique({
         where: { id: route.id },

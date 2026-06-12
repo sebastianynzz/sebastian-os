@@ -57,6 +57,7 @@ model Tenant {
   notifications NotificationLog[]
   dailyMetrics  DailyTenantMetric[]
   chargingStations ChargingStation[]
+  pushSubscriptions PushSubscription[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -126,8 +127,28 @@ model User {
   client       Client? @relation(fields: [clientId], references: [id])
   clientId     String?
   createdAt    DateTime @default(now())
+  pushSubscriptions PushSubscription[]
 
   @@index([clientId])
+}
+
+/// Suscripción Web Push (VAPID) de un usuario del tenant: el canal gratuito
+/// de avisos instantáneos al conductor (ruta asignada / parada insertada) y
+/// al despachador (pánico). Un usuario puede tener varios dispositivos.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, userId])
 }
 
 model Driver {

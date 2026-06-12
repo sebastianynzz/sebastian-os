@@ -6,6 +6,7 @@ import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
+import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
@@ -80,6 +81,14 @@ export default async function routesRoutes(app: FastifyInstance) {
       const updated = await prisma.route.update({
         where: { id },
         data: { driverId: driver.id, status: "DISPATCHED" },
+      });
+
+      // Aviso instantáneo al conductor (roadmap D5): web push gratuito; si no
+      // está configurado, el refresco periódico de la app lo cubre.
+      await sendPushToDriver(request.user.tenantId, driver.id, {
+        title: "Nueva ruta asignada",
+        body: `${route.stops.length} paradas te esperan — ábrela en la app`,
+        url: "/",
       });
 
       // Un pedido con recogida tiene 2 paradas; deduplicar por pedido para no

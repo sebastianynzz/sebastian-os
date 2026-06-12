@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
+import { sendPushToStaff } from "../../services/push.js";
 import { emitTenant } from "../../services/realtime.js";
 
 /**
@@ -40,6 +41,13 @@ export default async function safetyRoutes(app: FastifyInstance) {
       alertId: alert.id,
       type: alert.type,
       status: alert.status,
+    });
+    // Push al despacho aunque tenga el dashboard cerrado: un pánico no
+    // puede depender de una pestaña abierta.
+    await sendPushToStaff(request.user.tenantId, {
+      title: "🚨 Botón de pánico activado",
+      body: `${request.user.name} necesita ayuda — abre Seguridad`,
+      url: "/seguridad",
     });
     return reply.code(201).send(alert);
   });

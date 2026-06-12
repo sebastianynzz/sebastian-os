@@ -39,3 +39,9 @@ services:
         sync: false # opcional: canal EMAIL de notificaciones B2B
       - key: EMAIL_FROM
         sync: false # remitente verificado en SendGrid
+      - key: VAPID_PUBLIC_KEY
+        sync: false # web push (npx web-push generate-vapid-keys); vacío = sin push
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:ops@moveos.co
