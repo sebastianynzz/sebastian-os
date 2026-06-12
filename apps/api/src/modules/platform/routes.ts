@@ -5,6 +5,7 @@ import platformTenantUsersRoutes from "./users.js";
 import platformMetricsRoutes from "./metrics.js";
 import platformAuditRoutes from "./audit.js";
 import platformFlywheelRoutes from "./flywheel.js";
+import platformHealthRoutes from "./health.js";
 
 /**
  * Plano del operador de plataforma: `/platform/*`. La autenticación
@@ -23,5 +24,6 @@ export default async function platformRoutes(app: FastifyInstance) {
     await protectedApp.register(platformMetricsRoutes, { prefix: "/metrics" });
     await protectedApp.register(platformAuditRoutes, { prefix: "/audit" });
     await protectedApp.register(platformFlywheelRoutes, { prefix: "/flywheel" });
+    await protectedApp.register(platformHealthRoutes, { prefix: "/integrations" });
   });
 }

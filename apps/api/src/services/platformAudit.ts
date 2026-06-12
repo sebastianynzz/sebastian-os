@@ -18,7 +18,8 @@ export type PlatformAuditAction =
   | "USER_CREATE"
   | "USER_UPDATE"
   | "USER_RESET_PASSWORD"
-  | "USER_DELETE";
+  | "USER_DELETE"
+  | "IMPERSONATE";
 
 export async function auditPlatform(
   request: FastifyRequest,

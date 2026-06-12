@@ -7,6 +7,7 @@ import Metricas from "./pages/Metricas";
 import Flota from "./pages/Flota";
 import Auditoria from "./pages/Auditoria";
 import Flywheel from "./pages/Flywheel";
+import Integraciones from "./pages/Integraciones";
 
 function Shell() {
   const { admin, loading, logout } = useAuth();
@@ -28,6 +29,7 @@ function Shell() {
             { to: "/tenants", label: "Tenants" },
             { to: "/flota", label: "Flota en sitio" },
             { to: "/flywheel", label: "Data flywheel" },
+            { to: "/integraciones", label: "Integraciones" },
             { to: "/metricas", label: "Métricas" },
             { to: "/auditoria", label: "Auditoría" },
           ].map((item) => (
@@ -58,6 +60,7 @@ function Shell() {
           <Route path="/tenants/:id" element={<TenantDetail />} />
           <Route path="/flota" element={<Flota />} />
           <Route path="/flywheel" element={<Flywheel />} />
+          <Route path="/integraciones" element={<Integraciones />} />
           <Route path="/metricas" element={<Metricas />} />
           <Route path="/auditoria" element={<Auditoria />} />
         </Routes>

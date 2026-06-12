@@ -103,6 +103,30 @@ export default function TenantDetail() {
     await load();
   }
 
+  /**
+   * Consola de soporte (A4): token de tenant de 30 min, auditado en
+   * PlatformAuditLog. Abre el dashboard del tenant en otra pestaña.
+   */
+  async function impersonate() {
+    setNotice(null);
+    try {
+      const res = await api<{ token: string; webUrl: string | null; user: { email: string } }>(
+        "POST",
+        `/tenants/${id}/impersonate`,
+        {},
+      );
+      const base = res.webUrl ?? "http://localhost:5173";
+      window.open(
+        `${base.replace(/\/$/, "")}/?impersonar=${encodeURIComponent(res.token)}`,
+        "_blank",
+        "noopener",
+      );
+      setNotice(`Sesión de soporte abierta como ${res.user.email} (30 min, auditada).`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Error");
+    }
+  }
+
   /** Editar los datos de la empresa (todo editable desde el panel). */
   async function saveCompany(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -217,6 +241,11 @@ export default function TenantDetail() {
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={t.status} />
+          {t.status === "ACTIVE" && (
+            <Button disabled={busy} onClick={() => void impersonate()}>
+              Entrar como tenant
+            </Button>
+          )}
           {t.status === "ACTIVE" ? (
             <Button variant="danger" disabled={busy} onClick={() => setStatus("SUSPENDED")}>
               Suspender

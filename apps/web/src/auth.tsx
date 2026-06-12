@@ -24,7 +24,45 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue>(null!);
 
+/**
+ * Consola de soporte (A4): el panel de plataforma abre el dashboard con
+ * ?impersonar=<token de 30 min>. Se adopta el token ANTES de cargar la
+ * sesión y se limpia la URL para no dejar el token en el historial.
+ */
+function adoptImpersonationToken(): void {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("impersonar");
+  if (!token) return;
+  setToken(token);
+  params.delete("impersonar");
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    "",
+    window.location.pathname + (query ? `?${query}` : ""),
+  );
+}
+
+/** Email del operador de plataforma si la sesión es de soporte (claim JWT). */
+export function getImpersonatedBy(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const payload = JSON.parse(
+      atob(part.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as { impersonatedBy?: unknown };
+    return typeof payload.impersonatedBy === "string"
+      ? payload.impersonatedBy
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  adoptImpersonationToken();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 

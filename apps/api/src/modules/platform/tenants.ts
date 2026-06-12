@@ -5,6 +5,7 @@ import {
   createVehicleSchema,
   CORE_MODULE_KEYS,
   MODULE_CATALOG,
+  MODULE_KEYS,
   MODULE_PRESETS_BY_BUSINESS_MODEL,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
@@ -74,6 +75,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         adminName: z.string().min(2),
         adminEmail: z.string().email(),
         adminPassword: z.string().min(8),
+        // Asistente de onboarding (A3): selección explícita de módulos que
+        // reemplaza el preset del modelo de negocio. Los de núcleo van igual.
+        modules: z.array(z.enum(MODULE_KEYS)).optional(),
       })
       .parse(request.body);
 
@@ -92,9 +96,12 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       if (!parent) return reply.code(400).send({ error: "parentTenantId no existe" });
     }
 
-    // Preset por modelo de negocio: enciende, además de los default del
-    // catálogo, los módulos que la oferta comercial incluye de entrada.
-    const preset = new Set(MODULE_PRESETS_BY_BUSINESS_MODEL[input.businessModel]);
+    // Preset por modelo de negocio (o la selección explícita del asistente):
+    // enciende, además de los default del catálogo, los módulos que la
+    // oferta comercial incluye de entrada. Los de núcleo siempre activos.
+    const preset = new Set(
+      input.modules ?? MODULE_PRESETS_BY_BUSINESS_MODEL[input.businessModel],
+    );
     const tenant = await prisma.tenant.create({
       data: {
         name: input.name,
@@ -107,7 +114,11 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         entitlements: {
           create: MODULE_CATALOG.map((m) => ({
             moduleKey: m.key,
-            enabled: m.defaultEnabled || preset.has(m.key),
+            enabled:
+              m.core === true ||
+              (input.modules
+                ? preset.has(m.key)
+                : m.defaultEnabled || preset.has(m.key)),
           })),
         },
       },
@@ -341,5 +352,66 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       details: { moduleKey: params.key, enabled: body.enabled },
     });
     return entitlement;
+  });
+
+  /**
+   * Consola de soporte (A4): entrar como un usuario del tenant para
+   * diagnosticar/actuar en su nombre. Token de tenant de vida corta (30 min)
+   * con el claim `impersonatedBy`, y SIEMPRE auditado — quién entró, a qué
+   * tenant, como quién. Solo personal operativo (jamás CLIENT).
+   */
+  app.post("/:id/impersonate", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const body = z
+      .object({ userId: z.string().optional() })
+      .parse(request.body ?? {});
+
+    const tenant = await prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) return reply.code(404).send({ error: "Tenant no encontrado" });
+    if (tenant.status === "SUSPENDED") {
+      return reply.code(409).send({
+        error: "Tenant suspendido: reactívalo antes de impersonar",
+      });
+    }
+
+    const user = body.userId
+      ? await prisma.user.findFirst({
+          where: { id: body.userId, tenantId: id, role: { in: ["ADMIN", "DISPATCHER"] } },
+        })
+      : await prisma.user.findFirst({
+          where: { tenantId: id, role: "ADMIN" },
+          orderBy: { createdAt: "asc" },
+        });
+    if (!user) {
+      return reply.code(404).send({
+        error: "El tenant no tiene un usuario ADMIN/DISPATCHER para impersonar",
+      });
+    }
+
+    const adminEmail = request.platformAdmin?.email ?? "plataforma";
+    const token = app.jwt.sign(
+      {
+        typ: "tenant",
+        sub: user.id,
+        tenantId: id,
+        role: user.role as "ADMIN" | "DISPATCHER",
+        name: user.name,
+        impersonatedBy: adminEmail,
+      },
+      { expiresIn: "30m" }, // sesión de soporte corta, nunca jornada completa
+    );
+
+    await auditPlatform(request, "IMPERSONATE", {
+      targetTenantId: id,
+      targetUserId: user.id,
+      details: { tenant: tenant.name, como: user.email, rol: user.role },
+    });
+
+    return {
+      token,
+      expiresInMin: 30,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      webUrl: process.env.PUBLIC_WEB_URL ?? null,
+    };
   });
 }
