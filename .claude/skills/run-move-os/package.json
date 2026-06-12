@@ -1,0 +1,10 @@
+{
+  "name": "moveos-run-driver",
+  "private": true,
+  "type": "module",
+  "description": "Driver de navegador para lanzar y capturar MoveOS en contenedores headless (Chromium vía npm porque el CDN de Playwright suele estar bloqueado).",
+  "dependencies": {
+    "@sparticuz/chromium": "^141.0.0",
+    "playwright-core": "^1.49.0"
+  }
+}
