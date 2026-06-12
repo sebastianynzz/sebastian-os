@@ -19,7 +19,9 @@ export type OrderEventType =
   | "NOTIFIED"
   | "ADDRESS_CONFIRMED"
   | "RECOVERY_FLAGGED"
-  | "RECOVERY_RESCHEDULED";
+  | "RECOVERY_RESCHEDULED"
+  | "SCANNED"
+  | "SCAN_MISMATCH";
 
 export async function logOrderEvent(
   orderId: string,

@@ -185,6 +185,32 @@ export default async function routesRoutes(app: FastifyInstance) {
     return route ?? null;
   });
 
+  /**
+   * Escaneo del paquete (D3): vincula el bulto a la parada y deja registro
+   * de cadena de custodia en la bitácora. La app valida localmente (sirve
+   * offline); el servidor re-verifica y registra el resultado real.
+   */
+  app.post("/stops/:stopId/scan", async (request, reply) => {
+    const { stopId } = z.object({ stopId: z.string() }).parse(request.params);
+    const input = z
+      .object({ code: z.string().trim().min(3).max(64) })
+      .parse(request.body);
+    const stop = await findStopForUser(request, stopId);
+    if (!stop) return reply.code(404).send({ error: "Parada no encontrada" });
+
+    const expected = stop.order.trackingNumber?.toUpperCase() ?? null;
+    const scanned = input.code.toUpperCase();
+    const match = expected !== null && scanned === expected;
+    await logOrderEvent(
+      stop.orderId,
+      match ? "SCANNED" : "SCAN_MISMATCH",
+      match
+        ? `Paquete escaneado en ${stop.kind === "PICKUP" ? "recogida" : "entrega"}`
+        : `Escaneo no coincide con la guía: ${scanned}`,
+    );
+    return { match };
+  });
+
   app.post("/stops/:stopId/arrive", async (request, reply) => {
     const { stopId } = z.object({ stopId: z.string() }).parse(request.params);
     const stop = await findStopForUser(request, stopId);

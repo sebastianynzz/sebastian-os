@@ -188,6 +188,30 @@ describe("flujo completo MoveOS", () => {
     expect(start.status).toBe(200);
   });
 
+  it("escanea el paquete y registra la cadena de custodia (D3)", async () => {
+    const order = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
+    const guia = order.body.trackingNumber as string;
+
+    // Código equivocado: queda el evento de no-coincidencia.
+    const wrong = await api("POST", `/routes/stops/${firstStopId}/scan`, driverToken, {
+      code: "MV-NOEXISTE",
+    });
+    expect(wrong.status).toBe(200);
+    expect(wrong.body.match).toBe(false);
+
+    // Guía correcta (case-insensitive): vincula el bulto a la parada.
+    const ok = await api("POST", `/routes/stops/${firstStopId}/scan`, driverToken, {
+      code: guia.toLowerCase(),
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.match).toBe(true);
+
+    const detail = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
+    const types = detail.body.events.map((e: { type: string }) => e.type);
+    expect(types).toContain("SCANNED");
+    expect(types).toContain("SCAN_MISMATCH");
+  });
+
   it("reporta posición (tracking) y completa la entrega con POD georreferenciado", async () => {
     const ping = await api("POST", "/tracking/pings", driverToken, {
       lat: 4.6416,

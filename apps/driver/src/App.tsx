@@ -9,7 +9,9 @@ import {
   setToken,
   uploadPodPhoto,
 } from "./api";
+import { ChargerSheet, RangeBanner, remainingRouteKm } from "./EnergyPanel";
 import RouteMap, { type MapStop } from "./RouteMap";
+import ScanSheet, { type ScanResult } from "./Scan";
 import { canOfferPush, enablePushAlerts, precacheRouteTiles } from "./sw";
 
 interface Stop {
@@ -20,6 +22,7 @@ interface Stop {
   status: string;
   order: {
     id: string;
+    trackingNumber: string | null;
     customerName: string;
     customerPhone: string;
     addressRaw: string;
@@ -36,7 +39,16 @@ interface Stop {
 interface DriverRoute {
   id: string;
   status: string;
-  vehicle: { plate: string; type: string; isElectric: boolean };
+  depotLat: number;
+  depotLng: number;
+  vehicle: {
+    plate: string;
+    type: string;
+    isElectric: boolean;
+    batteryKwh: number | null;
+    nominalRangeKm: number | null;
+    socPercent: number | null;
+  };
   stops: Stop[];
 }
 
@@ -162,6 +174,7 @@ export default function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(queueSize());
   const [pushOffer, setPushOffer] = useState(canOfferPush());
+  const [showChargers, setShowChargers] = useState(false);
   const geo = useGeo();
 
   // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
@@ -354,6 +367,19 @@ export default function App() {
           <RouteMap stops={toMapStops(route)} geo={geo} />
         )}
 
+        {/* D7: SoC en vivo + "¿alcanza para terminar?" (núcleo EV-only). */}
+        {route && (
+          <RangeBanner
+            vehicle={route.vehicle}
+            remainingKm={remainingRouteKm(
+              geo.current,
+              toMapStops(route).filter((s) => !s.done),
+              { lat: route.depotLat, lng: route.depotLng },
+            )}
+            onFindCharger={() => setShowChargers(true)}
+          />
+        )}
+
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
@@ -390,6 +416,11 @@ export default function App() {
             await load();
           }}
         />
+      )}
+
+      {/* D8: cargador más cercano con deeplink (directorio de carga). */}
+      {showChargers && (
+        <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
       )}
     </div>
   );
@@ -588,6 +619,9 @@ function StopActionSheet({
   const [photoWarning, setPhotoWarning] = useState<string | null>(null);
   const [fixPin, setFixPin] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Escaneo del paquete (D3): vínculo bulto↔parada, validado localmente.
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scan, setScan] = useState<ScanResult | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const isPickup = stop.kind === "PICKUP";
@@ -744,6 +778,36 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Escaneo del paquete: evita entregar el bulto equivocado. */}
+            {scan === null ? (
+              <button
+                onClick={() => setScanOpen(true)}
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+              >
+                📷 Escanear paquete {stop.order.trackingNumber ?? ""}
+              </button>
+            ) : scan.match ? (
+              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                ✅ Paquete verificado ({scan.code})
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+                <span>
+                  ❌ Este paquete es de otra guía ({scan.code}) — esperada{" "}
+                  {stop.order.trackingNumber}
+                </span>
+                <button
+                  onClick={() => {
+                    setScan(null);
+                    setScanOpen(true);
+                  }}
+                  className="shrink-0 font-bold underline"
+                >
+                  Repetir
+                </button>
+              </div>
+            )}
+
             {!isPickup && (
               <input
                 className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
@@ -897,6 +961,18 @@ function StopActionSheet({
           </div>
         )}
       </div>
+
+      {scanOpen && (
+        <ScanSheet
+          stopId={stop.id}
+          expected={stop.order.trackingNumber}
+          onResult={(result) => {
+            setScan(result);
+            setScanOpen(false);
+          }}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
     </div>
   );
 }
