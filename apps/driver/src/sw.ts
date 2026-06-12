@@ -1,0 +1,157 @@
+import { api } from "./api";
+
+/**
+ * Registro del service worker (solo build de producción: en dev Vite sirve
+ * en caliente). El SW hace skipWaiting+claim, así que al tomar control un
+ * SW nuevo se recarga una vez para servir la versión recién desplegada —
+ * cada release llega al conductor en la siguiente carga (P0.2).
+ */
+export function registerServiceWorker(): void {
+  if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
+
+  // Distinguir la primera instalación (claim inicial) de una actualización:
+  // solo la actualización debe recargar.
+  let hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
+    window.location.reload();
+  });
+
+  window.addEventListener("load", () => {
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        // Jornadas largas: buscar release nuevo cada vez que el conductor
+        // vuelve a la app (el SW se actualiza al detectar bytes distintos).
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") void reg.update();
+        });
+      } catch {
+        // Sin SW (navegador raro): la app funciona igual, solo sin offline.
+      }
+    })();
+  });
+}
+
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const normalized = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(normalized);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
+/**
+ * Suscripción Web Push (D5): pide permiso (requiere gesto del usuario en
+ * iOS/Android), se suscribe con la clave VAPID del backend y la registra.
+ * Devuelve false si el push no está configurado o el permiso fue negado.
+ */
+export async function enablePushAlerts(): Promise<boolean> {
+  if (
+    !import.meta.env.PROD ||
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window) ||
+    !("Notification" in window)
+  ) {
+    return false;
+  }
+  try {
+    const { publicKey } = await api<{ publicKey: string | null }>(
+      "GET",
+      "/push/vapid-key",
+    );
+    if (!publicKey) return false;
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return false;
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+      });
+    }
+    const json = sub.toJSON();
+    if (!json.keys?.p256dh || !json.keys.auth) return false;
+    await api("POST", "/push/subscriptions", {
+      endpoint: sub.endpoint,
+      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      userAgent: navigator.userAgent,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** ¿Tiene sentido ofrecer el botón de avisos? (no concedido ni negado aún) */
+export function canOfferPush(): boolean {
+  return (
+    import.meta.env.PROD &&
+    "Notification" in window &&
+    "PushManager" in window &&
+    Notification.permission === "default"
+  );
+}
+
+const TILE_CACHE = "moveos-tiles-v1";
+const TILE_BASE = "https://tile.openstreetmap.org";
+/** Tope de tiles a pre-cachear por ruta (datos móviles del conductor). */
+const MAX_PRECACHE_TILES = 220;
+
+function tileXY(lat: number, lng: number, zoom: number): { x: number; y: number } {
+  const n = 2 ** zoom;
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
+  );
+  return { x, y };
+}
+
+/**
+ * Pre-cachea los tiles OSM alrededor de cada parada de la ruta (D2): si el
+ * conductor entra a una zona muerta, el mapa de la ruta sigue visible.
+ * Cache-first compartido con el service worker (mismo caché y URLs).
+ */
+export async function precacheRouteTiles(
+  points: { lat: number; lng: number }[],
+  zooms: number[] = [14, 15],
+): Promise<void> {
+  if (!("caches" in window) || !navigator.onLine || points.length === 0) return;
+  const urls = new Set<string>();
+  for (const zoom of zooms) {
+    for (const p of points) {
+      const { x, y } = tileXY(p.lat, p.lng, zoom);
+      // La parada y su vecindario inmediato (3×3).
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          urls.add(`${TILE_BASE}/${zoom}/${x + dx}/${y + dy}.png`);
+          if (urls.size >= MAX_PRECACHE_TILES) break;
+        }
+      }
+    }
+  }
+  try {
+    const cache = await caches.open(TILE_CACHE);
+    await Promise.all(
+      [...urls].map(async (url) => {
+        if (await cache.match(url)) return;
+        try {
+          const res = await fetch(url, { mode: "cors" });
+          if (res.ok) await cache.put(url, res);
+        } catch {
+          // sin señal o tile caído: se intentará en la próxima carga
+        }
+      }),
+    );
+  } catch {
+    // caches no disponible (modo incógnito estricto): no es crítico
+  }
+}

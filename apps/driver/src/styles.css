@@ -11,3 +11,16 @@
 body {
   @apply bg-niebla text-navy;
 }
+
+/* Etiquetas de secuencia sobre los marcadores del mapa de ruta. */
+.moveos-stop-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-weight: 700;
+  font-size: 11px;
+  color: #1b365d;
+}
+.moveos-stop-label::before {
+  display: none;
+}

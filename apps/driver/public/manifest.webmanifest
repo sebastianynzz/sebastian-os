@@ -1,0 +1,19 @@
+{
+  "name": "MoveOS Conductor",
+  "short_name": "MoveOS",
+  "description": "App de entregas con cola offline para mensajeros de flotas eléctricas.",
+  "lang": "es",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6f8",
+  "theme_color": "#1b365d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
