@@ -97,6 +97,8 @@ describe("/ai/actions — gating por módulo AI_ADDONS", () => {
     expect(ids).toContain("pick_vehicle");
     expect(ids).toContain("reoptimize_route");
     expect(ids).toContain("optimize_charging"); // ⚡ solo requiere AI_ADDONS
+    expect(ids).toContain("optimize_schedule");
+    expect(ids).toContain("plan_capacity");
     // optimize_cold_chain exige COLD_CHAIN (no activo) → no debe aparecer.
     expect(ids).not.toContain("optimize_cold_chain");
   });
@@ -447,5 +449,41 @@ describe("optimize_cold_chain — secuenciación reefer (asesor ❄️, módulo 
     expect(run.body.feasible).toBe(true);
     expect(run.body.change.order).toContain(o.body.id);
     expect(run.body.change.preCoolLeadMin).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe("optimize_schedule — turnos y oleadas (asesor)", () => {
+  it("propone oleadas y reporta cobertura", async () => {
+    await api("POST", "/drivers", adminToken, {
+      name: "Conductor Turno",
+      phone: "+573116660001",
+      documentId: `DOC${runId}`,
+    });
+    const run = await api("POST", "/ai/actions/optimize_schedule/run", adminToken, {
+      date: "2026-06-21",
+    });
+    expect(run.status).toBe(200);
+    expect(run.body.mutates).toBe(false);
+    expect(run.body.change.waves.length).toBeGreaterThanOrEqual(2);
+    const apply = await api("POST", "/ai/actions/optimize_schedule/apply", adminToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(apply.status).toBe(400);
+    expect(apply.body.code).toBe("ADVISORY_ONLY");
+  });
+});
+
+describe("plan_capacity — capacidad de flota (asesor, no muta)", () => {
+  it("recomienda flota + conductores y no se puede aplicar", async () => {
+    const run = await api("POST", "/ai/actions/plan_capacity/run", adminToken, {});
+    expect(run.status).toBe(200);
+    expect(run.body.mutates).toBe(false);
+    expect(run.body.change.recommended).toBeDefined();
+    expect(typeof run.body.change.driversNeeded).toBe("number");
+    const apply = await api("POST", "/ai/actions/plan_capacity/apply", adminToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(apply.status).toBe(400);
+    expect(apply.body.code).toBe("ADVISORY_ONLY");
   });
 });

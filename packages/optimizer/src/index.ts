@@ -6,4 +6,6 @@ export * from "./loadPacking.js";
 export * from "./vehiclePick.js";
 export * from "./charging.js";
 export * from "./coldChain.js";
+export * from "./schedule.js";
+export * from "./capacity.js";
 export * from "./types.js";

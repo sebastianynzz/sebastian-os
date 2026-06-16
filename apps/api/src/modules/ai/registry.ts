@@ -10,15 +10,19 @@ import {
 } from "@moveos/shared";
 import {
   packLoad,
+  planCapacity,
   planCharging,
+  planSchedule,
   rankVehicleConfigs,
   reeferEnergyKwh,
   sequenceColdChain,
+  type CapacityInput,
   type ChargeVehicleInput,
   type ColdStopInput,
   type PackOrder,
   type PackVehicle,
   type PickRequest,
+  type ScheduleInput,
 } from "@moveos/optimizer";
 import { prisma } from "../../lib/prisma.js";
 import { todayBogota } from "../../services/dailyMetrics.js";
@@ -658,14 +662,132 @@ const optimizeColdChain: RegisteredAction<
   },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// optimize_schedule (advisory) — arma oleadas AM/PM y asigna conductores a la
+// demanda del día. Advisory: no hay modelo de turnos/oleadas que consumir.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const optimizeSchedule: RegisteredAction<
+  ScheduleInput,
+  ReturnType<typeof planSchedule>
+> = {
+  meta: {
+    id: "optimize_schedule",
+    labelEs: "Optimizar turnos y oleadas",
+    scope: "SCHEDULE",
+    module: "AI_ADDONS",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    const [totalOrders, drivers] = await Promise.all([
+      prisma.order.count({
+        where: { tenantId: ctx.tenantId, status: { in: ["PENDING", "GEOCODED"] } },
+      }),
+      prisma.driver.findMany({
+        where: { tenantId: ctx.tenantId, status: "ACTIVE" },
+        select: { id: true, name: true },
+      }),
+    ]);
+    return {
+      totalOrders,
+      drivers: drivers.map((d) => ({ id: d.id, name: d.name })),
+    };
+  },
+  async solve(input) {
+    const result = planSchedule(input);
+    return {
+      feasible: result.coveragePct > 0 || input.totalOrders === 0,
+      change: result,
+      impact: {
+        feasible: result.coveragePct > 0 || input.totalOrders === 0,
+        utilizationPct: result.coveragePct,
+        notesEs: result.notesEs,
+      },
+    };
+  },
+  summarize(result) {
+    const r = result.change;
+    return `Turnos: ${r.waves.length} oleada(s), ${r.driversUsed} conductor(es), cobertura ${r.coveragePct}%${r.idleDrivers ? ` (${r.idleDrivers} ocioso[s])` : ""}.`;
+  },
+  async apply() {
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// plan_capacity (advisory, no muta) — recomienda flota + conductores para el
+// pronóstico de demanda y los compara con la flota actual.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const planCapacityAction: RegisteredAction<
+  CapacityInput,
+  ReturnType<typeof planCapacity>
+> = {
+  meta: {
+    id: "plan_capacity",
+    labelEs: "Planear capacidad",
+    scope: "CAPACITY",
+    module: "AI_ADDONS",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    const since = new Date(Date.now() - 14 * 86400_000);
+    const [recent, coldRecent, frozenRecent, fleet, plannableNow] = await Promise.all([
+      prisma.order.count({ where: { tenantId: ctx.tenantId, createdAt: { gte: since } } }),
+      prisma.order.count({
+        where: { tenantId: ctx.tenantId, createdAt: { gte: since }, tempProfile: { in: ["CHILLED", "FROZEN"] } },
+      }),
+      prisma.order.count({
+        where: { tenantId: ctx.tenantId, createdAt: { gte: since }, tempProfile: "FROZEN" },
+      }),
+      prisma.vehicle.groupBy({ by: ["type"], where: { tenantId: ctx.tenantId }, _count: true }),
+      prisma.order.count({ where: { tenantId: ctx.tenantId, status: { in: ["PENDING", "GEOCODED"] } } }),
+    ]);
+    // Pronóstico diario = promedio de 14 días; si no hay historia, usa lo planificable hoy.
+    const days = 14;
+    const forecastOrders = recent > 0 ? Math.ceil(recent / days) : plannableNow;
+    const scale = recent > 0 ? 1 / days : 1;
+    const currentFleet: CapacityInput["currentFleet"] = {};
+    for (const row of fleet) {
+      currentFleet[row.type as keyof typeof currentFleet] = row._count;
+    }
+    return {
+      forecastOrders,
+      coldChainOrders: Math.ceil(coldRecent * scale),
+      frozenOrders: Math.ceil(frozenRecent * scale),
+      currentFleet,
+    };
+  },
+  async solve(input) {
+    const result = planCapacity(input);
+    return {
+      feasible: true,
+      change: result,
+      impact: { feasible: true, notesEs: result.notesEs },
+    };
+  },
+  summarize(result) {
+    const total = Object.values(result.change.recommended).reduce((a, b) => a + b, 0);
+    return `Capacidad: se recomiendan ${total} vehículo(s) y ${result.change.driversNeeded} conductor(es) para el pronóstico. ${result.change.notesEs.slice(1).join(" ")}`;
+  },
+  async apply() {
+    // plan_capacity es asesor por diseño (spec): nunca muta.
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
 export const AI_ACTION_REGISTRY = {
   optimize_routes: optimizeRoutes,
   optimize_load: optimizeLoad,
   pick_vehicle: pickVehicle,
   optimize_charging: optimizeCharging,
   optimize_cold_chain: optimizeColdChain,
+  optimize_schedule: optimizeSchedule,
   reoptimize_route: reoptimizeRoute,
   resolve_addresses: resolveAddressesAction,
+  plan_capacity: planCapacityAction,
 } as Record<string, RegisteredAction>;
 
 /** Catálogo (metadatos) de las acciones registradas. */

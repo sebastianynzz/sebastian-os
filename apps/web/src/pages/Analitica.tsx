@@ -8,6 +8,7 @@ import {
   PageHeader,
   StatusBadge,
 } from "../components/ui";
+import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 interface Summary {
   ordersByStatus: { status: string; count: number }[];
@@ -138,6 +139,11 @@ export default function Analitica() {
           </div>
         }
       />
+
+      {/* Planeación de capacidad (asesor): recomienda flota + conductores para
+          el pronóstico de demanda y los compara con la flota actual. */}
+      <AiOptimizeButton actionId="plan_capacity" />
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {kpis.map((k) => (
           <Card key={k.label}>

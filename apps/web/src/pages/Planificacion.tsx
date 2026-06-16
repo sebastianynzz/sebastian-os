@@ -180,6 +180,7 @@ export default function Planificacion() {
           context={{ orderIds: [...selectedOrders] }}
           disabled={selectedOrders.size === 0}
         />
+        <AiOptimizeButton actionId="optimize_schedule" context={{ date }} />
       </div>
 
       {error && (
