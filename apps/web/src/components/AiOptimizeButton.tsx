@@ -6,6 +6,7 @@ import type {
   Proposal,
 } from "@moveos/shared";
 import { api, ApiError } from "../api";
+import { formatCop } from "../format";
 import { Banner, Button, Card } from "./ui";
 
 /**
@@ -68,7 +69,7 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
   if (pct(i.timeInBandPct))
     rows.push({ label: "En banda (frío)", value: pct(i.timeInBandPct)! });
   if (i.costEstimateCop != null)
-    rows.push({ label: "Costo est.", value: `$${i.costEstimateCop.toLocaleString("es-CO")}` });
+    rows.push({ label: "Costo est.", value: formatCop(i.costEstimateCop) });
 
   return (
     <div className="space-y-2 text-sm">

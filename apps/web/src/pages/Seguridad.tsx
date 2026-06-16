@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
+import { formatDateTimeBogota } from "../format";
 import { useRealtimeReload } from "../realtime";
 import {
   Button,
@@ -82,7 +83,7 @@ export default function Seguridad() {
                   {a.details}
                   {a.lat !== null && ` · (${a.lat.toFixed(4)}, ${a.lng?.toFixed(4)})`}
                   {" · "}
-                  {new Date(a.createdAt).toLocaleString("es-CO")}
+                  {formatDateTimeBogota(a.createdAt)}
                 </div>
               </div>
               <div className="flex items-center gap-2">

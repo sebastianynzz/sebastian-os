@@ -338,6 +338,7 @@ export default function Pedidos() {
                           <li key={ev.id} className="flex items-baseline gap-3 text-sm">
                             <span className="font-mono text-xs text-navy/50">
                               {new Date(ev.createdAt).toLocaleString("es-CO", {
+                                timeZone: "America/Bogota",
                                 day: "2-digit",
                                 month: "2-digit",
                                 hour: "2-digit",
