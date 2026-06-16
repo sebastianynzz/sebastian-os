@@ -4,4 +4,6 @@ export * from "./travel.js";
 export * from "./vrp.js";
 export * from "./loadPacking.js";
 export * from "./vehiclePick.js";
+export * from "./charging.js";
+export * from "./coldChain.js";
 export * from "./types.js";

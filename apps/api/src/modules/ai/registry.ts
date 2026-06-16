@@ -1,12 +1,21 @@
-import type {
-  ActionCatalogEntry,
-  ActionContext,
-  PlanRoutesInput,
-  SolveResult,
+import {
+  VEHICLE_EMISSIONS,
+  VEHICLE_TYPE_PROFILES,
+  type ActionCatalogEntry,
+  type ActionContext,
+  type PlanRoutesInput,
+  type SolveResult,
+  type TempProfile,
+  type VehicleType,
 } from "@moveos/shared";
 import {
   packLoad,
+  planCharging,
   rankVehicleConfigs,
+  reeferEnergyKwh,
+  sequenceColdChain,
+  type ChargeVehicleInput,
+  type ColdStopInput,
   type PackOrder,
   type PackVehicle,
   type PickRequest,
@@ -504,10 +513,157 @@ const pickVehicle: RegisteredAction<
   },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// optimize_charging (⚡ EV, advisory) — programa la recarga al menor costo según
+// la energía de la ruta del día siguiente (incl. reefer) y la tarifa horaria.
+// Advisory: no hay modelo de plan de carga que consumir; recomienda y explica.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const optimizeCharging: RegisteredAction<
+  ChargeVehicleInput[],
+  ReturnType<typeof planCharging>
+> = {
+  meta: {
+    id: "optimize_charging",
+    labelEs: "⚡ Optimizar carga de batería",
+    scope: "CHARGING",
+    module: "AI_ADDONS",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    const vehicles = await prisma.vehicle.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        isElectric: true,
+        ...(ctx.vehicleIds?.length ? { id: { in: ctx.vehicleIds } } : {}),
+      },
+      select: { id: true, type: true, batteryKwh: true, socPercent: true },
+    });
+    const date = ctx.date && /^\d{4}-\d{2}-\d{2}$/.test(ctx.date) ? ctx.date : todayBogota();
+    const routes = await prisma.route.findMany({
+      where: { tenantId: ctx.tenantId, date },
+      select: { vehicleId: true, totalDistanceKm: true, totalDurationMin: true },
+    });
+    const byVehicle = new Map<string, { distKm: number; durMin: number }>();
+    for (const r of routes) {
+      const e = byVehicle.get(r.vehicleId) ?? { distKm: 0, durMin: 0 };
+      e.distKm += r.totalDistanceKm;
+      e.durMin += r.totalDurationMin;
+      byVehicle.set(r.vehicleId, e);
+    }
+    return vehicles.map((v) => {
+      const type = v.type as VehicleType;
+      const profile = VEHICLE_TYPE_PROFILES[type];
+      const batteryKwh = v.batteryKwh ?? profile.batteryOptions[0]!.batteryKwh;
+      const agg = byVehicle.get(v.id) ?? { distKm: 0, durMin: 0 };
+      const evKwhPerKm = VEHICLE_EMISSIONS[type].evKwhPerKm;
+      const reefer = profile.reefer ? reeferEnergyKwh(type, agg.durMin / 60) : 0;
+      return {
+        id: v.id,
+        type,
+        batteryKwh,
+        socPercent: v.socPercent ?? 100,
+        energyNeedKwh: Number((agg.distKm * evKwhPerKm + reefer).toFixed(2)),
+      };
+    });
+  },
+  async solve(input) {
+    const result = planCharging(input);
+    return {
+      feasible: result.atRisk.length === 0,
+      change: result,
+      impact: {
+        feasible: result.atRisk.length === 0,
+        energyKwh: result.totalEnergyKwh,
+        costEstimateCop: result.totalCostCop,
+        notesEs: [
+          `${result.plans.length} vehículo(s); ${result.totalEnergyKwh} kWh a recargar`,
+          ...(result.atRisk.length
+            ? [`${result.atRisk.length} vehículo(s) con ruta que excede su batería`]
+            : []),
+        ],
+      },
+    };
+  },
+  summarize(result) {
+    const r = result.change;
+    return `Plan de carga: ${r.totalEnergyKwh} kWh por ~$${r.totalCostCop.toLocaleString(
+      "es-CO",
+    )} en valle nocturno${r.atRisk.length ? `; ${r.atRisk.length} en riesgo de autonomía` : ""}.`;
+  },
+  async apply() {
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// optimize_cold_chain (❄️ COLD_CHAIN, advisory) — recomienda el orden de entrega
+// de una ruta reefer priorizando lo más sensible y el pre-enfriamiento.
+// Advisory: re-secuenciar persistiendo requiere un objetivo geográfico
+// consciente de frío (refinamiento futuro). Por ahora recomienda y explica.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const optimizeColdChain: RegisteredAction<
+  { stops: ColdStopInput[] },
+  ReturnType<typeof sequenceColdChain>
+> = {
+  meta: {
+    id: "optimize_cold_chain",
+    labelEs: "❄️ Optimizar cadena de frío",
+    scope: "COLD_CHAIN",
+    module: "COLD_CHAIN",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    const route = await prisma.route.findFirst({
+      where: { id: ctx.routeId ?? "", tenantId: ctx.tenantId },
+      include: {
+        stops: {
+          where: { kind: "DELIVERY" },
+          orderBy: { sequence: "asc" },
+          include: { order: { select: { tempProfile: true } } },
+        },
+      },
+    });
+    if (!route) return { stops: [] };
+    return {
+      stops: route.stops.map((s) => ({
+        orderId: s.orderId,
+        tempProfile: s.order.tempProfile as TempProfile,
+        etaMin: s.etaMin,
+      })),
+    };
+  },
+  async solve(input) {
+    const result = sequenceColdChain(input.stops);
+    return {
+      feasible: input.stops.length > 0,
+      change: result,
+      impact: {
+        feasible: input.stops.length > 0,
+        timeInBandPct: result.timeInBandPct,
+        notesEs: result.notesEs,
+      },
+    };
+  },
+  summarize(result) {
+    const r = result.change;
+    if (r.sensitiveCount === 0) return "Ruta sin pedidos sensibles a temperatura.";
+    return `Cadena de frío: ${r.sensitiveCount} entrega(s) sensible(s) al inicio, pre-enfriar ${r.preCoolLeadMin} min; ${r.movedCount} parada(s) reordenada(s).`;
+  },
+  async apply() {
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
 export const AI_ACTION_REGISTRY = {
   optimize_routes: optimizeRoutes,
   optimize_load: optimizeLoad,
   pick_vehicle: pickVehicle,
+  optimize_charging: optimizeCharging,
+  optimize_cold_chain: optimizeColdChain,
   reoptimize_route: reoptimizeRoute,
   resolve_addresses: resolveAddressesAction,
 } as Record<string, RegisteredAction>;

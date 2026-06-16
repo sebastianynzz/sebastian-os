@@ -96,8 +96,16 @@ describe("/ai/actions — gating por módulo AI_ADDONS", () => {
     expect(ids).toContain("optimize_load");
     expect(ids).toContain("pick_vehicle");
     expect(ids).toContain("reoptimize_route");
+    expect(ids).toContain("optimize_charging"); // ⚡ solo requiere AI_ADDONS
     // optimize_cold_chain exige COLD_CHAIN (no activo) → no debe aparecer.
     expect(ids).not.toContain("optimize_cold_chain");
+  });
+
+  it("expone optimize_cold_chain al activar el módulo COLD_CHAIN", async () => {
+    await enableModule(tenantId, "COLD_CHAIN");
+    const res = await api("GET", "/ai/actions", adminToken);
+    const ids = res.body.actions.map((a: { id: string }) => a.id);
+    expect(ids).toContain("optimize_cold_chain");
   });
 });
 
@@ -361,5 +369,83 @@ describe("reoptimize_route — inserción exprés (envuelve la inserción)", () 
       where: { routeId, orderId: extra.body.id },
     });
     expect(stop).not.toBeNull();
+  });
+});
+
+describe("optimize_charging — programación de carga (asesor ⚡)", () => {
+  it("propone un plan de carga para la ruta del día", async () => {
+    const v = await api("POST", "/vehicles", adminToken, {
+      plate: `CHG${runId.toString().slice(-4)}`,
+      type: "IONAX",
+      capacityKg: 530,
+      capacityM3: 3,
+      isElectric: true,
+      batteryKwh: 11.52,
+      nominalRangeKm: 130,
+    });
+    const o = await api("POST", "/orders", adminToken, {
+      customerName: "Carga ruta",
+      customerPhone: "+573115550001",
+      addressRaw: "Cl 72 # 10-34",
+    });
+    const plan = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-19",
+      depot: DEPOT,
+      orderIds: [o.body.id],
+      vehicleIds: [v.body.id],
+    });
+    expect(plan.status).toBe(201);
+
+    const run = await api("POST", "/ai/actions/optimize_charging/run", adminToken, {
+      vehicleIds: [v.body.id],
+      date: "2026-06-19",
+    });
+    expect(run.status).toBe(200);
+    expect(run.body.mutates).toBe(false);
+    expect(run.body.change.plans.length).toBeGreaterThanOrEqual(1);
+    expect(run.body.change.plans[0].window).toBe("Valle (noche)");
+
+    const apply = await api("POST", "/ai/actions/optimize_charging/apply", adminToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(apply.status).toBe(400);
+    expect(apply.body.code).toBe("ADVISORY_ONLY");
+  });
+});
+
+describe("optimize_cold_chain — secuenciación reefer (asesor ❄️, módulo COLD_CHAIN)", () => {
+  it("recomienda el orden de entrega para una ruta refrigerada", async () => {
+    await enableModule(tenantId, "COLD_CHAIN");
+    const v = await api("POST", "/vehicles", adminToken, {
+      plate: `CLD${runId.toString().slice(-4)}`,
+      type: "IONAX_COLD_BOX",
+      capacityKg: 530,
+      capacityM3: 2.8,
+      isElectric: true,
+      batteryKwh: 11.52,
+      nominalRangeKm: 130,
+    });
+    const o = await api("POST", "/orders", adminToken, {
+      customerName: "Refrigerado",
+      customerPhone: "+573115550002",
+      addressRaw: "Cra 15 # 93-60",
+      tempProfile: "CHILLED",
+    });
+    const plan = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-20",
+      depot: DEPOT,
+      orderIds: [o.body.id],
+      vehicleIds: [v.body.id],
+    });
+    expect(plan.status).toBe(201);
+    const routeId = plan.body.routes[0].id;
+
+    const run = await api("POST", "/ai/actions/optimize_cold_chain/run", adminToken, {
+      routeId,
+    });
+    expect(run.status).toBe(200);
+    expect(run.body.feasible).toBe(true);
+    expect(run.body.change.order).toContain(o.body.id);
+    expect(run.body.change.preCoolLeadMin).toBeGreaterThanOrEqual(30);
   });
 });

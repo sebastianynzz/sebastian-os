@@ -9,6 +9,7 @@ import {
   tableRowClass,
   theadRowClass,
 } from "../components/ui";
+import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 interface EvVehicle {
   id: string;
@@ -69,6 +70,10 @@ export default function Ev() {
         subtitle="Autonomía útil estimada según estado de carga, con margen de seguridad.
           Los EVs están exentos de pico y placa (Ley 1964 de 2019)."
       />
+
+      {/* Programación de carga al menor costo (asesor): el solver calcula la
+          energía y la ventana tarifaria; el LLM solo explica. */}
+      <AiOptimizeButton actionId="optimize_charging" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {fleet.map((v) => (
