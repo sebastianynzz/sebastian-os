@@ -191,8 +191,12 @@ value evolution.
   images only, 8 MB), tenant-scoped keys; local disk in dev (`/files/*`),
   Supabase Storage (`pod-photos` bucket) in production. Driver app captures,
   compresses on-device (canvas, máx 1280 px) and uploads before completing.
-- **RLS enabled on all 18 tables of the live Supabase DB** (defense-in-depth;
-  Prisma connects as owner and is unaffected; anon/PostgREST locked out).
+- **RLS enabled on every table in the live Supabase `public` schema** (23/23,
+  including `_prisma_migrations`; defense-in-depth; Prisma connects as owner and
+  is unaffected; anon/PostgREST locked out). Enabling RLS with no policies is
+  the intended state — it denies the unused PostgREST roles entirely; the
+  remaining `rls_enabled_no_policy` linter notices are INFO, not errors. New
+  tables must be added to this set (Supabase migration `enable_rls_*`).
 
 **Gaps remaining before production:**
 - No refresh-token rotation; a 12 h token can't be revoked before expiry.
