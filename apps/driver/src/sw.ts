@@ -6,11 +6,48 @@ import { api } from "./api";
  * SW nuevo se recarga una vez para servir la versión recién desplegada —
  * cada release llega al conductor en la siguiente carga (P0.2).
  */
+let waitingWorker: ServiceWorker | null = null;
+let updateListener: (() => void) | null = null;
+
+/**
+ * La app se suscribe para mostrar el toast "nueva versión disponible". Si ya
+ * había una versión esperando cuando se suscribe, avisa de inmediato.
+ */
+export function onUpdateAvailable(cb: () => void): void {
+  updateListener = cb;
+  if (waitingWorker) cb();
+}
+
+/** Activa el SW en espera; `controllerchange` recargará una sola vez. */
+export function applyUpdate(): void {
+  waitingWorker?.postMessage({ type: "SKIP_WAITING" });
+}
+
+function trackWaiting(reg: ServiceWorkerRegistration): void {
+  const notify = (sw: ServiceWorker | null) => {
+    if (!sw) return;
+    waitingWorker = sw;
+    updateListener?.();
+  };
+  // Una versión ya quedó en espera (instalada en una carga anterior).
+  if (reg.waiting && navigator.serviceWorker.controller) notify(reg.waiting);
+  // Una versión nueva empieza a instalarse con la app abierta.
+  reg.addEventListener("updatefound", () => {
+    const installing = reg.installing;
+    if (!installing) return;
+    installing.addEventListener("statechange", () => {
+      if (installing.state === "installed" && navigator.serviceWorker.controller) {
+        notify(reg.waiting ?? installing);
+      }
+    });
+  });
+}
+
 export function registerServiceWorker(): void {
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
 
   // Distinguir la primera instalación (claim inicial) de una actualización:
-  // solo la actualización debe recargar.
+  // solo la actualización (tras confirmar el toast) debe recargar.
   let hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController) {
@@ -24,6 +61,7 @@ export function registerServiceWorker(): void {
     void (async () => {
       try {
         const reg = await navigator.serviceWorker.register("/sw.js");
+        trackWaiting(reg);
         // Jornadas largas: buscar release nuevo cada vez que el conductor
         // vuelve a la app (el SW se actualiza al detectar bytes distintos).
         document.addEventListener("visibilitychange", () => {

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { UpdateToast } from "./components/UpdateToast";
 import { registerServiceWorker } from "./sw";
 import "./styles.css";
 
@@ -13,6 +14,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary area="root">
       <App />
+      <UpdateToast />
     </ErrorBoundary>
   </StrictMode>,
 );
