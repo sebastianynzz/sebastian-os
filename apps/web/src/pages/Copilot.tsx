@@ -25,6 +25,9 @@ interface CopilotAction {
   kind: "PLAN_ROUTES" | "INSERT_ORDER" | "DISPATCH_ROUTE" | "FLAG_RECOVERY";
   summary: string;
   params: Record<string, unknown>;
+  /** Propuestas de optimización: se confirman por la ruta de aplicación compartida. */
+  proposalId?: string;
+  feasible?: boolean;
 }
 
 interface ChatEntry {
@@ -86,13 +89,22 @@ export default function Copilot() {
     }
   }
 
-  /** Ejecuta una propuesta confirmada llamando el endpoint real existente. */
+  /** Ejecuta una propuesta confirmada. Las de optimización van por la ruta de
+   *  aplicación compartida (mismo ejecutor que los botones); despacho y
+   *  recuperación, contra su endpoint operativo existente. */
   async function confirm(action: CopilotAction, key: string) {
     setBusy(true);
     setBanner(null);
     try {
       let note: string;
-      if (action.kind === "PLAN_ROUTES") {
+      if (action.proposalId) {
+        const res = await api<{ resultEs?: string }>(
+          "POST",
+          "/copilot/actions/confirm",
+          { proposalId: action.proposalId },
+        );
+        note = `✅ ${res.resultEs ?? "Propuesta aplicada."}`;
+      } else if (action.kind === "PLAN_ROUTES") {
         const res = await api<{ routes: unknown[]; unassigned: unknown[] }>(
           "POST",
           "/optimization/plans",

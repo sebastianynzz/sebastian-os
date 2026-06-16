@@ -487,3 +487,53 @@ describe("plan_capacity — capacidad de flota (asesor, no muta)", () => {
     expect(apply.body.code).toBe("ADVISORY_ONLY");
   });
 });
+
+describe("Copiloto — confirma por la MISMA ruta de aplicación (executor compartido)", () => {
+  it("/copilot/actions/confirm aplica un AiProposal generado por /ai/actions/run", async () => {
+    const v = await api("POST", "/vehicles", adminToken, {
+      plate: `CPU${runId.toString().slice(-4)}`,
+      type: "IONAX",
+      capacityKg: 530,
+      capacityM3: 3,
+      isElectric: true,
+      batteryKwh: 11.52,
+      nominalRangeKm: 130,
+    });
+    const o = await api("POST", "/orders", adminToken, {
+      customerName: "Copiloto plan",
+      customerPhone: "+573117770001",
+      addressRaw: "Cl 72 # 10-34",
+    });
+    const run = await api("POST", "/ai/actions/optimize_routes/run", adminToken, {
+      orderIds: [o.body.id],
+      vehicleIds: [v.body.id],
+      date: "2026-06-22",
+      params: { depot: DEPOT },
+    });
+    expect(run.status).toBe(200);
+
+    // Otro tenant no puede confirmarla (aislamiento, misma ruta de aplicación).
+    const foreign = await api("POST", "/copilot/actions/confirm", otherToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(foreign.status).toBe(404);
+
+    // El dueño confirma por el endpoint del Copiloto → aplica igual que /ai/apply.
+    const confirm = await api("POST", "/copilot/actions/confirm", adminToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(confirm.status).toBe(200);
+    expect(confirm.body.ok).toBe(true);
+
+    const assigned = await prisma.order.count({
+      where: { id: o.body.id, status: "ASSIGNED" },
+    });
+    expect(assigned).toBe(1);
+
+    // Idempotencia compartida: reconfirmar devuelve 409.
+    const again = await api("POST", "/copilot/actions/confirm", adminToken, {
+      proposalId: run.body.proposalId,
+    });
+    expect(again.status).toBe(409);
+  });
+});
