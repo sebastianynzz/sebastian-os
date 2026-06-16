@@ -4,9 +4,17 @@ import type {
   PlanRoutesInput,
   SolveResult,
 } from "@moveos/shared";
+import {
+  packLoad,
+  rankVehicleConfigs,
+  type PackOrder,
+  type PackVehicle,
+  type PickRequest,
+} from "@moveos/optimizer";
 import { prisma } from "../../lib/prisma.js";
 import { todayBogota } from "../../services/dailyMetrics.js";
 import { persistPlan, runPlan } from "../../services/planning.js";
+import { computeInsertion, persistInsertion } from "../../services/insertion.js";
 import {
   applyResolvedAddresses,
   resolveAddresses,
@@ -239,8 +247,268 @@ const resolveAddressesAction: RegisteredAction<ResolveInput, ResolveChange> = {
   },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// reoptimize_route — envuelve la inserción exprés existente (computeInsertion).
+// Reasigna/insiere un pedido pendiente en una ruta en curso; aplica
+// re-calculando contra el estado actual.
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ReoptInput {
+  routeId: string;
+  orderId: string;
+}
+interface ReoptChange {
+  routeId: string;
+  orderId: string;
+  insertedAt: number;
+  totalDistanceKm: number;
+  error?: string;
+}
+
+const reoptimizeRoute: RegisteredAction<ReoptInput, ReoptChange> = {
+  meta: {
+    id: "reoptimize_route",
+    labelEs: "Reoptimizar / reasignar",
+    scope: "EXCEPTION",
+    module: "AI_ADDONS",
+    mutates: true,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    return {
+      routeId: ctx.routeId ?? "",
+      orderId: (ctx.params?.orderId as string) ?? ctx.orderIds?.[0] ?? "",
+    };
+  },
+  async solve(input, ctx) {
+    if (!input.routeId || !input.orderId) {
+      return {
+        feasible: false,
+        change: { routeId: input.routeId, orderId: input.orderId, insertedAt: -1, totalDistanceKm: 0 },
+        impact: { feasible: false, notesEs: ["Faltan routeId u orderId"] },
+      };
+    }
+    const computed = await computeInsertion(ctx.tenantId, input.routeId, input.orderId);
+    if (!computed.ok) {
+      return {
+        feasible: false,
+        change: {
+          routeId: input.routeId,
+          orderId: input.orderId,
+          insertedAt: -1,
+          totalDistanceKm: 0,
+          error: computed.error,
+        },
+        impact: { feasible: false, notesEs: [computed.error] },
+      };
+    }
+    return {
+      feasible: true,
+      change: {
+        routeId: input.routeId,
+        orderId: input.orderId,
+        insertedAt: computed.result.insertedAt,
+        totalDistanceKm: computed.result.totalDistanceKm,
+      },
+      impact: {
+        feasible: true,
+        distanceKm: computed.result.totalDistanceKm,
+        notesEs: [
+          `Inserción en la posición ${computed.result.insertedAt + 1} de la cola pendiente`,
+        ],
+      },
+    };
+  },
+  summarize(result) {
+    if (!result.feasible) {
+      return `No se pudo reoptimizar: ${result.change.error ?? result.impact.notesEs?.join(" ") ?? ""}`.trim();
+    }
+    return `Se insertaría el pedido en la posición ${
+      result.change.insertedAt + 1
+    } (cola pendiente, ${result.change.totalDistanceKm} km). Confirma para reasignar.`;
+  },
+  async apply(ctx, change) {
+    const computed = await computeInsertion(ctx.tenantId, change.routeId, change.orderId);
+    if (!computed.ok) {
+      throw Object.assign(new Error(computed.error), {
+        statusCode: computed.statusCode === 422 ? 422 : 409,
+      });
+    }
+    await persistInsertion(
+      ctx.tenantId,
+      computed.route,
+      computed.newOrder,
+      computed.attendedCount,
+      computed.result,
+    );
+    return {
+      resultEs: `Pedido reasignado en la ruta (posición ${computed.result.insertedAt + 1}).`,
+      data: { insertedAt: computed.result.insertedAt },
+    };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// optimize_load — empaque de carga (advisory). Propone una asignación
+// pedido→vehículo por capacidad + cadena de frío. No persiste todavía:
+// persistir la asignación es decisión de producto (campo en Order o fusión con
+// optimize_routes); por ahora alimenta la decisión del despachador.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const optimizeLoad: RegisteredAction<
+  { orders: PackOrder[]; vehicles: PackVehicle[] },
+  ReturnType<typeof packLoad>
+> = {
+  meta: {
+    id: "optimize_load",
+    labelEs: "Optimizar carga",
+    scope: "LOAD",
+    module: "AI_ADDONS",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    const [orders, vehicles] = await Promise.all([
+      prisma.order.findMany({
+        where: { id: { in: ctx.orderIds ?? [] }, tenantId: ctx.tenantId },
+        select: { id: true, weightKg: true, volumeM3: true, tempProfile: true },
+      }),
+      prisma.vehicle.findMany({
+        where: { id: { in: ctx.vehicleIds ?? [] }, tenantId: ctx.tenantId },
+        select: { id: true, type: true },
+      }),
+    ]);
+    return {
+      orders: orders.map((o) => ({
+        id: o.id,
+        weightKg: o.weightKg,
+        volumeM3: o.volumeM3 ?? undefined,
+        tempProfile: o.tempProfile as PackOrder["tempProfile"],
+      })),
+      vehicles: vehicles.map((v) => ({
+        id: v.id,
+        type: v.type as PackVehicle["type"],
+      })),
+    };
+  },
+  async solve(input) {
+    const result = packLoad(input.orders, input.vehicles);
+    const totalAssigned = result.assignments.reduce(
+      (a, x) => a + x.orderIds.length,
+      0,
+    );
+    const avgUtil = result.assignments.length
+      ? Math.round(
+          result.assignments.reduce((a, x) => a + x.utilizationPct, 0) /
+            result.assignments.length,
+        )
+      : 0;
+    return {
+      feasible: totalAssigned > 0,
+      change: result,
+      impact: {
+        feasible: totalAssigned > 0,
+        vehiclesUsed: result.assignments.length,
+        utilizationPct: avgUtil,
+        unassigned: result.unassigned.map((u) => ({
+          orderId: u.orderId,
+          reasonEs: u.reason,
+        })),
+        notesEs: [
+          `${totalAssigned} pedido(s) empacados en ${result.assignments.length} vehículo(s)`,
+        ],
+      },
+    };
+  },
+  summarize(result) {
+    const a = result.change.assignments;
+    const assigned = a.reduce((acc, x) => acc + x.orderIds.length, 0);
+    return `Empaque propuesto: ${assigned} pedido(s) en ${a.length} vehículo(s); ${result.change.unassigned.length} sin acomodar. Recomendación para planificar.`;
+  },
+  async apply() {
+    // Advisory: no muta (el ejecutor ya rechaza apply con 400 ADVISORY_ONLY).
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// pick_vehicle — ranking de configuraciones (advisory). Recomienda el vehículo
+// óptimo para un clúster (kg/m³, cadena de frío, distancia, sobredimensión).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const pickVehicle: RegisteredAction<
+  PickRequest,
+  { ranked: ReturnType<typeof rankVehicleConfigs> }
+> = {
+  meta: {
+    id: "pick_vehicle",
+    labelEs: "Elegir vehículo óptimo",
+    scope: "FLEET",
+    module: "AI_ADDONS",
+    mutates: false,
+    roles: ["ADMIN", "DISPATCHER"],
+  },
+  async gatherInput(ctx) {
+    // Desde params explícitos, o agregando los pedidos seleccionados.
+    if (ctx.orderIds && ctx.orderIds.length) {
+      const orders = await prisma.order.findMany({
+        where: { id: { in: ctx.orderIds }, tenantId: ctx.tenantId },
+        select: { weightKg: true, volumeM3: true, tempProfile: true },
+      });
+      const totalKg = orders.reduce((a, o) => a + o.weightKg, 0);
+      const totalM3 = orders.reduce((a, o) => a + (o.volumeM3 ?? 0), 0);
+      const coldChain = orders.some((o) => o.tempProfile === "FROZEN")
+        ? "FROZEN"
+        : orders.some((o) => o.tempProfile === "CHILLED")
+          ? "CHILLED"
+          : "AMBIENT";
+      return {
+        totalKg,
+        totalM3,
+        coldChain,
+        distanceKm: ctx.params?.distanceKm as number | undefined,
+        oversized: ctx.params?.oversized as boolean | undefined,
+      };
+    }
+    const p = ctx.params ?? {};
+    return {
+      totalKg: Number(p.totalKg ?? 0),
+      totalM3: p.totalM3 as number | undefined,
+      coldChain: p.coldChain as PickRequest["coldChain"],
+      distanceKm: p.distanceKm as number | undefined,
+      oversized: p.oversized as boolean | undefined,
+    };
+  },
+  async solve(input) {
+    const ranked = rankVehicleConfigs(input);
+    const top = ranked[0];
+    return {
+      feasible: !!top?.feasible,
+      change: { ranked },
+      impact: {
+        feasible: !!top?.feasible,
+        utilizationPct: top?.utilizationPct,
+        notesEs: top
+          ? [`Recomendado: ${top.labelEs} — ${top.reasonEs}`]
+          : ["Sin configuración apta"],
+      },
+    };
+  },
+  summarize(result) {
+    const top = result.change.ranked[0];
+    if (!top || !top.feasible) return "Ninguna configuración cumple los requisitos.";
+    return `Vehículo recomendado: ${top.labelEs} (${top.reasonEs}).`;
+  },
+  async apply() {
+    return { resultEs: "Acción asesora: no persiste cambios." };
+  },
+};
+
 export const AI_ACTION_REGISTRY = {
   optimize_routes: optimizeRoutes,
+  optimize_load: optimizeLoad,
+  pick_vehicle: pickVehicle,
+  reoptimize_route: reoptimizeRoute,
   resolve_addresses: resolveAddressesAction,
 } as Record<string, RegisteredAction>;
 

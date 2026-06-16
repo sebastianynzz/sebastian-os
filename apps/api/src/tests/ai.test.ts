@@ -93,6 +93,9 @@ describe("/ai/actions — gating por módulo AI_ADDONS", () => {
     const ids = res.body.actions.map((a: { id: string }) => a.id).sort();
     expect(ids).toContain("optimize_routes");
     expect(ids).toContain("resolve_addresses");
+    expect(ids).toContain("optimize_load");
+    expect(ids).toContain("pick_vehicle");
+    expect(ids).toContain("reoptimize_route");
     // optimize_cold_chain exige COLD_CHAIN (no activo) → no debe aparecer.
     expect(ids).not.toContain("optimize_cold_chain");
   });
@@ -243,5 +246,120 @@ describe("resolve_addresses — run → apply (envuelve la cascada de direccione
     const updated = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
     expect(updated.addressVerifiedAt).not.toBeNull();
     expect(updated.lat).toBeCloseTo(4.67, 5);
+  });
+});
+
+describe("pick_vehicle — asesor (no muta)", () => {
+  it("recomienda la Cold Box congeladora para carga FROZEN", async () => {
+    const run = await api("POST", "/ai/actions/pick_vehicle/run", adminToken, {
+      params: { totalKg: 30, totalM3: 0.3, coldChain: "FROZEN", distanceKm: 40 },
+    });
+    expect(run.status).toBe(200);
+    expect(run.body.mutates).toBe(false);
+    expect(run.body.feasible).toBe(true);
+    expect(run.body.change.ranked[0].type).toBe("RAP_MOVE_COLD_BOX");
+  });
+
+  it("aplicar una acción asesora devuelve 400", async () => {
+    const run = await api("POST", "/ai/actions/pick_vehicle/run", adminToken, {
+      params: { totalKg: 10, distanceKm: 30 },
+    });
+    const apply = await api(
+      "POST",
+      "/ai/actions/pick_vehicle/apply",
+      adminToken,
+      { proposalId: run.body.proposalId },
+    );
+    expect(apply.status).toBe(400);
+    expect(apply.body.code).toBe("ADVISORY_ONLY");
+  });
+});
+
+describe("optimize_load — empaque (asesor)", () => {
+  it("propone una asignación pedido→vehículo por capacidad", async () => {
+    const v = await api("POST", "/vehicles", adminToken, {
+      plate: `LOA${runId.toString().slice(-4)}`,
+      type: "IONAX",
+      capacityKg: 530,
+      capacityM3: 3,
+      isElectric: true,
+      batteryKwh: 11.52,
+      nominalRangeKm: 130,
+    });
+    const ids: string[] = [];
+    for (const [i, name] of ["Carga A", "Carga B"].entries()) {
+      const o = await api("POST", "/orders", adminToken, {
+        customerName: name,
+        customerPhone: `+57311222000${i}`,
+        addressRaw: "Cra 7 # 32-16",
+        weightKg: 50,
+      });
+      ids.push(o.body.id);
+    }
+    const run = await api("POST", "/ai/actions/optimize_load/run", adminToken, {
+      orderIds: ids,
+      vehicleIds: [v.body.id],
+    });
+    expect(run.status).toBe(200);
+    expect(run.body.mutates).toBe(false);
+    expect(run.body.feasible).toBe(true);
+    expect(run.body.change.assignments[0].orderIds.length).toBe(2);
+  });
+});
+
+describe("reoptimize_route — inserción exprés (envuelve la inserción)", () => {
+  it("inserta un pedido pendiente en una ruta existente y lo aplica", async () => {
+    const v = await api("POST", "/vehicles", adminToken, {
+      plate: `REO${runId.toString().slice(-4)}`,
+      type: "IONAX",
+      capacityKg: 530,
+      capacityM3: 3,
+      isElectric: true,
+      batteryKwh: 11.52,
+      nominalRangeKm: 130,
+    });
+    const baseOrder = await api("POST", "/orders", adminToken, {
+      customerName: "Base ruta",
+      customerPhone: "+573114440001",
+      addressRaw: "Cl 72 # 10-34",
+    });
+    // Crear una ruta con el endpoint manual (ROUTE_OPTIMIZATION va por defecto).
+    const plan = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-18",
+      depot: DEPOT,
+      orderIds: [baseOrder.body.id],
+      vehicleIds: [v.body.id],
+    });
+    expect(plan.status).toBe(201);
+    const routeId = plan.body.routes[0].id;
+
+    const extra = await api("POST", "/orders", adminToken, {
+      customerName: "Inserción exprés",
+      customerPhone: "+573114440002",
+      addressRaw: "Cra 15 # 93-60",
+    });
+
+    const run = await api(
+      "POST",
+      "/ai/actions/reoptimize_route/run",
+      adminToken,
+      { routeId, params: { orderId: extra.body.id } },
+    );
+    expect(run.status).toBe(200);
+    expect(run.body.feasible).toBe(true);
+
+    const apply = await api(
+      "POST",
+      "/ai/actions/reoptimize_route/apply",
+      adminToken,
+      { proposalId: run.body.proposalId },
+    );
+    expect(apply.status).toBe(200);
+    expect(apply.body.ok).toBe(true);
+
+    const stop = await prisma.routeStop.findFirst({
+      where: { routeId, orderId: extra.body.id },
+    });
+    expect(stop).not.toBeNull();
   });
 });

@@ -141,30 +141,46 @@ export default function Planificacion() {
       />
 
       {/* Optimización con IA: el LLM dispara y explica; el solver hace la
-          matemática. Confirmar antes de aplicar (crea las rutas). */}
-      <AiOptimizeButton
-        actionId="optimize_routes"
-        context={{
-          orderIds: [...selectedOrders],
-          vehicleIds: [...selectedVehicles],
-          date,
-          params: { depot: DEPOT },
-        }}
-        disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
-        onApplied={() => {
-          void (async () => {
-            setOrderArchive((prev) => {
-              const next = new Map(prev);
-              for (const o of orders) next.set(o.id, o);
-              return next;
-            });
-            const fresh = await api<Order[]>("GET", "/orders?status=GEOCODED");
-            setOrders(fresh);
-            setSelectedOrders(new Set(fresh.map((x) => x.id)));
-            setPlan(null);
-          })();
-        }}
-      />
+          matemática. optimize_routes muta (confirmar antes de crear rutas);
+          optimize_load y pick_vehicle son asesores (solo recomiendan). */}
+      <div className="flex flex-wrap items-start gap-3">
+        <AiOptimizeButton
+          actionId="optimize_routes"
+          context={{
+            orderIds: [...selectedOrders],
+            vehicleIds: [...selectedVehicles],
+            date,
+            params: { depot: DEPOT },
+          }}
+          disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
+          onApplied={() => {
+            void (async () => {
+              setOrderArchive((prev) => {
+                const next = new Map(prev);
+                for (const o of orders) next.set(o.id, o);
+                return next;
+              });
+              const fresh = await api<Order[]>("GET", "/orders?status=GEOCODED");
+              setOrders(fresh);
+              setSelectedOrders(new Set(fresh.map((x) => x.id)));
+              setPlan(null);
+            })();
+          }}
+        />
+        <AiOptimizeButton
+          actionId="optimize_load"
+          context={{
+            orderIds: [...selectedOrders],
+            vehicleIds: [...selectedVehicles],
+          }}
+          disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
+        />
+        <AiOptimizeButton
+          actionId="pick_vehicle"
+          context={{ orderIds: [...selectedOrders] }}
+          disabled={selectedOrders.size === 0}
+        />
+      </div>
 
       {error && (
         <Banner kind="error" onDismiss={() => setError(null)}>
