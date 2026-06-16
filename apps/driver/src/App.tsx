@@ -255,11 +255,13 @@ export default function App() {
     if (!route || route.status !== "IN_PROGRESS") return;
     const interval = setInterval(() => {
       if (!geo.current) return;
-      void apiOrQueue("/tracking/pings", {
-        lat: geo.current.lat,
-        lng: geo.current.lng,
-        routeId: route.id,
-      });
+      // Ping GPS: efímero — sin señal NO se encola (reproducir posiciones
+      // viejas no aporta y saturaría la cola del conductor).
+      void apiOrQueue(
+        "/tracking/pings",
+        { lat: geo.current.lat, lng: geo.current.lng, routeId: route.id },
+        { ephemeral: true },
+      );
     }, 30000);
     return () => clearInterval(interval);
   }, [route, geo]);

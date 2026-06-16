@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateToast } from "./components/UpdateToast";
+import { OfflineQueue } from "./components/OfflineQueue";
 import { registerServiceWorker } from "./sw";
 import "./styles.css";
 
@@ -14,6 +15,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary area="root">
       <App />
+      <OfflineQueue />
       <UpdateToast />
     </ErrorBoundary>
   </StrictMode>,
