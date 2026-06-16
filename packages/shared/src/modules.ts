@@ -12,6 +12,7 @@ export const MODULE_KEYS = [
   "CUSTOMER_EXPERIENCE_PRO",
   "ANALYTICS_PRO",
   "AI_ADDONS",
+  "COLD_CHAIN",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -103,6 +104,13 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     nombre: "IA avanzada",
     descripcion:
       "ETAs predictivos, predicción de entregas fallidas, detección de anomalías/robo, resolución de direcciones informales.",
+    defaultEnabled: false,
+  },
+  {
+    key: "COLD_CHAIN",
+    nombre: "Cadena de frío",
+    descripcion:
+      "Monitoreo de temperatura por zona (reefer), secuenciación de paradas para minimizar tiempo fuera de banda y alertas de excursión para vehículos Cold Box.",
     defaultEnabled: false,
   },
 ];

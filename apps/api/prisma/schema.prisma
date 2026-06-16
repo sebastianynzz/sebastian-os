@@ -58,6 +58,7 @@ model Tenant {
   dailyMetrics  DailyTenantMetric[]
   chargingStations ChargingStation[]
   pushSubscriptions PushSubscription[]
+  aiProposals   AiProposal[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -494,4 +495,31 @@ model NotificationLog {
   createdAt DateTime @default(now())
 
   @@index([tenantId, clientId, createdAt])
+}
+
+/// Propuesta de la capa de IA (capa de optimización). Persiste la propuesta
+/// pendiente que la UI (botones "Optimizar con IA") y el Copiloto confirman.
+/// Es la bitácora de auditoría de la IA: una sola ruta de aplicación
+/// (run → confirmar → apply) deja aquí quién/qué/cuándo. El solver hace la
+/// matemática; el LLM solo dispara y explica (no calcula el cambio).
+model AiProposal {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String // quién la generó (request.user.sub)
+  actionId        String // OptimizationActionId
+  scope           String
+  summaryEs       String
+  changeJson      Json // cambio propuesto (para mostrar en el panel)
+  impactJson      Json // métricas de impacto
+  contextJson     Json // ActionContext con el que se generó (para re-validar al aplicar)
+  mutates         Boolean
+  feasible        Boolean
+  status          String   @default("PENDING") // PENDING | APPLIED | DISCARDED
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  appliedAt       DateTime?
+  appliedByUserId String?
+
+  @@index([tenantId, status])
 }

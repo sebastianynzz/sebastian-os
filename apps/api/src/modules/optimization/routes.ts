@@ -4,7 +4,6 @@ import type { LatLng } from "@moveos/shared";
 import {
   estimateUsableRangeKm,
   insertOrderIntoRoute,
-  planRoutes as solveVrp,
   resolveNominalRangeKm,
 } from "@moveos/optimizer";
 import type { OptimizableOrder, OptimizableVehicle } from "@moveos/optimizer";
@@ -12,6 +11,7 @@ import { prisma } from "../../lib/prisma.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
 import { logOrderEvents } from "../../services/orderEvents.js";
+import { persistPlan, runPlan } from "../../services/planning.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 import { buildTravelModel, toMinOfDayBogota } from "../../services/routing.js";
@@ -33,146 +33,24 @@ export default async function optimizationRoutes(app: FastifyInstance) {
       const input = planRoutesSchema.parse(request.body);
       const tenantId = request.user.tenantId;
 
-      const [tenant, dbOrders, dbVehicles] = await Promise.all([
-        prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } }),
-        prisma.order.findMany({
-          where: {
-            id: { in: input.orderIds },
-            tenantId,
-            status: { in: ["PENDING", "GEOCODED"] },
-            stops: { none: {} }, // aún no asignado a ninguna ruta
-          },
-        }),
-        prisma.vehicle.findMany({
-          where: { id: { in: input.vehicleIds }, tenantId },
-        }),
-      ]);
-
-      if (dbOrders.length === 0) {
-        return reply.code(400).send({ error: "No hay pedidos planificables (verifique estado y asignación previa)" });
-      }
-      if (dbVehicles.length === 0) {
-        return reply.code(400).send({ error: "No hay vehículos válidos" });
+      const outcome = await runPlan(tenantId, input);
+      if (!outcome.ok) {
+        return reply.code(400).send({ error: outcome.error });
       }
 
-      const skipped = input.orderIds.filter(
-        (id) => !dbOrders.some((o) => o.id === id),
+      const created = await persistPlan(
+        tenantId,
+        { date: input.date, depot: input.depot },
+        outcome.result,
+        outcome.dbVehicles,
       );
-
-      const orders: OptimizableOrder[] = dbOrders
-        .filter((o) => o.lat !== null && o.lng !== null)
-        .map((o) => ({
-          id: o.id,
-          location: { lat: o.lat!, lng: o.lng! },
-          pickupLocation:
-            o.pickupLat !== null && o.pickupLng !== null
-              ? { lat: o.pickupLat, lng: o.pickupLng }
-              : undefined,
-          weightKg: o.weightKg,
-          volumeM3: o.volumeM3 ?? undefined,
-          tempProfile: o.tempProfile as OptimizableOrder["tempProfile"],
-          priority: o.priority,
-          timeWindow:
-            o.timeWindowStart && o.timeWindowEnd
-              ? {
-                  startMin: toMinOfDay(o.timeWindowStart),
-                  endMin: toMinOfDay(o.timeWindowEnd),
-                }
-              : undefined,
-        }));
-
-      const vehicles: OptimizableVehicle[] = dbVehicles.map((v) => ({
-        id: v.id,
-        plate: v.plate,
-        type: v.type as OptimizableVehicle["type"],
-        capacityKg: v.capacityKg,
-        capacityM3: v.capacityM3 ?? undefined,
-        isElectric: v.isElectric,
-        // Autonomía resuelta por pack instalado (IONAx 11.52 vs 23.04) salvo
-        // override explícito; las autonomías ya son reefer-on (sin doble resta).
-        nominalRangeKm: resolveNominalRangeKm({
-          type: v.type as OptimizableVehicle["type"],
-          batteryKwh: v.batteryKwh,
-          nominalRangeKm: v.nominalRangeKm,
-        }),
-        socPercent: input.socByVehicleId?.[v.id] ?? v.socPercent ?? undefined,
-      }));
-
-      const [yy, mm, dd] = input.date.split("-").map(Number);
-      const planDate = new Date(yy!, mm! - 1, dd!);
-
-      // Modelo de viaje: matriz OSRM (red vial real) si está configurado;
-      // haversine como base/fallback. Puntos: depósito + entregas + recogidas.
-      const points: LatLng[] = [input.depot];
-      for (const o of orders) {
-        points.push(o.location);
-        if (o.pickupLocation) points.push(o.pickupLocation);
-      }
-      const { model: travel, source: distanceModel } = await buildTravelModel(points);
-
-      const result = solveVrp({
-        date: planDate,
-        city: tenant.city,
-        depot: input.depot,
-        orders,
-        vehicles,
-        travel,
-      });
-
-      // Persistir rutas y marcar pedidos asignados.
-      const created = [];
-      for (const route of result.routes) {
-        const dbRoute = await prisma.route.create({
-          data: {
-            tenantId,
-            date: input.date,
-            vehicleId: route.vehicleId,
-            depotLat: input.depot.lat,
-            depotLng: input.depot.lng,
-            departureMin: 8 * 60,
-            totalDistanceKm: route.totalDistanceKm,
-            totalDurationMin: route.totalDurationMin,
-            warnings: route.warnings,
-            stops: {
-              create: route.stops.map((s) => ({
-                orderId: s.orderId,
-                kind: s.kind,
-                sequence: s.sequence,
-                etaMin: s.etaMin,
-              })),
-            },
-          },
-          include: { stops: { orderBy: { sequence: "asc" } } },
-        });
-        // IDs únicos de pedidos (un pedido con recogida aparece en 2 paradas).
-        const orderIds = [...new Set(route.stops.map((s) => s.orderId))];
-        await prisma.order.updateMany({
-          where: { id: { in: orderIds } },
-          data: { status: "ASSIGNED" },
-        });
-        const plate = dbVehicles.find((v) => v.id === route.vehicleId)?.plate;
-        await logOrderEvents(
-          orderIds.map((orderId) => ({
-            orderId,
-            type: "ASSIGNED" as const,
-            details: `Ruta ${plate ?? route.vehicleId}`,
-          })),
-        );
-        // Tiempo real: el dashboard y el portal del cliente ven la asignación.
-        const assigned = await prisma.order.findMany({
-          where: { id: { in: orderIds } },
-          select: { id: true, clientId: true, status: true, trackingNumber: true },
-        });
-        for (const order of assigned) emitOrderUpdate(tenantId, order);
-        created.push(dbRoute);
-      }
 
       return reply.code(201).send({
         routes: created,
-        unassigned: result.unassigned,
-        excludedVehicles: result.excludedVehicles,
-        skippedOrderIds: skipped,
-        distanceModel,
+        unassigned: outcome.result.unassigned,
+        excludedVehicles: outcome.result.excludedVehicles,
+        skippedOrderIds: outcome.skippedOrderIds,
+        distanceModel: outcome.distanceModel,
       });
     },
   );

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import type { FastifyInstance } from "fastify";
+import { MODULE_CATALOG } from "@moveos/shared";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -156,7 +157,7 @@ describe("panel de plataforma + seguridad de planos", () => {
     const res = await api("GET", "/platform/metrics", platformToken);
     expect(res.status).toBe(200);
     expect(res.body.tenants.total).toBeGreaterThanOrEqual(1);
-    expect(res.body.moduleAdoption).toHaveLength(8);
+    expect(res.body.moduleAdoption).toHaveLength(MODULE_CATALOG.length);
     expect(Array.isArray(res.body.orders.byDay)).toBe(true);
   });
 

@@ -3,6 +3,7 @@ import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { api } from "../api";
 import { Banner, Button, Card, PageHeader, formatEta } from "../components/ui";
+import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 // Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
@@ -138,6 +139,33 @@ export default function Planificacion() {
           </>
         }
       />
+
+      {/* Optimización con IA: el LLM dispara y explica; el solver hace la
+          matemática. Confirmar antes de aplicar (crea las rutas). */}
+      <AiOptimizeButton
+        actionId="optimize_routes"
+        context={{
+          orderIds: [...selectedOrders],
+          vehicleIds: [...selectedVehicles],
+          date,
+          params: { depot: DEPOT },
+        }}
+        disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
+        onApplied={() => {
+          void (async () => {
+            setOrderArchive((prev) => {
+              const next = new Map(prev);
+              for (const o of orders) next.set(o.id, o);
+              return next;
+            });
+            const fresh = await api<Order[]>("GET", "/orders?status=GEOCODED");
+            setOrders(fresh);
+            setSelectedOrders(new Set(fresh.map((x) => x.id)));
+            setPlan(null);
+          })();
+        }}
+      />
+
       {error && (
         <Banner kind="error" onDismiss={() => setError(null)}>
           {error}

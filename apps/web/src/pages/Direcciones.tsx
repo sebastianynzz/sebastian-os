@@ -13,6 +13,7 @@ import {
   tableRowClass,
   theadRowClass,
 } from "../components/ui";
+import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 /**
  * Cola de triage de direcciones: pedidos con geocodificación de baja
@@ -117,6 +118,19 @@ export default function Direcciones() {
         title="Triage de direcciones"
         subtitle="Direcciones de baja confianza por confirmar antes de planificar. Cada pin corregido entrena el grafo de direcciones."
       />
+
+      {/* Resolución asistida por IA: re-resuelve la cola con el grafo + la
+          cascada de proveedores; al aplicar fija y aprende los pines de alta
+          confianza, dejando para revisión manual los dudosos. */}
+      <AiOptimizeButton
+        actionId="resolve_addresses"
+        context={orders ? { orderIds: orders.map((o) => o.id) } : {}}
+        disabled={!orders || orders.length === 0}
+        onApplied={() => {
+          void load();
+        }}
+      />
+
       {banner && (
         <Banner kind={banner.kind} onDismiss={() => setBanner(null)}>
           {banner.text}
