@@ -5,9 +5,11 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
 import { Loading } from "./components/ui";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
 import Clientes from "./pages/Clientes";
@@ -59,6 +61,7 @@ const CLIENT_NAV: { to: string; label: string }[] = [
 
 function Shell() {
   const { session, loading, logout } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <Loading label="Cargando su sesión…" />;
@@ -139,7 +142,11 @@ function Shell() {
             </button>
           </div>
         )}
-        <Outlet />
+        {/* Límite de error por ruta: una vista que falle no tumba el shell, y
+            se reinicia al navegar (key por ruta). */}
+        <ErrorBoundary key={location.pathname} area={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );
