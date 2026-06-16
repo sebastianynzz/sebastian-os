@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { buildTravelModel } from "../services/routing.js";
+import { durationFactor } from "@moveos/optimizer";
 
 /**
  * Inserción dinámica (express) en rutas existentes + modelo de viaje OSRM
@@ -62,7 +63,7 @@ beforeAll(async () => {
 
   await api("POST", "/vehicles", adminToken, {
     plate: "INS12A",
-    type: "MOTO",
+    type: "RAP_MOVE_LIGHT",
     capacityKg: 10,
   });
   const driver = await api("POST", "/drivers", adminToken, {
@@ -208,8 +209,15 @@ describe("modelo de viaje OSRM (mock) y fallback", () => {
     const built = await buildTravelModel([a, b]);
     expect(built.source).toBe("osrm");
     expect(built.model.distanceKm(a, b)).toBe(5); // 5000 m
-    expect(built.model.travelMin(a, b, "CARRO")).toBe(10); // 600 s
-    expect(built.model.travelMin(a, b, "MOTO")).toBeCloseTo(8, 5); // ×0.8
+    // 600 s de carro × factor de duración por configuración.
+    expect(built.model.travelMin(a, b, "IONAX")).toBeCloseTo(
+      10 * durationFactor("IONAX"),
+      5,
+    );
+    expect(built.model.travelMin(a, b, "RAP_MOVE_LIGHT")).toBeCloseTo(
+      10 * durationFactor("RAP_MOVE_LIGHT"),
+      5,
+    );
   });
 
   it("cae a haversine si OSRM no responde", async () => {

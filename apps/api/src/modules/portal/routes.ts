@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { ORDER_STATUSES, portalCreateOrderSchema } from "@moveos/shared";
+import {
+  ORDER_STATUSES,
+  portalCreateOrderSchema,
+  type CreateOrderInput,
+} from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { createOrder } from "../../services/orders.js";
 import {
@@ -156,6 +160,7 @@ export default async function portalRoutes(app: FastifyInstance) {
       addressNotes: input.addressNotes,
       externalRef: input.externalRef,
       weightKg: input.weightKg,
+      tempProfile: input.tempProfile,
       priority: 0,
       ...pickup,
     });
@@ -216,6 +221,7 @@ export default async function portalRoutes(app: FastifyInstance) {
       addressNotes: body.addressNotes ?? original.addressNotes ?? undefined,
       externalRef: original.externalRef ?? undefined,
       weightKg: original.weightKg,
+      tempProfile: original.tempProfile as CreateOrderInput["tempProfile"],
       priority: 5, // un reintento debe salir pronto
       // Sin dirección nueva: reusar el pin original (puede haber sido
       // corregido en campo por el conductor en el intento fallido).

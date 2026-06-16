@@ -201,7 +201,7 @@ describe("panel de plataforma + seguridad de planos", () => {
         platformToken,
         {
           plate: "FAS99E",
-          type: "MOTO",
+          type: "RAP_MOVE_LIGHT",
           capacityKg: 20,
           isElectric: true,
           batteryKwh: 4,

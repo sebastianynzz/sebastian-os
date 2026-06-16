@@ -175,7 +175,9 @@ model Vehicle {
   // plataforma agrega/lee a través de tenants por este campo.
   ownerTenantId  String?
   plate          String
-  type           String // MOTO | BICICLETA | CARRO | VAN | CAMION
+  // Configuración del catálogo EV (fuente de verdad: VEHICLE_TYPE_PROFILES en
+  // packages/shared). String para portabilidad de motor (no enum de Prisma).
+  type           String // RAP_MOVE_LIGHT | RAP_MOVE_XL | RAP_MOVE_COLD_BOX | IONAX | IONAX_COLD_BOX | IONAX_PICKUP
   capacityKg     Float
   capacityM3     Float?
   isElectric     Boolean   @default(false)
@@ -261,6 +263,9 @@ model Order {
   status          String    @default("PENDING")
   weightKg        Float     @default(1)
   volumeM3        Float?
+  // Perfil de cadena de frío. AMBIENT (seco) por defecto; CHILLED/FROZEN
+  // obligan a una Cold Box compatible en la asignación (ver optimizador).
+  tempProfile     String    @default("AMBIENT") // AMBIENT | CHILLED | FROZEN
   timeWindowStart DateTime?
   timeWindowEnd   DateTime?
   priority        Int       @default(0)

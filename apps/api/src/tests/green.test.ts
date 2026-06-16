@@ -81,7 +81,7 @@ describe("informe verde mensual (CO₂)", () => {
     });
     await api("POST", "/vehicles", adminToken, {
       plate: "EVG10A",
-      type: "VAN",
+      type: "IONAX",
       capacityKg: 700,
       isElectric: true,
       batteryKwh: 42,
@@ -156,7 +156,7 @@ describe("informe verde mensual (CO₂)", () => {
     expect(r.electricSharePct).toBe(100);
 
     expect(r.byVehicleType.length).toBe(1);
-    expect(r.byVehicleType[0].type).toBe("VAN");
+    expect(r.byVehicleType[0].type).toBe("IONAX");
     expect(r.byVehicleType[0].isElectric).toBe(true);
 
     expect(r.byClient.length).toBe(1);

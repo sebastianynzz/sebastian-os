@@ -55,7 +55,7 @@ beforeAll(async () => {
 
   const vehicle = await api("POST", "/vehicles", adminToken, {
     plate: PLATE,
-    type: "MOTO",
+    type: "RAP_MOVE_LIGHT",
     capacityKg: 20,
   });
   vehicleId = vehicle.body.id;

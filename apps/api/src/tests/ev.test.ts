@@ -120,7 +120,7 @@ describe("flota eléctrica como núcleo", () => {
   it("/ev/overview responde con el entitlement EV_MANAGEMENT desactivado", async () => {
     const vehicle = await api("POST", "/vehicles", adminToken, {
       plate: "EVT01A",
-      type: "MOTO",
+      type: "RAP_MOVE_LIGHT",
       capacityKg: 15,
       isElectric: true,
       batteryKwh: 4,

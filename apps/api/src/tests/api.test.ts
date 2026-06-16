@@ -90,14 +90,14 @@ describe("flujo completo MoveOS", () => {
   it("crea vehículos, conductor con cuenta y pedidos (geocodificando los que no traen coordenadas)", async () => {
     const moto = await api("POST", "/vehicles", adminToken, {
       plate: "TST12A",
-      type: "MOTO",
+      type: "RAP_MOVE_LIGHT",
       capacityKg: 20,
     });
     expect(moto.status).toBe(201);
 
     const ev = await api("POST", "/vehicles", adminToken, {
       plate: "TEV34B",
-      type: "VAN",
+      type: "IONAX",
       capacityKg: 600,
       isElectric: true,
       batteryKwh: 42,

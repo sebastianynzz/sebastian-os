@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import { VEHICLE_TYPES, VEHICLE_TYPE_PROFILES } from "@moveos/shared";
 import { api } from "../api";
 import { TrendChart } from "../components/charts";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
@@ -457,13 +458,13 @@ export default function TenantDetail() {
             <input name="plate" className={inputClass} required placeholder="ABC12D" />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Tipo</span>
-            <select name="type" className={inputClass} defaultValue="MOTO">
-              <option value="MOTO">Moto</option>
-              <option value="BICICLETA">Bicicleta</option>
-              <option value="CARRO">Carro</option>
-              <option value="VAN">Van</option>
-              <option value="CAMION">Camión</option>
+            <span className="mb-1 block text-cielo">Configuración</span>
+            <select name="type" className={inputClass} defaultValue={VEHICLE_TYPES[0]}>
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {VEHICLE_TYPE_PROFILES[t].labelEs}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block text-sm">

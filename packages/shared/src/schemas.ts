@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   POD_TYPES,
   TELEMETRY_SOURCES,
+  TEMP_PROFILES,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
@@ -73,6 +74,9 @@ export const createOrderSchema = z.object({
   timeWindowEnd: z.string().datetime().optional(),
   weightKg: z.number().positive().optional(),
   volumeM3: z.number().positive().optional(),
+  // Perfil de cadena de frío del pedido. AMBIENT (seco) por defecto; CHILLED/
+  // FROZEN obligan a una Cold Box compatible en la asignación (optimizador).
+  tempProfile: z.enum(TEMP_PROFILES).default("AMBIENT"),
   priority: z.number().int().min(0).max(10).default(0),
   // Recogida en origen (opcional). Si se da pickupAddressRaw sin coordenadas,
   // se geocodifica. Habilita el flujo pickup→delivery.
@@ -97,6 +101,7 @@ export const portalCreateOrderSchema = z
     addressNotes: z.string().optional(),
     externalRef: z.string().optional(),
     weightKg: z.number().positive().optional(),
+    tempProfile: z.enum(TEMP_PROFILES).default("AMBIENT"),
     pickupMode: z.enum(["REGISTERED", "CUSTOM", "NONE"]).default("REGISTERED"),
     pickupAddressRaw: z.string().min(3).optional(),
     pickupNotes: z.string().optional(),

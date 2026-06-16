@@ -132,7 +132,7 @@ describe("web push", () => {
     expect(order.status).toBe(201);
     const vehicle = await api("POST", "/vehicles", adminToken, {
       plate: "PSH01A",
-      type: "MOTO",
+      type: "RAP_MOVE_LIGHT",
       capacityKg: 20,
       isElectric: true,
       batteryKwh: 4,

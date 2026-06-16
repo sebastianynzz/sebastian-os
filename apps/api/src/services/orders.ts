@@ -86,6 +86,7 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
       status: "GEOCODED",
       weightKg: input.weightKg ?? 1,
       volumeM3: input.volumeM3,
+      tempProfile: input.tempProfile,
       timeWindowStart: input.timeWindowStart ? new Date(input.timeWindowStart) : undefined,
       timeWindowEnd: input.timeWindowEnd ? new Date(input.timeWindowEnd) : undefined,
       priority: input.priority,

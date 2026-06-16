@@ -112,7 +112,7 @@ describe("notificaciones B2B (al negocio cliente)", () => {
     driverId = driver.body.id;
     await api("POST", "/vehicles", adminToken, {
       plate: "B2B11A",
-      type: "MOTO",
+      type: "RAP_MOVE_LIGHT",
       capacityKg: 20,
     });
 

@@ -15,14 +15,26 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+// Catálogo MoveOS: 6 configuraciones EV en dos líneas de producto (Rap Move,
+// IONAx). Fuente de verdad de capacidades/autonomía/reefer en
+// `vehicleTypeProfiles.ts`. Toda la flota es eléctrica → pico y placa exenta
+// nacionalmente (Ley 1964/2019). `VehicleType` es alias de `VehicleConfig`.
 export const VEHICLE_TYPES = [
-  "MOTO",
-  "BICICLETA",
-  "CARRO",
-  "VAN",
-  "CAMION",
+  "RAP_MOVE_LIGHT",
+  "RAP_MOVE_XL",
+  "RAP_MOVE_COLD_BOX",
+  "IONAX",
+  "IONAX_COLD_BOX",
+  "IONAX_PICKUP",
 ] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
+
+// Perfil térmico del pedido (cadena de frío). AMBIENT = seco (cualquier
+// vehículo); CHILLED/FROZEN exigen una Cold Box compatible (ver
+// `configSupportsTempProfile`). FROZEN → solo RAP_MOVE_COLD_BOX (-25°C);
+// CHILLED → cualquiera de las dos Cold Box.
+export const TEMP_PROFILES = ["AMBIENT", "CHILLED", "FROZEN"] as const;
+export type TempProfile = (typeof TEMP_PROFILES)[number];
 
 export const ROUTE_STATUSES = [
   "PLANNED",

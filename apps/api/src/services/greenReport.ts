@@ -114,7 +114,7 @@ export async function tenantGreenReport(tenantId: string, month: string) {
     totalKm += km;
     co2Kg += co2;
     co2BaselineKg += baseline;
-    if (route.vehicle.isElectric || type === "BICICLETA") electricKm += km;
+    if (route.vehicle.isElectric) electricKm += km;
 
     const typeKey = `${type}:${route.vehicle.isElectric}`;
     const t = byType.get(typeKey) ?? {
@@ -229,7 +229,7 @@ export async function clientGreenReport(
       totalKm += kmPerStop;
       co2Kg += co2PerStop;
       co2BaselineKg += baselinePerStop;
-      if (route.vehicle.isElectric || type === "BICICLETA") electricKm += kmPerStop;
+      if (route.vehicle.isElectric) electricKm += kmPerStop;
       orders.push({
         orderId: stop.order.id,
         trackingNumber: stop.order.trackingNumber,

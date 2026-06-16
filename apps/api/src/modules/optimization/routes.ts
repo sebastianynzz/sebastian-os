@@ -5,6 +5,7 @@ import {
   estimateUsableRangeKm,
   insertOrderIntoRoute,
   planRoutes as solveVrp,
+  resolveNominalRangeKm,
 } from "@moveos/optimizer";
 import type { OptimizableOrder, OptimizableVehicle } from "@moveos/optimizer";
 import { prisma } from "../../lib/prisma.js";
@@ -69,6 +70,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
               : undefined,
           weightKg: o.weightKg,
           volumeM3: o.volumeM3 ?? undefined,
+          tempProfile: o.tempProfile as OptimizableOrder["tempProfile"],
           priority: o.priority,
           timeWindow:
             o.timeWindowStart && o.timeWindowEnd
@@ -86,7 +88,13 @@ export default async function optimizationRoutes(app: FastifyInstance) {
         capacityKg: v.capacityKg,
         capacityM3: v.capacityM3 ?? undefined,
         isElectric: v.isElectric,
-        nominalRangeKm: v.nominalRangeKm ?? undefined,
+        // Autonomía resuelta por pack instalado (IONAx 11.52 vs 23.04) salvo
+        // override explícito; las autonomías ya son reefer-on (sin doble resta).
+        nominalRangeKm: resolveNominalRangeKm({
+          type: v.type as OptimizableVehicle["type"],
+          batteryKwh: v.batteryKwh,
+          nominalRangeKm: v.nominalRangeKm,
+        }),
         socPercent: input.socByVehicleId?.[v.id] ?? v.socPercent ?? undefined,
       }));
 
@@ -230,6 +238,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
               : undefined,
           weightKg: o.weightKg,
           volumeM3: o.volumeM3 ?? undefined,
+          tempProfile: o.tempProfile as OptimizableOrder["tempProfile"],
           priority: o.priority,
           timeWindow:
             o.timeWindowStart && o.timeWindowEnd
@@ -256,13 +265,17 @@ export default async function optimizationRoutes(app: FastifyInstance) {
       const departureMin = lastDone ? toMinOfDay(lastDone) : route.departureMin;
 
       // EV: presupuesto desde el SoC ACTUAL (telemetría) — cubre lo restante.
-      const rangeBudgetKm =
-        route.vehicle.isElectric && route.vehicle.nominalRangeKm
-          ? estimateUsableRangeKm({
+      // Autonomía resuelta por pack instalado (sin doble resta de refrigeración).
+      const rangeBudgetKm = route.vehicle.isElectric
+        ? estimateUsableRangeKm({
+            nominalRangeKm: resolveNominalRangeKm({
+              type: route.vehicle.type as OptimizableVehicle["type"],
+              batteryKwh: route.vehicle.batteryKwh,
               nominalRangeKm: route.vehicle.nominalRangeKm,
-              socPercent: route.vehicle.socPercent ?? 100,
-            })
-          : Number.POSITIVE_INFINITY;
+            }),
+            socPercent: route.vehicle.socPercent ?? 100,
+          })
+        : Number.POSITIVE_INFINITY;
 
       const points: LatLng[] = [start, { lat: route.depotLat, lng: route.depotLng }];
       for (const o of pendingOrders) {
@@ -286,6 +299,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
               : undefined,
           weightKg: newOrder.weightKg,
           volumeM3: newOrder.volumeM3 ?? undefined,
+          tempProfile: newOrder.tempProfile as OptimizableOrder["tempProfile"],
           priority: newOrder.priority,
           timeWindow:
             newOrder.timeWindowStart && newOrder.timeWindowEnd
