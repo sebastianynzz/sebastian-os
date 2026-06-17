@@ -7,6 +7,8 @@ import {
   POD_REQ,
   POD_REQUIREMENTS,
   POD_TYPES,
+  SERVICE_STOP_TYPES,
+  WEEKDAYS,
   type DeliveryType,
   type PickupType,
   type PodReq,
@@ -77,6 +79,8 @@ export const updateClientSchema = clientFields.partial().refine(requireWebhookUr
 
 export const createOrderSchema = z.object({
   clientId: z.string().optional(),
+  /** Servicio (promesa SLA + precio por parada) aplicado a este pedido. */
+  serviceId: z.string().optional(),
   externalRef: z.string().optional(),
   customerName: z.string().min(2),
   customerPhone: z.string().min(7),
@@ -192,6 +196,47 @@ export const planRoutesSchema = z.object({
   /** Estrategia de asignación del VRP. Por defecto BALANCE. */
   objective: z.enum(OPTIMIZATION_OBJECTIVES).optional(),
 });
+
+// === Servicios / SLA (D3) ===
+
+/** Crea/edita un Service (promesa de entrega con precio + plazo SLA). Sin COD. */
+export const serviceSchema = z.object({
+  name: z.string().min(1).max(80),
+  identifier: z.string().min(1).max(40),
+  pricePerStopCop: z.number().int().nonnegative(),
+  /** Plazo de cumplimiento (minutos desde la creación del pedido). */
+  completionDeadlineMin: z.number().int().positive(),
+  /** Hora de corte (America/Bogotá) "HH:MM" — pedidos posteriores van al día siguiente. */
+  cutoffTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
+  serviceDays: z.array(z.enum(WEEKDAYS)).default([...WEEKDAYS]),
+  stopType: z.enum(SERVICE_STOP_TYPES).default("DELIVERY"),
+  active: z.boolean().default(true),
+});
+export type ServiceInput = z.infer<typeof serviceSchema>;
+
+/**
+ * Hora límite del SLA: creación + plazo del servicio. Determinista (UTC); la
+ * presentación en America/Bogotá la hace el formateador compartido.
+ */
+export function slaDueAt(
+  createdAt: Date | string,
+  completionDeadlineMin: number,
+): Date {
+  const base = typeof createdAt === "string" ? new Date(createdAt) : createdAt;
+  return new Date(base.getTime() + completionDeadlineMin * 60_000);
+}
+
+/** ¿El pedido incumplió (o incumplirá) su SLA a la hora `now`? */
+export function isSlaBreached(
+  createdAt: Date | string,
+  completionDeadlineMin: number,
+  now: Date = new Date(),
+): boolean {
+  return now.getTime() > slaDueAt(createdAt, completionDeadlineMin).getTime();
+}
 
 // === Política de prueba de entrega (POD) configurable por tipo (D2) ===
 

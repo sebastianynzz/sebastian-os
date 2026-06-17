@@ -79,6 +79,7 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     data: {
       tenantId,
       clientId: input.clientId,
+      serviceId: input.serviceId,
       trackingNumber: generateTrackingNumber(),
       trackingToken: generateTrackingToken(),
       externalRef: input.externalRef,

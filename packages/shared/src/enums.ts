@@ -45,6 +45,17 @@ export type TempProfile = (typeof TEMP_PROFILES)[number];
  *  - MAXIMIZE_EFFICIENCY: minimiza el tiempo total; las rutas pueden quedar desparejas.
  *  - FEWEST_DRIVERS:      usa la menor cantidad de vehículos posible.
  */
+/**
+ * Servicios / SLA (D3): un Service es una promesa de entrega con nombre, precio
+ * por parada y plazo (SLA). `stopType` define si aplica a entregas, recogidas o
+ * ambas. Sin pagos → el Service NO maneja COD (a diferencia de Spoke).
+ */
+export const SERVICE_STOP_TYPES = ["DELIVERY", "PICKUP", "BOTH"] as const;
+export type ServiceStopType = (typeof SERVICE_STOP_TYPES)[number];
+
+export const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
+export type Weekday = (typeof WEEKDAYS)[number];
+
 export const OPTIMIZATION_OBJECTIVES = [
   "ASSIGN_TO_SELECTED",
   "EQUALIZE_WORKLOAD",

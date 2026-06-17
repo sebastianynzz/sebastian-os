@@ -35,6 +35,7 @@ import pushRoutes from "./modules/push/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
 import savedViewsRoutes from "./modules/savedViews/routes.js";
 import controlsRoutes from "./modules/controls/routes.js";
+import servicesRoutes from "./modules/services/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -135,6 +136,8 @@ export async function buildApp() {
   await app.register(pushRoutes, { prefix: "/push" });
   // Controles del tenant (núcleo): política POD configurable por tipo.
   await app.register(controlsRoutes, { prefix: "/controls" });
+  // Catálogo de servicios / SLA (núcleo B2B): base de facturación y SLA.
+  await app.register(servicesRoutes, { prefix: "/services" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

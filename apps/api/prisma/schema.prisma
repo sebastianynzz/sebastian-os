@@ -287,6 +287,8 @@ model Order {
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientId        String?
   client          Client?   @relation(fields: [clientId], references: [id])
+  serviceId       String?
+  service         Service?  @relation(fields: [serviceId], references: [id])
   trackingNumber  String?
   // Token opaco para la página pública de rastreo (no adivinable, distinto de
   // la guía MV-). Permite al negocio cliente seguir el envío sin login.
@@ -454,6 +456,28 @@ model PodPolicy {
   updatedAt DateTime @updatedAt
 
   @@unique([tenantId, scope])
+  @@index([tenantId])
+}
+
+/// Servicio / SLA (D3): promesa de entrega con nombre, precio por parada y plazo
+/// (SLA). Base de la facturación B2B y del seguimiento de incumplimientos
+/// (SLA_BREACH en el cockpit de excepciones). Sin pagos → no hay campo COD.
+model Service {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  name                  String
+  identifier            String
+  pricePerStopCop       Int      @default(0)
+  completionDeadlineMin Int
+  cutoffTime            String? // "HH:MM" America/Bogotá
+  serviceDays           String[] @default([])
+  stopType              String   @default("DELIVERY") // DELIVERY | PICKUP | BOTH
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  orders                Order[]
+
+  @@unique([tenantId, identifier])
   @@index([tenantId])
 }
 
