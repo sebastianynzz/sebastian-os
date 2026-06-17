@@ -1,9 +1,10 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `ee23052`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `c20dd67`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
-**Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notification engine) COMPLETE.** Resume at
-**Tier-2 §8 (developer platform)**; see "What's left". Fast-follows noted below.
+**Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notifications) + §8 (developer platform
+core) COMPLETE.** Resume at **Tier-2 §9 (custom stop properties)**; see "What's
+left". §8 connectors + fast-follows noted there.
 
 To resume:
 
@@ -120,24 +121,37 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
   gates disabled events and renders bodies (shared `renderTemplate`); 3 lifecycle
   call sites tagged; Controles › Notificaciones (`/controls/notifications`).
   Webhook `event` contract preserved. e2e (4). Full API suite: 41 files / 234.
+- **Tier-2 §8 developer platform CORE COMPLETE** (`bac0d3b`, `ec01038`, `c20dd67`,
+  3 commits):
+  - **Webhooks** — `Webhook` model (url, server secret, events[], enabled;
+    migration `20260624000000`); `emitWebhookEvent` signs each delivery
+    (HMAC-SHA256, `x-moveos-signature`) and POSTs to subscribed webhooks; fired at
+    OUT_FOR_DELIVERY/DELIVERED/FAILED; `/developer/webhooks` CRUD + `/:id/test`.
+    These use NOTIFICATION_EVENTS natively (clean), so the legacy per-client
+    webhook contract stayed untouched. e2e (5, HMAC verified).
+  - **API keys + ingestion** — `ApiKey` model (SHA-256 hash + prefix + scopes;
+    migration `20260625000000`); `/developer/api-keys` CRUD (plaintext shown once);
+    `/ingest/orders` authenticates by API key + `orders:write` scope → createOrder
+    (the order-ingestion scale unlock). e2e (5).
+  - **Integraciones page** (Controles, ADMIN) for both.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**Tier 2 (docs/04 §8–11), build in order:**
-1. **Developer platform** (§8) — webhooks (reuse NOTIFICATION_EVENTS as the event
-   list: stop.allocated, stop.out_for_delivery, …) + API key management +
-   connectors (Shopify/Zapier + VTEX/Mercado Libre). App settings › Integrations.
-   Note: the public webhook `event` field is currently the legacy template name
-   (envio_*) — standardize to NOTIFICATION_EVENTS *here* (it's a breaking change
-   to the webhook contract; b2b.test.ts asserts the legacy value, update it then).
-2. **Custom stop properties** (§9) — `CustomProperty` + `Order.customFields Json`;
+**Tier 2 (docs/04 §9–11), build in order:**
+1. **Custom stop properties** (§9) — `CustomProperty` + `Order.customFields Json`;
    visible-to-driver/recipient; plan-capped with upsell.
-3. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
+2. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
    create-routes); driver app reads it.
-4. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
+3. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
    modeled: SCANNED/SCAN_MISMATCH order events already exist).
+
+**§8 connectors (deferred):** Shopify/Zapier + VTEX/Mercado Libre adapters build
+ON the webhooks+API-keys+ingestion core above (App settings › Integrations).
+Also: standardizing the *legacy* per-client webhook `event` field to
+NOTIFICATION_EVENTS is still open (breaking; would need b2b.test.ts updated) —
+the new /developer webhooks already use the standard events.
 
 **Fast-follows (deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
