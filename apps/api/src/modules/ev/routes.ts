@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { estimateUsableRangeKm } from "@moveos/optimizer";
-import { haversineKm } from "@moveos/shared";
+import { estimateUsableRangeKm, reeferEnergyKwh } from "@moveos/optimizer";
+import { haversineKm, VEHICLE_TYPE_PROFILES, type VehicleConfig } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 
 /**
@@ -23,24 +23,38 @@ export default async function evRoutes(app: FastifyInstance) {
     const vehicles = await prisma.vehicle.findMany({
       where: { tenantId: request.user.tenantId, isElectric: true },
     });
-    return vehicles.map((v) => ({
-      id: v.id,
-      plate: v.plate,
-      type: v.type,
-      batteryKwh: v.batteryKwh,
-      nominalRangeKm: v.nominalRangeKm,
-      socPercent: v.socPercent,
-      usableRangeKm:
-        v.nominalRangeKm !== null
-          ? Number(
-              estimateUsableRangeKm({
-                nominalRangeKm: v.nominalRangeKm,
-                socPercent: v.socPercent ?? 100,
-              }).toFixed(1),
-            )
-          : null,
-      lowBattery: (v.socPercent ?? 100) < 25,
-    }));
+    return vehicles.map((v) => {
+      // Refrigeración: SOLO analítica de energía (las autonomías ya son
+      // reefer-on, restricción dura 1.6/7 — nunca se penaliza el rango).
+      const profile = VEHICLE_TYPE_PROFILES[v.type as VehicleConfig];
+      const reefer = profile?.reefer
+        ? {
+            drawKw: Number(reeferEnergyKwh(v.type as VehicleConfig, 1).toFixed(2)),
+            shiftKwh: Number(reeferEnergyKwh(v.type as VehicleConfig, 8).toFixed(1)),
+            modes: profile.reefer.modes,
+            unit: profile.reefer.unit,
+          }
+        : null;
+      return {
+        id: v.id,
+        plate: v.plate,
+        type: v.type,
+        batteryKwh: v.batteryKwh,
+        nominalRangeKm: v.nominalRangeKm,
+        socPercent: v.socPercent,
+        usableRangeKm:
+          v.nominalRangeKm !== null
+            ? Number(
+                estimateUsableRangeKm({
+                  nominalRangeKm: v.nominalRangeKm,
+                  socPercent: v.socPercent ?? 100,
+                }).toFixed(1),
+              )
+            : null,
+        lowBattery: (v.socPercent ?? 100) < 25,
+        reefer,
+      };
+    });
   });
 
   /** Actualización manual o vía telemática del estado de carga. */

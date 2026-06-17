@@ -24,7 +24,15 @@ interface EvVehicle {
   socPercent: number | null;
   usableRangeKm: number | null;
   lowBattery: boolean;
+  // Solo configuraciones Cold Box; null en el resto. Energía, no rango.
+  reefer: { drawKw: number; shiftKwh: number; modes: string[]; unit: string } | null;
 }
+
+// Modos de cadena de frío en español (coinciden con order.tempProfile).
+const MODE_ES: Record<string, string> = {
+  CHILLED: "Refrigerado",
+  FROZEN: "Congelado",
+};
 interface Station {
   id: string;
   name: string;
@@ -166,6 +174,19 @@ export default function Ev() {
                 <span>{v.batteryKwh ?? "—"} kWh</span>
               </div>
             </div>
+            {v.reefer && (
+              <div className="mt-2 rounded-lg bg-cielo/15 p-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="font-medium text-navy/70">
+                    ❄️ {v.reefer.modes.map((m) => MODE_ES[m] ?? m).join(" / ")}
+                  </span>
+                  <span className="font-medium">{v.reefer.drawKw} kW</span>
+                </div>
+                <div className="mt-0.5 text-navy/45">
+                  ≈ {v.reefer.shiftKwh} kWh/turno (8 h) · solo energía, no afecta la autonomía
+                </div>
+              </div>
+            )}
           </Card>
         ))}
         {fleet.length === 0 && (
