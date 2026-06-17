@@ -43,6 +43,7 @@ export default function Integraciones() {
   const [results, setResults] = useState<IntegrationHealth[] | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
 
   async function load(refresh = false) {
     setBusy(true);
@@ -53,12 +54,19 @@ export default function Integraciones() {
       );
       setResults(res.results);
       setCachedAt(res.cachedAt);
+      setError(false);
+    } catch {
+      setError(true);
     } finally {
       setBusy(false);
     }
   }
   useEffect(() => {
     void load();
+    // Auto-refresco lento (60 s = TTL del caché del backend): la vista de
+    // operación se mantiene al día sin clics. No es polling rápido.
+    const t = setInterval(() => void load(), 60_000);
+    return () => clearInterval(t);
   }, []);
 
   const sorted = results
@@ -77,6 +85,7 @@ export default function Integraciones() {
               : "Todo lo configurado responde"}
             {cachedAt &&
               ` · verificado ${new Date(cachedAt).toLocaleTimeString("es-CO")}`}
+            {error && results && " · no se pudo actualizar"}
           </p>
         </div>
         <button
@@ -88,7 +97,17 @@ export default function Integraciones() {
         </button>
       </div>
 
-      {!sorted && <p className="text-cielo">Cargando…</p>}
+      {!results && error && (
+        <Card>
+          <p className="text-sm text-red-400">
+            No se pudo consultar la salud de integraciones.{" "}
+            <button onClick={() => void load(true)} className="underline">
+              Reintentar
+            </button>
+          </p>
+        </Card>
+      )}
+      {!results && !error && <p className="text-cielo">Cargando…</p>}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {sorted?.map((r) => {
