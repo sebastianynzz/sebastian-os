@@ -63,7 +63,7 @@ describe("flujo pickup→delivery", () => {
   it("crea vehículo, conductor y un pedido con recogida en origen", async () => {
     const moto = await api("POST", "/vehicles", adminToken, {
       plate: "PKM12A",
-      type: "MOTO",
+      type: "RAP_MOVE_LIGHT",
       capacityKg: 20,
     });
     expect(moto.status).toBe(201);

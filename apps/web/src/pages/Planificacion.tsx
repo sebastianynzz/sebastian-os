@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { api } from "../api";
-import { Banner, Button, Card, PageHeader, formatEta } from "../components/ui";
+import { useToast } from "../toast";
+import { Button, Card, PageHeader, formatEta } from "../components/ui";
+import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 // Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
@@ -30,15 +32,16 @@ interface Vehicle {
   isElectric: boolean;
   socPercent: number | null;
 }
+interface PlanRoute {
+  id: string;
+  vehicleId: string;
+  totalDistanceKm: number;
+  totalDurationMin: number;
+  warnings: string[];
+  stops: { orderId: string; kind: "PICKUP" | "DELIVERY"; sequence: number; etaMin: number }[];
+}
 interface PlanResponse {
-  routes: {
-    id: string;
-    vehicleId: string;
-    totalDistanceKm: number;
-    totalDurationMin: number;
-    warnings: string[];
-    stops: { orderId: string; kind: "PICKUP" | "DELIVERY"; sequence: number; etaMin: number }[];
-  }[];
+  routes: PlanRoute[];
   unassigned: { orderId: string; reason: string }[];
   excludedVehicles: { vehicleId: string; reason: string }[];
 }
@@ -52,8 +55,12 @@ export default function Planificacion() {
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [orderFilter, setOrderFilter] = useState("");
+  // Ajuste manual del orden de visita por ruta (antes de despachar).
+  const [seqEdits, setSeqEdits] = useState<Record<string, string[]>>({});
+  const [savingRoute, setSavingRoute] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     void (async () => {
@@ -83,9 +90,36 @@ export default function Planificacion() {
     [vehicles],
   );
 
+  // Filtro de pedidos: el despachador acota por destinatario o dirección antes
+  // de seleccionar (útil con decenas de pedidos por planificar).
+  const filteredOrders = useMemo(() => {
+    const q = orderFilter.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.customerName.toLowerCase().includes(q) ||
+        o.addressRaw.toLowerCase().includes(q),
+    );
+  }, [orders, orderFilter]);
+
+  // Selección masiva sobre el subconjunto visible (respeta el filtro).
+  function selectAllFiltered() {
+    setSelectedOrders((s) => {
+      const next = new Set(s);
+      for (const o of filteredOrders) next.add(o.id);
+      return next;
+    });
+  }
+  function clearFiltered() {
+    setSelectedOrders((s) => {
+      const next = new Set(s);
+      for (const o of filteredOrders) next.delete(o.id);
+      return next;
+    });
+  }
+
   async function onPlan() {
     setBusy(true);
-    setError(null);
     try {
       const res = await api<PlanResponse>("POST", "/optimization/plans", {
         date,
@@ -101,7 +135,7 @@ export default function Planificacion() {
       setPlan(res);
       setOrders(await api<Order[]>("GET", "/orders?status=GEOCODED"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err, { retry: () => void onPlan() });
     } finally {
       setBusy(false);
     }
@@ -112,6 +146,48 @@ export default function Planificacion() {
     if (next.has(id)) next.delete(id);
     else next.add(id);
     return next;
+  }
+
+  /** Pedidos distintos de una ruta, en su orden de paradas actual. */
+  function routeOrderIds(r: PlanRoute): string[] {
+    const seen: string[] = [];
+    for (const s of r.stops) if (!seen.includes(s.orderId)) seen.push(s.orderId);
+    return seen;
+  }
+  function moveOrder(routeId: string, current: string[], idx: number, dir: -1 | 1) {
+    const j = idx + dir;
+    if (j < 0 || j >= current.length) return;
+    const next = [...current];
+    const tmp = next[idx]!;
+    next[idx] = next[j]!;
+    next[j] = tmp;
+    setSeqEdits((e) => ({ ...e, [routeId]: next }));
+  }
+  function resetSeq(routeId: string) {
+    setSeqEdits((e) => {
+      const n = { ...e };
+      delete n[routeId];
+      return n;
+    });
+  }
+  async function saveSeq(r: PlanRoute, orderIds: string[]) {
+    setSavingRoute(r.id);
+    try {
+      const res = await api<{ route: PlanRoute }>(
+        "PATCH",
+        `/optimization/routes/${r.id}/sequence`,
+        { orderIds },
+      );
+      setPlan((p) =>
+        p ? { ...p, routes: p.routes.map((x) => (x.id === r.id ? res.route : x)) } : p,
+      );
+      resetSeq(r.id);
+      toast.success("Orden de la ruta actualizado");
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setSavingRoute(null);
+    }
   }
 
   return (
@@ -138,16 +214,75 @@ export default function Planificacion() {
           </>
         }
       />
-      {error && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
+
+      {/* Optimización con IA: el LLM dispara y explica; el solver hace la
+          matemática. optimize_routes muta (confirmar antes de crear rutas);
+          optimize_load y pick_vehicle son asesores (solo recomiendan). */}
+      <div className="flex flex-wrap items-start gap-3">
+        <AiOptimizeButton
+          actionId="optimize_routes"
+          context={{
+            orderIds: [...selectedOrders],
+            vehicleIds: [...selectedVehicles],
+            date,
+            params: { depot: DEPOT },
+          }}
+          disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
+          onApplied={() => {
+            void (async () => {
+              setOrderArchive((prev) => {
+                const next = new Map(prev);
+                for (const o of orders) next.set(o.id, o);
+                return next;
+              });
+              const fresh = await api<Order[]>("GET", "/orders?status=GEOCODED");
+              setOrders(fresh);
+              setSelectedOrders(new Set(fresh.map((x) => x.id)));
+              setPlan(null);
+            })();
+          }}
+        />
+        <AiOptimizeButton
+          actionId="optimize_load"
+          context={{
+            orderIds: [...selectedOrders],
+            vehicleIds: [...selectedVehicles],
+          }}
+          disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
+        />
+        <AiOptimizeButton
+          actionId="pick_vehicle"
+          context={{ orderIds: [...selectedOrders] }}
+          disabled={selectedOrders.size === 0}
+        />
+        <AiOptimizeButton actionId="optimize_schedule" context={{ date }} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card title={`Paso 1 · Selecciona pedidos (${orders.length})`}>
+        <Card title={`Paso 1 · Selecciona pedidos (${selectedOrders.size}/${orders.length})`}>
+          <div className="mb-2 space-y-2">
+            <input
+              type="search"
+              value={orderFilter}
+              onChange={(e) => setOrderFilter(e.target.value)}
+              placeholder="Filtrar por destinatario o dirección…"
+              aria-label="Filtrar pedidos"
+              className="w-full rounded-lg border border-cielo px-2 py-1 text-sm focus:border-navy focus:outline-none"
+            />
+            <div className="flex items-center justify-between text-xs text-navy/60">
+              <span>{filteredOrders.length} visibles</span>
+              <div className="flex gap-2">
+                <button onClick={selectAllFiltered} className="font-semibold text-navy underline">
+                  Todos
+                </button>
+                <button onClick={clearFiltered} className="font-semibold text-navy underline">
+                  Ninguno
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {orders.map((o) => (
+            {filteredOrders.map((o) => (
               <label key={o.id} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -161,6 +296,9 @@ export default function Planificacion() {
             ))}
             {orders.length === 0 && (
               <p className="text-sm text-navy/50">No hay pedidos geocodificados pendientes.</p>
+            )}
+            {orders.length > 0 && filteredOrders.length === 0 && (
+              <p className="text-sm text-navy/50">Ningún pedido coincide con el filtro.</p>
             )}
           </div>
         </Card>
@@ -239,39 +377,96 @@ export default function Planificacion() {
             </Card>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {plan.routes.map((r) => (
-              <Card
-                key={r.id}
-                title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
-              >
-                {r.warnings.map((w) => (
-                  <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
-                ))}
-                <ol className="space-y-1 text-sm">
-                  {r.stops.map((s) => (
-                    <li key={`${s.orderId}-${s.kind}`} className="flex justify-between">
-                      <span>
-                        {s.sequence}.{" "}
-                        <span
-                          className={`mr-1 rounded px-1 text-[10px] font-bold ${
-                            s.kind === "PICKUP" ? "bg-cielo/40" : "bg-lima/50"
-                          }`}
-                        >
-                          {s.kind === "PICKUP" ? "REC" : "ENT"}
-                        </span>
-                        {ordersById.get(s.orderId)?.customerName ?? s.orderId}
-                      </span>
-                      <span className="font-mono text-xs text-navy/50">
-                        ETA {formatEta(s.etaMin)}
-                      </span>
-                    </li>
+            {plan.routes.map((r) => {
+              const baseSeq = routeOrderIds(r);
+              const current = seqEdits[r.id] ?? baseSeq;
+              const dirty = current.join("|") !== baseSeq.join("|");
+              const etaByOrder = new Map(
+                r.stops
+                  .filter((s) => s.kind === "DELIVERY")
+                  .map((s) => [s.orderId, s.etaMin] as const),
+              );
+              const withPickup = new Set(
+                r.stops.filter((s) => s.kind === "PICKUP").map((s) => s.orderId),
+              );
+              return (
+                <Card
+                  key={r.id}
+                  title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
+                >
+                  {r.warnings.map((w) => (
+                    <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
                   ))}
-                </ol>
-                <p className="mt-2 text-xs text-navy/50">
-                  Despache esta ruta desde la pestaña Rutas.
-                </p>
-              </Card>
-            ))}
+                  {/* Orden de visita ajustable con ▲▼ antes de despachar; las ETAs
+                      se recalculan en el servidor al guardar. */}
+                  <ol className="space-y-1 text-sm">
+                    {current.map((orderId, idx) => (
+                      <li
+                        key={orderId}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="min-w-0 truncate">
+                          {idx + 1}.{" "}
+                          {withPickup.has(orderId) && (
+                            <span className="mr-1 rounded bg-cielo/40 px-1 text-[10px] font-bold">
+                              REC+ENT
+                            </span>
+                          )}
+                          {ordersById.get(orderId)?.customerName ?? orderId}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="font-mono text-xs text-navy/50">
+                            {dirty ? "ETA —" : `ETA ${formatEta(etaByOrder.get(orderId) ?? 0)}`}
+                          </span>
+                          <span className="flex flex-col leading-none">
+                            <button
+                              aria-label="Subir parada"
+                              disabled={idx === 0 || savingRoute === r.id}
+                              onClick={() => moveOrder(r.id, current, idx, -1)}
+                              className="px-1 text-navy disabled:opacity-30"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              aria-label="Bajar parada"
+                              disabled={idx === current.length - 1 || savingRoute === r.id}
+                              onClick={() => moveOrder(r.id, current, idx, 1)}
+                              className="px-1 text-navy disabled:opacity-30"
+                            >
+                              ▼
+                            </button>
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  {dirty ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={() => void saveSeq(r, current)}
+                        disabled={savingRoute === r.id}
+                      >
+                        {savingRoute === r.id ? "Guardando…" : "Guardar orden"}
+                      </Button>
+                      <button
+                        onClick={() => resetSeq(r.id)}
+                        disabled={savingRoute === r.id}
+                        className="text-xs font-semibold text-navy underline disabled:opacity-50"
+                      >
+                        Restablecer
+                      </button>
+                      <span className="text-xs text-navy/50">
+                        Las ETAs se recalculan al guardar.
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-navy/50">
+                      Reordena las paradas con ▲▼, o despáchala desde la pestaña Rutas.
+                    </p>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

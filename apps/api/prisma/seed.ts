@@ -214,18 +214,20 @@ async function main() {
   const in11Months = new Date(Date.now() + 330 * 24 * 3600 * 1000);
   const in20Days = new Date(Date.now() + 20 * 24 * 3600 * 1000);
 
-  // Flota 100% eléctrica (MoveOS es EV-only — restricción dura 1):
-  // e-motos urbanas, carro utilitario eléctrico y e-van de carga.
+  // Flota 100% eléctrica (MoveOS es EV-only — restricción dura 1): catálogo de
+  // 6 configuraciones (Rap Move + IONAx), con dos Cold Box para cadena de frío.
+  // Capacidad/batería/autonomía alineadas con VEHICLE_TYPE_PROFILES.
   await prisma.vehicle.createMany({
     data: [
       {
         tenantId: tenant.id,
         plate: "ABC12D",
-        type: "MOTO",
-        capacityKg: 15,
+        type: "RAP_MOVE_LIGHT",
+        capacityKg: 115,
+        capacityM3: 0.5,
         isElectric: true,
-        batteryKwh: 4,
-        nominalRangeKm: 90,
+        batteryKwh: 4.864,
+        nominalRangeKm: 100,
         socPercent: 92,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
@@ -233,11 +235,12 @@ async function main() {
       {
         tenantId: tenant.id,
         plate: "XYZ34E",
-        type: "MOTO",
-        capacityKg: 18,
+        type: "RAP_MOVE_XL",
+        capacityKg: 250,
+        capacityM3: 1.6,
         isElectric: true,
-        batteryKwh: 3.5,
-        nominalRangeKm: 80,
+        batteryKwh: 7.36,
+        nominalRangeKm: 120,
         socPercent: 22, // batería baja: alerta del cockpit y presupuesto de autonomía corto
         soatExpiresAt: in20Days, // alerta de vencimiento próxima
         tecnoExpiresAt: in11Months,
@@ -245,12 +248,12 @@ async function main() {
       {
         tenantId: tenant.id,
         plate: "JDK457",
-        type: "CARRO",
-        capacityKg: 350,
-        capacityM3: 1.5,
+        type: "IONAX",
+        capacityKg: 530,
+        capacityM3: 3.0,
         isElectric: true,
-        batteryKwh: 60,
-        nominalRangeKm: 300,
+        batteryKwh: 11.52, // pack base → 130 km
+        nominalRangeKm: 130,
         socPercent: 64,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
@@ -258,13 +261,39 @@ async function main() {
       {
         tenantId: tenant.id,
         plate: "EVB890",
-        type: "VAN",
-        capacityKg: 700,
-        capacityM3: 5,
+        type: "IONAX",
+        capacityKg: 530,
+        capacityM3: 3.0,
         isElectric: true,
-        batteryKwh: 42,
-        nominalRangeKm: 230,
+        batteryKwh: 23.04, // pack grande → 260 km
+        nominalRangeKm: 260,
         socPercent: 86,
+        soatExpiresAt: in11Months,
+        tecnoExpiresAt: in11Months,
+      },
+      {
+        tenantId: tenant.id,
+        plate: "FRZ001",
+        type: "RAP_MOVE_COLD_BOX", // congelador (-25°C): pedidos FROZEN
+        capacityKg: 200,
+        capacityM3: 1.0,
+        isElectric: true,
+        batteryKwh: 7.36,
+        nominalRangeKm: 90, // reefer-on
+        socPercent: 78,
+        soatExpiresAt: in11Months,
+        tecnoExpiresAt: in11Months,
+      },
+      {
+        tenantId: tenant.id,
+        plate: "CHL890",
+        type: "IONAX_COLD_BOX", // refrigerado (-18…+10°C): pedidos CHILLED
+        capacityKg: 530,
+        capacityM3: 2.8,
+        isElectric: true,
+        batteryKwh: 11.52,
+        nominalRangeKm: 130, // reefer-on
+        socPercent: 81,
         soatExpiresAt: in11Months,
         tecnoExpiresAt: in11Months,
       },

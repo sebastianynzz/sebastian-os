@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* Tema oscuro del panel de plataforma (marca Move). */
 @theme {

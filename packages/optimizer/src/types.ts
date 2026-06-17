@@ -1,4 +1,4 @@
-import type { LatLng, VehicleType } from "@moveos/shared";
+import type { LatLng, TempProfile, VehicleType } from "@moveos/shared";
 import type { TravelModel } from "./travel.js";
 
 export interface OptimizableOrder {
@@ -13,6 +13,11 @@ export interface OptimizableOrder {
   pickupLocation?: LatLng;
   weightKg: number;
   volumeM3?: number;
+  /**
+   * Perfil de cadena de frío del pedido. AMBIENT/ausente = seco (cualquier
+   * vehículo). CHILLED/FROZEN solo es factible en una Cold Box compatible.
+   */
+  tempProfile?: TempProfile;
   /** Ventana horaria en minutos desde medianoche (hora local). */
   timeWindow?: { startMin: number; endMin: number };
   priority: number;

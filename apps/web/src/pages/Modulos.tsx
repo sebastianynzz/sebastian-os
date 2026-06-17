@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { moduleName } from "@moveos/shared";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { useToast } from "../toast";
 import { Banner, Card, Loading, PageHeader } from "../components/ui";
 
 interface ModuleInfo {
@@ -10,6 +12,8 @@ interface ModuleInfo {
   enabled: boolean;
   /** Módulo de núcleo (p. ej. flota eléctrica): siempre activo, no togglable. */
   core?: boolean;
+  /** Otros módulos que este requiere (se activan en cascada). */
+  requires?: string[];
 }
 
 /**
@@ -19,7 +23,7 @@ interface ModuleInfo {
 export default function Modulos() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const { refresh, session } = useAuth();
   const isAdmin = session?.user.role === "ADMIN";
 
@@ -35,13 +39,14 @@ export default function Modulos() {
   }, []);
 
   async function toggle(key: string, enabled: boolean) {
-    setError(null);
     try {
       await api("PATCH", `/modules/${key}`, { enabled });
       await load();
       await refresh(); // el menú lateral se actualiza
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      // El fallo típico es el bloqueo por dependencia (409): el toast lo
+      // explica. No reintentamos — reactivar el switch es trivial.
+      toast.error(err);
     }
   }
 
@@ -56,11 +61,6 @@ export default function Modulos() {
       {!isAdmin && (
         <Banner kind="info">Solo el rol ADMIN puede cambiar módulos.</Banner>
       )}
-      {error && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
       {loading && <Loading label="Cargando módulos…" />}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -70,6 +70,11 @@ export default function Modulos() {
               <div>
                 <h3 className="font-semibold">{m.nombre}</h3>
                 <p className="mt-1 text-sm text-navy/60">{m.descripcion}</p>
+                {m.requires && m.requires.length > 0 && (
+                  <p className="mt-1 text-xs text-navy/50">
+                    Requiere: {m.requires.map(moduleName).join(", ")}
+                  </p>
+                )}
               </div>
               {m.core ? (
                 <span className="shrink-0 rounded-full bg-lima/30 px-3 py-1 text-xs font-bold text-navy">

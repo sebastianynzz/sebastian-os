@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   initialModulesForBusinessModel,
@@ -12,6 +12,7 @@ import { Card, inputClass, PlanBadge, StatusBadge } from "../components/ui";
 interface TenantRow {
   id: string;
   name: string;
+  nit: string | null;
   city: string;
   status: string;
   plan: string;
@@ -330,17 +331,90 @@ function OnboardingWizard({
   );
 }
 
+type SortKey = "name" | "ordersLast30d" | "users" | "drivers" | "vehicles";
+const PAGE_SIZE = 25;
+
+function sortValue(t: TenantRow, key: SortKey): number | string {
+  switch (key) {
+    case "name":
+      return t.name.toLowerCase();
+    case "ordersLast30d":
+      return t.ordersLast30d;
+    default:
+      return t.counts[key];
+  }
+}
+
 export default function Tenants() {
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [showWizard, setShowWizard] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  const [q, setQ] = useState("");
+  const [planF, setPlanF] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [opF, setOpF] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
+    key: "ordersLast30d",
+    dir: "desc",
+  });
+  const [page, setPage] = useState(0);
 
   async function load() {
     setTenants(await api<TenantRow[]>("GET", "/tenants"));
+    setLoaded(true);
   }
   useEffect(() => {
     void load();
   }, []);
+  // Cualquier cambio de filtro/orden vuelve a la primera página.
+  useEffect(() => {
+    setPage(0);
+  }, [q, planF, statusF, opF, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: key === "name" ? "asc" : "desc" },
+    );
+  }
+
+  const query = q.trim().toLowerCase();
+  const filtered = useMemo(
+    () =>
+      tenants.filter(
+        (t) =>
+          (query === "" ||
+            [t.name, t.city, t.nit ?? ""].join(" ").toLowerCase().includes(query)) &&
+          (planF === "" || t.plan === planF) &&
+          (statusF === "" || t.status === statusF) &&
+          (opF === "" || t.operatorType === opF),
+      ),
+    [tenants, query, planF, statusF, opF],
+  );
+  const sorted = useMemo(() => {
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
+      if (typeof av === "string" && typeof bv === "string") {
+        return av.localeCompare(bv) * dir;
+      }
+      return ((av as number) - (bv as number)) * dir;
+    });
+  }, [filtered, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const hasFilters = !!(q || planF || statusF || opF);
+
+  const sortArrow = (key: SortKey) =>
+    sort.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
+  const sortable =
+    "cursor-pointer select-none hover:text-niebla";
 
   return (
     <div className="space-y-4">
@@ -367,23 +441,93 @@ export default function Tenants() {
       )}
 
       <Card>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar empresa, ciudad o NIT…"
+            aria-label="Buscar tenant"
+            className={`${inputClass} w-56`}
+          />
+          <select
+            className={`${inputClass} w-auto`}
+            value={planF}
+            onChange={(e) => setPlanF(e.target.value)}
+            aria-label="Filtrar por plan"
+          >
+            <option value="">Todos los planes</option>
+            <option value="FREE">FREE</option>
+            <option value="PRO">PRO</option>
+            <option value="ENTERPRISE">ENTERPRISE</option>
+          </select>
+          <select
+            className={`${inputClass} w-auto`}
+            value={statusF}
+            onChange={(e) => setStatusF(e.target.value)}
+            aria-label="Filtrar por estado"
+          >
+            <option value="">Todos los estados</option>
+            <option value="ACTIVE">Activos</option>
+            <option value="SUSPENDED">Suspendidos</option>
+          </select>
+          <select
+            className={`${inputClass} w-auto`}
+            value={opF}
+            onChange={(e) => setOpF(e.target.value)}
+            aria-label="Filtrar por tipo de operador"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="SELF_SERVE">Autoservicio</option>
+            <option value="SUB_OPERATOR">Cliente FaaS</option>
+            <option value="PLATFORM_FLEET">Flota MOVE</option>
+          </select>
+          {hasFilters && (
+            <button
+              onClick={() => {
+                setQ("");
+                setPlanF("");
+                setStatusF("");
+                setOpF("");
+              }}
+              className="text-xs font-medium text-cielo underline"
+            >
+              Limpiar
+            </button>
+          )}
+          <span className="ml-auto text-xs text-cielo/60">
+            {sorted.length} de {tenants.length}
+          </span>
+        </div>
+
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
-              <th className="py-2">Empresa</th>
+              <th className={`py-2 ${sortable}`} onClick={() => toggleSort("name")}>
+                Empresa{sortArrow("name")}
+              </th>
               <th>Tipo</th>
               <th>Modelo</th>
               <th>Ciudad</th>
               <th>Plan</th>
               <th>Estado</th>
-              <th>Usuarios</th>
-              <th>Conductores</th>
-              <th>Pedidos (30d)</th>
+              <th className={sortable} onClick={() => toggleSort("users")}>
+                Usuarios{sortArrow("users")}
+              </th>
+              <th className={sortable} onClick={() => toggleSort("drivers")}>
+                Conductores{sortArrow("drivers")}
+              </th>
+              <th className={sortable} onClick={() => toggleSort("vehicles")}>
+                Vehículos{sortArrow("vehicles")}
+              </th>
+              <th className={sortable} onClick={() => toggleSort("ordersLast30d")}>
+                Pedidos (30d){sortArrow("ordersLast30d")}
+              </th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {tenants.map((t) => (
+            {pageRows.map((t) => (
               <tr key={t.id} className="border-b border-white/5">
                 <td className="py-2 font-medium">{t.name}</td>
                 <td>
@@ -407,6 +551,7 @@ export default function Tenants() {
                 <td><StatusBadge status={t.status} /></td>
                 <td>{t.counts.users}</td>
                 <td>{t.counts.drivers}</td>
+                <td>{t.counts.vehicles}</td>
                 <td>{t.ordersLast30d}</td>
                 <td className="text-right">
                   <Link to={`/tenants/${t.id}`} className="text-lima hover:underline">
@@ -415,15 +560,43 @@ export default function Tenants() {
                 </td>
               </tr>
             ))}
-            {tenants.length === 0 && (
+            {loaded && sorted.length === 0 && (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-white/30">
-                  Sin tenants.
+                <td colSpan={11} className="py-8 text-center text-white/30">
+                  {hasFilters ? "Ningún tenant coincide con los filtros." : "Sin tenants."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {pageCount > 1 && (
+          <div className="mt-3 flex items-center justify-between text-xs text-cielo/70">
+            <span>
+              {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, sorted.length)}{" "}
+              de {sorted.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-niebla disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <span className="px-2 py-1">
+                {safePage + 1} / {pageCount}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={safePage >= pageCount - 1}
+                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-niebla disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkPicoYPlaca } from "./picoYPlaca.js";
 import { estimateUsableRangeKm } from "./evRange.js";
-import { planRoutes } from "./vrp.js";
+import { evaluateSequence, planRoutes } from "./vrp.js";
 import type { OptimizableOrder, OptimizableVehicle } from "./types.js";
 
 // Martes 10 de junio de 2026 — día par.
@@ -25,15 +25,70 @@ function order(
   };
 }
 
-function moto(id: string, plate = "ABC12D"): OptimizableVehicle {
+// EV ligero de baja capacidad (capacidad explícita 15 kg para forzar el
+// chequeo de capacidad en pruebas de mecánica de ruta; toda la flota es EV).
+function lightEv(id: string, plate = "ABC12D"): OptimizableVehicle {
   return {
     id,
     plate,
-    type: "MOTO",
+    type: "RAP_MOVE_LIGHT",
     capacityKg: 15,
     isElectric: false,
   };
 }
+
+describe("evaluateSequence (ajuste manual de paradas)", () => {
+  const v = lightEv("v1");
+  const a = order("a", 4.66, -74.07);
+  const b = order("b", 4.7, -74.05);
+
+  it("respeta el orden dado y recalcula ETAs crecientes", () => {
+    const r1 = evaluateSequence({
+      orders: [a, b],
+      vehicle: v,
+      depot: DEPOT,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r1).not.toBeNull();
+    expect(r1!.stops.map((s) => s.orderId)).toEqual(["a", "b"]);
+    expect(r1!.stops[1]!.etaMin).toBeGreaterThan(r1!.stops[0]!.etaMin);
+    expect(r1!.totalDistanceKm).toBeGreaterThan(0);
+
+    // El orden inverso se respeta tal cual (sin reoptimizar).
+    const r2 = evaluateSequence({
+      orders: [b, a],
+      vehicle: v,
+      depot: DEPOT,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r2!.stops.map((s) => s.orderId)).toEqual(["b", "a"]);
+  });
+
+  it("devuelve null si la ventana horaria es imposible", () => {
+    const tight = order("c", 4.8, -74.02, {
+      timeWindow: { startMin: 0, endMin: 1 },
+    });
+    const r = evaluateSequence({
+      orders: [tight],
+      vehicle: v,
+      depot: DEPOT,
+      departureMin: 8 * 60,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("devuelve null si excede el presupuesto de autonomía", () => {
+    const far = order("d", 5.5, -73.0);
+    const r = evaluateSequence({
+      orders: [far],
+      vehicle: { ...v, isElectric: true },
+      depot: DEPOT,
+      rangeBudgetKm: 1,
+    });
+    expect(r).toBeNull();
+  });
+});
 
 describe("pico y placa (Bogotá)", () => {
   it("restringe carro con placa par en día par dentro del horario", () => {
@@ -135,7 +190,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders,
-      vehicles: [moto("m1")],
+      vehicles: [lightEv("m1")],
     });
 
     expect(result.unassigned).toHaveLength(0);
@@ -158,7 +213,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders,
-      vehicles: [moto("m1")], // capacidad 15 kg: solo cabe un pedido
+      vehicles: [lightEv("m1")], // capacidad 15 kg: solo cabe un pedido
     });
 
     const assigned = result.routes.flatMap((r) => r.stops).length;
@@ -179,7 +234,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders,
-      vehicles: [moto("m1")],
+      vehicles: [lightEv("m1")],
     });
 
     expect(result.unassigned).toHaveLength(0);
@@ -215,7 +270,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders,
-      vehicles: [moto("m1", "XYZ99E")],
+      vehicles: [lightEv("m1", "XYZ99E")],
     });
 
     const route = result.routes[0]!;
@@ -232,9 +287,11 @@ describe("planRoutes (VRP)", () => {
     }
   });
 
-  it("excluye vehículos por pico y placa y lo reporta", () => {
+  it("NO excluye vehículos de la flota por pico y placa (todos EV exentos)", () => {
+    // Día par + placa terminada en 8: restringiría a un ICE, pero la flota es
+    // 100% eléctrica → exenta (Ley 1964/2019). Se asigna igual.
     const result = planRoutes({
-      date: EVEN_DAY, // día par: placa terminada en 8 restringida
+      date: EVEN_DAY,
       city: "Bogotá",
       depot: DEPOT,
       orders: [order("o1", 4.66, -74.05)],
@@ -242,16 +299,16 @@ describe("planRoutes (VRP)", () => {
         {
           id: "v1",
           plate: "JDK458",
-          type: "VAN",
+          type: "IONAX",
           capacityKg: 800,
-          isElectric: false,
+          isElectric: true,
         },
       ],
     });
 
-    expect(result.excludedVehicles).toHaveLength(1);
-    expect(result.excludedVehicles[0]!.reason).toMatch(/Pico y placa/);
-    expect(result.unassigned).toHaveLength(1);
+    expect(result.excludedVehicles).toHaveLength(0);
+    expect(result.unassigned).toHaveLength(0);
+    expect(result.routes).toHaveLength(1);
   });
 
   it("marca pedidos fuera de la autonomía de un EV", () => {
@@ -266,7 +323,7 @@ describe("planRoutes (VRP)", () => {
         {
           id: "ev1",
           plate: "EAA111",
-          type: "VAN",
+          type: "IONAX",
           capacityKg: 600,
           isElectric: true,
           nominalRangeKm: 120,
@@ -289,7 +346,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders: [tooEarlyWindow],
-      vehicles: [moto("m1")],
+      vehicles: [lightEv("m1")],
     });
 
     expect(result.unassigned).toHaveLength(1);
@@ -304,7 +361,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders: [lateWindow],
-      vehicles: [moto("m1")],
+      vehicles: [lightEv("m1")],
     });
 
     expect(result.routes).toHaveLength(1);
@@ -326,7 +383,7 @@ describe("planRoutes (VRP)", () => {
       city: "Bogotá",
       depot: DEPOT,
       orders,
-      vehicles: [moto("m1", "XYZ99E")],
+      vehicles: [lightEv("m1", "XYZ99E")],
     });
 
     expect(result.routes).toHaveLength(1);

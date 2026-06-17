@@ -43,6 +43,13 @@ export default async function clientsRoutes(app: FastifyInstance) {
   /** Confirmaciones enviadas a un negocio cliente (feed B2B). */
   app.get("/:id/notifications", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    // Paginación por ventana (skip/take): el feed puede crecer sin límite.
+    const query = z
+      .object({
+        skip: z.coerce.number().int().min(0).optional(),
+        take: z.coerce.number().int().min(1).max(100).optional(),
+      })
+      .parse(request.query);
     const client = await prisma.client.findFirst({
       where: { id, tenantId: request.user.tenantId },
     });
@@ -50,7 +57,8 @@ export default async function clientsRoutes(app: FastifyInstance) {
     return prisma.notificationLog.findMany({
       where: { tenantId: request.user.tenantId, clientId: id },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: query.skip ?? 0,
+      take: query.take ?? 20,
     });
   });
 
@@ -72,6 +80,7 @@ export default async function clientsRoutes(app: FastifyInstance) {
           pickupLat: input.pickupLat,
           pickupLng: input.pickupLng,
           pickupNotes: input.pickupNotes,
+          podRequired: input.podRequired,
         },
       });
       return reply.code(201).send(client);
@@ -102,8 +111,51 @@ export default async function clientsRoutes(app: FastifyInstance) {
           pickupLat: input.pickupLat,
           pickupLng: input.pickupLng,
           pickupNotes: input.pickupNotes,
+          podRequired: input.podRequired,
         },
       });
+    },
+  );
+
+  /**
+   * Prueba del webhook del comercio antes de guardarlo: envía un POST de
+   * muestra con el mismo formato que las notificaciones reales (B2B: el evento
+   * va al negocio, nunca al consumidor). Verifica que la URL responde antes de
+   * que un pedido real dependa de ella. Timeout corto para no colgar la UI.
+   */
+  app.post(
+    "/test-webhook",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { webhookUrl } = z
+        .object({ webhookUrl: z.string().url() })
+        .parse(request.body);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "test",
+            message: "Webhook de prueba de MoveOS",
+            sentAt: new Date().toISOString(),
+          }),
+          signal: controller.signal,
+        });
+        return reply.send({ ok: res.ok, status: res.status });
+      } catch (err) {
+        return reply.send({
+          ok: false,
+          error:
+            err instanceof Error && err.name === "AbortError"
+              ? "La URL no respondió en 5 s"
+              : "No se pudo conectar con la URL",
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   );
 

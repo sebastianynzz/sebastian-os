@@ -14,6 +14,18 @@ import { emitOrderUpdate } from "./realtime.js";
  * negocio cliente, genera guía + token de rastreo y registra la bitácora.
  */
 export async function createOrder(tenantId: string, input: CreateOrderInput) {
+  // Idempotencia para integraciones y cargas masivas: si el pedido trae
+  // externalRef y ya existe uno con ese ref en el tenant, devolvemos el
+  // existente en vez de duplicar — un reintento de API o un re-import del
+  // mismo CSV no crea pedidos repetidos. (Los pedidos manuales no traen
+  // externalRef, así que no se ven afectados.)
+  if (input.externalRef) {
+    const existing = await prisma.order.findFirst({
+      where: { tenantId, externalRef: input.externalRef },
+    });
+    if (existing) return existing;
+  }
+
   let lat = input.lat;
   let lng = input.lng;
   const clientProvidedCoords = lat !== undefined && lng !== undefined;
@@ -86,6 +98,7 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
       status: "GEOCODED",
       weightKg: input.weightKg ?? 1,
       volumeM3: input.volumeM3,
+      tempProfile: input.tempProfile,
       timeWindowStart: input.timeWindowStart ? new Date(input.timeWindowStart) : undefined,
       timeWindowEnd: input.timeWindowEnd ? new Date(input.timeWindowEnd) : undefined,
       priority: input.priority,

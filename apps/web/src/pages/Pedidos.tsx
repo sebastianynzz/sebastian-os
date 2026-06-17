@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ORDER_STATUSES } from "@moveos/shared";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
 import {
@@ -52,6 +53,25 @@ const EVENT_LABELS: Record<string, string> = {
   NOTIFIED: "Negocio notificado",
 };
 
+interface SavedView {
+  id: string;
+  name: string;
+  filters: Record<string, string>;
+}
+
+const STATUS_ES: Record<string, string> = {
+  PENDING: "Pendiente",
+  GEOCODED: "Geocodificado",
+  ASSIGNED: "Asignado",
+  DISPATCHED: "Despachado",
+  IN_TRANSIT: "En camino",
+  ARRIVED: "En sitio",
+  DELIVERED: "Entregado",
+  FAILED: "Fallido",
+  REJECTED: "Rechazado",
+  CANCELLED: "Cancelado",
+};
+
 const CSV_TEMPLATE =
   "customerName,customerPhone,addressRaw,addressNotes,weightKg\n" +
   'Laura Martínez,+573101000001,"Cra 13 # 54-20, Chapinero",Portón verde,2\n' +
@@ -85,28 +105,113 @@ function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
+/** Paginación por ventana: traemos de a PAGE_SIZE y crecemos con "Ver más",
+ *  hasta MAX_WINDOW, para no descargar toda la tabla de pedidos de un golpe. */
+const PAGE_SIZE = 50;
+const MAX_WINDOW = 500;
+
 export default function Pedidos() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Detalle por fila del último import CSV (filas que el servidor rechazó).
+  const [importFailures, setImportFailures] = useState<
+    { row: number; error: string }[]
+  >([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(false);
+  // Ref para que el callback de tiempo real lea siempre el tamaño actual de la
+  // ventana (sin re-suscribir el SSE en cada "Ver más").
+  const visibleCountRef = useRef(PAGE_SIZE);
+  visibleCountRef.current = visibleCount;
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
+  const [fStatus, setFStatus] = useState("");
+  const [fClientId, setFClientId] = useState("");
+  const [fQ, setFQ] = useState("");
+  const [views, setViews] = useState<SavedView[]>([]);
 
-  async function load() {
+  const shown = useMemo(() => {
+    const q = fQ.trim().toLowerCase();
+    return orders.filter(
+      (o) =>
+        (!fStatus || o.status === fStatus) &&
+        (!fClientId || o.client?.id === fClientId) &&
+        (!q ||
+          (o.trackingNumber ?? "").toLowerCase().includes(q) ||
+          o.customerName.toLowerCase().includes(q) ||
+          o.addressRaw.toLowerCase().includes(q)),
+    );
+  }, [orders, fStatus, fClientId, fQ]);
+
+  const activeFilters = Boolean(fStatus || fClientId || fQ.trim());
+
+  function clearFilters() {
+    setFStatus("");
+    setFClientId("");
+    setFQ("");
+  }
+
+  async function loadViews() {
+    setViews(await api<SavedView[]>("GET", "/saved-views?page=pedidos"));
+  }
+  function applyView(v: SavedView) {
+    setFStatus(v.filters.status ?? "");
+    setFClientId(v.filters.clientId ?? "");
+    setFQ(v.filters.q ?? "");
+  }
+  async function saveCurrentView() {
+    const name = window.prompt("Nombre de la vista (p. ej. 'Pendientes hoy')")?.trim();
+    if (!name) return;
+    const filters: Record<string, string> = {};
+    if (fStatus) filters.status = fStatus;
+    if (fClientId) filters.clientId = fClientId;
+    if (fQ.trim()) filters.q = fQ.trim();
     try {
-      setOrders(await api<Order[]>("GET", "/orders"));
+      await api("POST", "/saved-views", { page: "pedidos", name, filters });
+      await loadViews();
+      setNotice(`Vista "${name}" guardada`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la vista");
+    }
+  }
+  async function deleteView(id: string) {
+    try {
+      await api("DELETE", `/saved-views/${id}`);
+      await loadViews();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar la vista");
+    }
+  }
+
+  async function load(count: number) {
+    try {
+      const rows = await api<Order[]>("GET", `/orders?take=${count}`);
+      setOrders(rows);
+      // Si la página vino llena (y no tocamos el tope), probablemente hay más.
+      setHasMore(rows.length === count && count < MAX_WINDOW);
     } finally {
       setLoading(false);
     }
   }
-  // Tiempo real: la lista refleja asignaciones/entregas sin recargar la página.
-  useRealtimeReload(["order"], () => void load(), { throttleMs: 2000 });
+  function loadMore() {
+    const next = Math.min(visibleCount + PAGE_SIZE, MAX_WINDOW);
+    setVisibleCount(next);
+    void load(next);
+  }
+  // Tiempo real: recarga la ventana actual en sitio (el ref evita un cierre
+  // obsoleto del tamaño de ventana).
+  useRealtimeReload(["order"], () => void load(visibleCountRef.current), {
+    throttleMs: 2000,
+  });
   useEffect(() => {
     void api<ClientOption[]>("GET", "/clients").then(setClients);
+    void loadViews();
   }, []);
 
   async function toggleBitacora(orderId: string) {
@@ -131,6 +236,7 @@ export default function Pedidos() {
   async function importCsv(file: File) {
     setError(null);
     setNotice(null);
+    setImportFailures([]);
     try {
       const rows = parseCsv(await file.text());
       if (rows.length === 0) throw new Error("El archivo no tiene filas de datos");
@@ -141,9 +247,29 @@ export default function Pedidos() {
         addressNotes: r.addressNotes || undefined,
         weightKg: r.weightKg ? Number(r.weightKg) : undefined,
       }));
-      const res = await api<{ created: number }>("POST", "/orders/bulk", payload);
-      setNotice(`${res.created} pedidos importados correctamente`);
-      await load();
+      const res = await api<{
+        created: number;
+        failed: number;
+        results: { row: number; ok: boolean; error?: string }[];
+      }>("POST", "/orders/bulk", payload);
+      // Las filas buenas entran aunque otras fallen: mostramos ambas caras.
+      setImportFailures(
+        res.results
+          .filter((r) => !r.ok)
+          .map((r) => ({ row: r.row, error: r.error ?? "Error" })),
+      );
+      if (res.created > 0) {
+        setNotice(
+          res.failed > 0
+            ? `${res.created} pedidos importados · ${res.failed} con error (revisa el detalle abajo)`
+            : `${res.created} pedidos importados correctamente`,
+        );
+      } else {
+        setError(
+          `Ninguna fila se importó: ${res.failed} con error. Revisa el detalle abajo.`,
+        );
+      }
+      await load(visibleCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error importando CSV");
     }
@@ -165,7 +291,7 @@ export default function Pedidos() {
         pickupNotes: data.get("pickupNotes") || undefined,
       });
       setShowForm(false);
-      await load();
+      await load(visibleCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     }
@@ -209,6 +335,30 @@ export default function Pedidos() {
         <Banner kind="error" onDismiss={() => setError(null)}>
           {error}
         </Banner>
+      )}
+
+      {importFailures.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">
+              Filas con error en el import ({importFailures.length})
+            </span>
+            <button
+              onClick={() => setImportFailures([])}
+              className="text-xs font-bold opacity-60"
+              aria-label="Cerrar detalle de errores del import"
+            >
+              ✕
+            </button>
+          </div>
+          <ul className="max-h-40 list-disc space-y-0.5 overflow-auto pl-5">
+            {importFailures.map((f) => (
+              <li key={f.row}>
+                Fila {f.row}: {f.error}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {showForm && (
@@ -273,9 +423,76 @@ export default function Pedidos() {
       )}
 
       <Card>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Estado</span>
+            <select className={inputClass} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              <option value="">Todos</option>
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_ES[s] ?? s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Negocio</span>
+            <select className={inputClass} value={fClientId} onChange={(e) => setFClientId(e.target.value)}>
+              <option value="">Todos</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-[12rem] flex-1 text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Buscar</span>
+            <input
+              type="search"
+              className={inputClass}
+              placeholder="Guía, destinatario o dirección…"
+              value={fQ}
+              onChange={(e) => setFQ(e.target.value)}
+            />
+          </label>
+          {activeFilters && (
+            <Button variant="secondary" onClick={clearFilters}>
+              Limpiar
+            </Button>
+          )}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-niebla pt-3">
+          <span className="text-xs font-semibold uppercase text-navy/50">Vistas guardadas</span>
+          {views.length === 0 && <span className="text-xs text-navy/40">ninguna aún</span>}
+          {views.map((v) => (
+            <span
+              key={v.id}
+              className="inline-flex items-center gap-1 rounded-full border border-cielo bg-white px-2 py-0.5 text-xs"
+            >
+              <button onClick={() => applyView(v)} className="font-medium text-navy hover:underline">
+                {v.name}
+              </button>
+              <button
+                onClick={() => void deleteView(v.id)}
+                aria-label={`Borrar vista ${v.name}`}
+                className="text-navy/40 hover:text-red-600"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <Button variant="secondary" onClick={() => void saveCurrentView()} disabled={!activeFilters}>
+            Guardar vista actual
+          </Button>
+        </div>
+      </Card>
+
+      <Card>
         {loading ? (
           <Loading label="Cargando pedidos…" />
         ) : (
+        <>
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -289,10 +506,13 @@ export default function Pedidos() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
+            {shown.map((o) => (
               <Fragment key={o.id}>
                 <tr
-                  className={`cursor-pointer hover:bg-niebla/60 ${tableRowClass}`}
+                  /* Virtualización ligera: el navegador omite el render de las
+                     filas fuera de pantalla (sin dependencias ni refactor de la
+                     tabla); no-op donde no haya soporte. */
+                  className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
                   role="button"
                   tabIndex={0}
                   aria-expanded={expanded === o.id}
@@ -338,6 +558,7 @@ export default function Pedidos() {
                           <li key={ev.id} className="flex items-baseline gap-3 text-sm">
                             <span className="font-mono text-xs text-navy/50">
                               {new Date(ev.createdAt).toLocaleString("es-CO", {
+                                timeZone: "America/Bogota",
                                 day: "2-digit",
                                 month: "2-digit",
                                 hour: "2-digit",
@@ -372,9 +593,30 @@ export default function Pedidos() {
                 </td>
               </tr>
             )}
+            {orders.length > 0 && shown.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-navy/40">
+                  Ningún pedido coincide con los filtros.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         </div>
+        {(hasMore || orders.length > PAGE_SIZE) && (
+          <div className="mt-3 flex items-center justify-between gap-3 text-sm text-navy/60">
+            <span>
+              Mostrando {shown.length}
+              {activeFilters ? ` de ${orders.length}` : ""} pedidos
+            </span>
+            {hasMore && (
+              <Button variant="secondary" onClick={loadMore}>
+                Ver más
+              </Button>
+            )}
+          </div>
+        )}
+        </>
         )}
       </Card>
     </div>

@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { buildTravelModel } from "../services/routing.js";
+import { durationFactor } from "@moveos/optimizer";
 
 /**
  * Inserción dinámica (express) en rutas existentes + modelo de viaje OSRM
@@ -62,7 +63,7 @@ beforeAll(async () => {
 
   await api("POST", "/vehicles", adminToken, {
     plate: "INS12A",
-    type: "MOTO",
+    type: "RAP_MOVE_LIGHT",
     capacityKg: 10,
   });
   const driver = await api("POST", "/drivers", adminToken, {
@@ -131,6 +132,54 @@ describe("inserción express en ruta existente", () => {
     );
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("INSERTION_INFEASIBLE");
+  });
+
+  it("reordena manualmente una ruta PLANNED y recalcula la secuencia", async () => {
+    const before = await api("GET", `/routes/${routeId}`, adminToken);
+    const seq: string[] = [];
+    for (const s of before.body.stops) {
+      if (!seq.includes(s.orderId)) seq.push(s.orderId);
+    }
+    expect(seq.length).toBeGreaterThanOrEqual(2);
+    const reversed = [...seq].reverse();
+
+    const res = await api(
+      "PATCH",
+      `/optimization/routes/${routeId}/sequence`,
+      adminToken,
+      { orderIds: reversed },
+    );
+    expect(res.status).toBe(200);
+    const newSeq: string[] = [];
+    for (const s of res.body.route.stops) {
+      if (!newSeq.includes(s.orderId)) newSeq.push(s.orderId);
+    }
+    expect(newSeq).toEqual(reversed);
+    // Secuencia re-densificada 1..n.
+    expect(res.body.route.stops.map((s: { sequence: number }) => s.sequence)).toEqual(
+      res.body.route.stops.map((_: unknown, i: number) => i + 1),
+    );
+  });
+
+  it("rechaza una secuencia que no es permutación exacta (400)", async () => {
+    const res = await api(
+      "PATCH",
+      `/optimization/routes/${routeId}/sequence`,
+      adminToken,
+      { orderIds: ["no-existe"] },
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("BAD_SEQUENCE");
+  });
+
+  it("404 al reordenar una ruta inexistente", async () => {
+    const res = await api(
+      "PATCH",
+      "/optimization/routes/ruta-fantasma/sequence",
+      adminToken,
+      { orderIds: ["x"] },
+    );
+    expect(res.status).toBe(404);
   });
 
   it("inserta en ruta EN CURSO sin tocar paradas ya atendidas", async () => {
@@ -208,8 +257,15 @@ describe("modelo de viaje OSRM (mock) y fallback", () => {
     const built = await buildTravelModel([a, b]);
     expect(built.source).toBe("osrm");
     expect(built.model.distanceKm(a, b)).toBe(5); // 5000 m
-    expect(built.model.travelMin(a, b, "CARRO")).toBe(10); // 600 s
-    expect(built.model.travelMin(a, b, "MOTO")).toBeCloseTo(8, 5); // ×0.8
+    // 600 s de carro × factor de duración por configuración.
+    expect(built.model.travelMin(a, b, "IONAX")).toBeCloseTo(
+      10 * durationFactor("IONAX"),
+      5,
+    );
+    expect(built.model.travelMin(a, b, "RAP_MOVE_LIGHT")).toBeCloseTo(
+      10 * durationFactor("RAP_MOVE_LIGHT"),
+      5,
+    );
   });
 
   it("cae a haversine si OSRM no responde", async () => {

@@ -1,9 +1,11 @@
 /*
  * MoveOS Conductor — service worker.
  *
- * P0.2 auto-update: skipWaiting() + clients.claim() + versión de caché por
- * build (el placeholder se reemplaza al compilar), así cada release llega
- * al conductor en la siguiente carga sin pasos manuales.
+ * P0.2 auto-update: clients.claim() + versión de caché por build (el
+ * placeholder se reemplaza al compilar). La activación NO es forzada: un
+ * release nuevo queda "en espera" y la app avisa con un toast "nueva versión —
+ * recargar"; solo al confirmar el conductor se hace skipWaiting() y se recarga
+ * (no se interrumpe una entrega en curso).
  *
  * D2 tiles offline: los tiles de OSM se sirven cache-first con tope LRU; la
  * app pre-cachea los tiles de la ruta del día al recibirla, y la navegación
@@ -28,9 +30,16 @@ self.addEventListener("install", (event) => {
       // instalarse NUNCA — matando el auto-update de toda la flota.
       .then((cache) =>
         Promise.all(SHELL_URLS.map((url) => cache.add(url).catch(() => null))),
-      )
-      .then(() => self.skipWaiting()),
+      ),
+    // OJO: sin skipWaiting() aquí. El SW nuevo espera; la app lo activa cuando
+    // el conductor confirma (mensaje SKIP_WAITING). La PRIMERA instalación no
+    // tiene controlador previo, así que activa y reclama sin esperar ni recargar.
   );
+});
+
+// (msg) La app pide activar el SW en espera al confirmar el toast.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

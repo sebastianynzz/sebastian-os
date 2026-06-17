@@ -55,7 +55,7 @@ beforeAll(async () => {
 
   const vehicle = await api("POST", "/vehicles", adminToken, {
     plate: PLATE,
-    type: "MOTO",
+    type: "RAP_MOVE_LIGHT",
     capacityKg: 20,
   });
   vehicleId = vehicle.body.id;
@@ -92,6 +92,12 @@ describe("plano telemático / IoT", () => {
     expect(entry).toBeDefined();
     expect(entry.vehicle.lastSpeedKmh).toBe(32);
     expect(entry.ping.rpm).toBe(3200);
+
+    // La posición queda denormalizada en el vehículo (alimenta el mapa de flota
+    // de plataforma sin recorrer TelemetryPing).
+    const v = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    expect(v?.lastLat).toBe(4.65);
+    expect(v?.lastLng).toBe(-74.06);
   });
 
   it("RECHAZA apagar el motor en movimiento (interlock de seguridad)", async () => {
@@ -140,11 +146,15 @@ describe("plano telemático / IoT", () => {
   });
 
   it("bloquea la API si el módulo TELEMATICS está inactivo", async () => {
+    // SAFETY depende de TELEMATICS: desactivar la dependencia antes de poder
+    // apagar TELEMATICS (grafo de dependencias de módulos).
+    await api("PATCH", "/modules/SAFETY", adminToken, { enabled: false });
     await api("PATCH", "/modules/TELEMATICS", adminToken, { enabled: false });
     const blocked = await api("GET", "/telematics/vehicles/live", adminToken);
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe("MODULE_NOT_ENABLED");
     await api("PATCH", "/modules/TELEMATICS", adminToken, { enabled: true });
+    await api("PATCH", "/modules/SAFETY", adminToken, { enabled: true });
   });
 
   it("exige el módulo SAFETY para enviar comandos de motor", async () => {

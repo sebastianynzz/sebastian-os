@@ -13,6 +13,7 @@ import {
   flushQueue,
   getToken,
   queueSize,
+  SESSION_EXPIRED_EVENT,
   setToken,
   uploadPodPhoto,
 } from "./api";
@@ -41,6 +42,8 @@ interface Stop {
     pickupNotes: string | null;
     pickupLat: number | null;
     pickupLng: number | null;
+    // Política POD del comercio cliente (pruebas exigidas para la entrega).
+    client: { podRequired: string[] } | null;
   };
   pod: unknown | null;
 }
@@ -89,6 +92,31 @@ function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
 /** Si llega a >300 m del pin guardado, proponemos corregirlo (flywheel). */
 const ADDRESS_FIX_THRESHOLD_M = 300;
 
+/** Radio de la geocerca: dentro de esto se considera "en el punto de entrega". */
+const GEOFENCE_RADIUS_M = 80;
+
+/**
+ * Cada cuánto la hoja de entrega sondea el GPS en vivo. `watchPosition`
+ * actualiza el ref sin re-render; sondeamos para que la distancia a la
+ * geocerca se mueva mientras el conductor se acerca al punto.
+ */
+const GEOFENCE_POLL_MS = 2000;
+
+/**
+ * Filtro de precisión del GPS: por encima de esta imprecisión (m) se ignora el
+ * fix para no contaminar la geocerca (un fix de antena a 2 km marcaría "estás
+ * en el punto" en falso). En modo ahorro toleramos fixes más gruesos a
+ * propósito, así que el umbral se relaja.
+ */
+const GPS_ACCURACY_MAX_M = 100;
+const GPS_ACCURACY_MAX_LOW_POWER_M = 500;
+
+/** Descargando y por debajo de esta carga, bajamos el GPS a modo ahorro. */
+const GPS_LOW_BATTERY_LEVEL = 0.2;
+
+/** Ventana para confirmar el SOS antes de auto-desarmarse (toque accidental). */
+const SOS_CONFIRM_WINDOW_MS = 10_000;
+
 /** Motivos de fallo disputables: exigen foto de evidencia. */
 const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
 
@@ -131,19 +159,75 @@ async function checkPhotoQuality(
   }
 }
 
+/** Subconjunto de la Battery Status API que usamos (no está en lib.dom). */
+interface BatteryLike {
+  charging: boolean;
+  level: number;
+  addEventListener: (type: string, cb: () => void) => void;
+  removeEventListener: (type: string, cb: () => void) => void;
+}
+
 function useGeo() {
   const pos = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Modo ahorro: el watchPosition de alta precisión drena el GPS. Si el celular
+  // del conductor está descargando y con poca batería, bajamos a modo grueso —
+  // un repartidor no puede quedarse sin teléfono a media ruta.
+  const [lowPower, setLowPower] = useState(false);
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      getBattery?: () => Promise<BatteryLike>;
+    };
+    if (!nav.getBattery) return;
+    let battery: BatteryLike | null = null;
+    let cancelled = false;
+    const apply = () => {
+      if (!battery) return;
+      const save = !battery.charging && battery.level <= GPS_LOW_BATTERY_LEVEL;
+      setLowPower((prev) => (prev === save ? prev : save));
+    };
+    void nav.getBattery().then((b) => {
+      if (cancelled) return;
+      battery = b;
+      apply();
+      b.addEventListener("levelchange", apply);
+      b.addEventListener("chargingchange", apply);
+    });
+    return () => {
+      cancelled = true;
+      battery?.removeEventListener("levelchange", apply);
+      battery?.removeEventListener("chargingchange", apply);
+    };
+  }, []);
+
+  // Re-suscribe el watch cuando cambia el modo de energía.
   useEffect(() => {
     if (!navigator.geolocation) return;
+    const maxAccuracyM = lowPower
+      ? GPS_ACCURACY_MAX_LOW_POWER_M
+      : GPS_ACCURACY_MAX_M;
+    const options: PositionOptions = lowPower
+      ? { enableHighAccuracy: false, maximumAge: 30000 }
+      : { enableHighAccuracy: true, maximumAge: 0 };
     const id = navigator.geolocation.watchPosition(
       (p) => {
+        // Filtro de precisión: descarta fixes muy imprecisos salvo que aún no
+        // tengamos ninguno (mejor algo que nada para encuadrar el mapa).
+        if (
+          typeof p.coords.accuracy === "number" &&
+          p.coords.accuracy > maxAccuracyM &&
+          pos.current !== null
+        ) {
+          return;
+        }
         pos.current = { lat: p.coords.latitude, lng: p.coords.longitude };
       },
       () => {},
-      { enableHighAccuracy: true },
+      options,
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [lowPower]);
+
   return pos;
 }
 
@@ -167,19 +251,71 @@ function toMapStops(route: DriverRoute): MapStop[] {
   return result;
 }
 
+/**
+ * Caché de la ruta del día (stale-while-revalidate): al abrir sin señal el
+ * conductor ve de inmediato su última ruta conocida, y luego se revalida.
+ */
+const ROUTE_CACHE_KEY = "moveos_driver_route";
+function readCachedRoute(): DriverRoute | null {
+  try {
+    const raw = localStorage.getItem(ROUTE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as DriverRoute) : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedRoute(route: DriverRoute | null) {
+  try {
+    if (route) localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(route));
+    else localStorage.removeItem(ROUTE_CACHE_KEY);
+  } catch {
+    // cuota llena / modo privado: la caché es best-effort.
+  }
+}
+
+/** Esqueleto de carga inicial: evita el parpadeo de "sin ruta" antes del fetch. */
+function RouteSkeleton() {
+  return (
+    <div className="space-y-3" aria-hidden>
+      <div className="h-40 animate-pulse rounded-xl bg-white/70 shadow-sm" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-28 animate-pulse rounded-xl bg-white/70 shadow-sm" />
+      ))}
+    </div>
+  );
+}
+
+const PULL_REFRESH_THRESHOLD = 70;
+
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
-  const [route, setRoute] = useState<DriverRoute | null>(null);
+  const [route, setRoute] = useState<DriverRoute | null>(() => readCachedRoute());
+  const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(queueSize());
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
+  const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
+  const [online, setOnline] = useState(navigator.onLine);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  // Pull-to-refresh: distancia tirada (px) y estado de recarga.
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullStart = useRef<number | null>(null);
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
   // array para que RouteMap no redibuje/re-encuadre en cada render.
   const mapStops = useMemo(() => (route ? toMapStops(route) : []), [route]);
+
+  // Parada actual: la primera que no esté terminada — se resalta para que el
+  // conductor sepa cuál sigue tras una re-secuenciación del despachador.
+  const currentStopId = route?.stops.find(
+    (s) => s.status !== "COMPLETED" && s.status !== "FAILED",
+  )?.id;
 
   // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
   // (inserciones exprés del despachador) sin perder el lugar del conductor.
@@ -208,13 +344,16 @@ export default function App() {
       }
       stopsSignature.current = signature;
       setRoute(next);
+      writeCachedRoute(next); // revalidado: actualiza la caché SWR
       // D2: dejar los tiles de la ruta listos para zonas sin señal.
       if (next && signature !== tilesSignature.current) {
         tilesSignature.current = signature;
         void precacheRouteTiles(toMapStops(next));
       }
     } catch {
-      // sin red: se mantiene la última vista
+      // sin red: se mantiene la última vista (la caché ya hidrató al abrir)
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -255,37 +394,136 @@ export default function App() {
     if (!route || route.status !== "IN_PROGRESS") return;
     const interval = setInterval(() => {
       if (!geo.current) return;
-      void apiOrQueue("/tracking/pings", {
-        lat: geo.current.lat,
-        lng: geo.current.lng,
-        routeId: route.id,
-      });
+      // Ping GPS: efímero — sin señal NO se encola (reproducir posiciones
+      // viejas no aporta y saturaría la cola del conductor).
+      void apiOrQueue(
+        "/tracking/pings",
+        { lat: geo.current.lat, lng: geo.current.lng, routeId: route.id },
+        { ephemeral: true },
+      );
     }, 30000);
     return () => clearInterval(interval);
   }, [route, geo]);
 
+  // Sesión expirada: cualquier petición autenticada que reciba 401 (token
+  // vencido) emite el evento; aquí cerramos sesión y mostramos el aviso en la
+  // pantalla de ingreso, sin perder lo que el conductor estaba viendo.
+  useEffect(() => {
+    const onExpired = () => {
+      setSessionExpired(true);
+      setAuthed(false);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  // Indicador de conexión: el conductor debe distinguir "sin señal" de
+  // "tengo cola pendiente" — en zona muerta lo ve de inmediato.
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  // SOS armado: si no se confirma dentro de la ventana, se auto-desarma para
+  // que un toque accidental no quede pendiente. El estado "sent" sí persiste
+  // (el conductor puede querer reenviar).
+  useEffect(() => {
+    if (sos !== "confirm") return;
+    const t = setTimeout(() => setSos("idle"), SOS_CONFIRM_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, [sos]);
+
   if (!authed) {
-    return <Login onLogin={() => setAuthed(true)} />;
+    return (
+      <Login
+        notice={
+          sessionExpired ? "Tu sesión expiró. Ingresa de nuevo." : null
+        }
+        onLogin={() => {
+          setSessionExpired(false);
+          setAuthed(true);
+        }}
+      />
+    );
   }
 
   async function startRoute() {
-    if (!route) return;
-    await api("POST", `/routes/${route.id}/start`);
-    await load();
+    // Doble-guard: el botón se deshabilita Y la función rechaza la re-entrada,
+    // para que un doble-toque no dispare dos POST /start (arranque duplicado).
+    if (!route || starting) return;
+    setStarting(true);
+    try {
+      await api("POST", `/routes/${route.id}/start`);
+      await load();
+    } catch (err) {
+      // Iniciar ruta no se encola (es un arranque puntual, no una entrega):
+      // si falla, el conductor lo ve y reintenta.
+      setMessage(
+        err instanceof TypeError
+          ? "Sin conexión: no se pudo iniciar la ruta. Reintenta con señal."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la ruta",
+      );
+    } finally {
+      setStarting(false);
+    }
   }
 
-  async function panic() {
+  async function sendPanic() {
     if (!route) return;
-    await apiOrQueue("/safety/panic", {
+    const { queued } = await apiOrQueue("/safety/panic", {
       routeId: route.id,
       lat: geo.current?.lat,
       lng: geo.current?.lng,
     });
-    setMessage("🚨 Alerta de pánico enviada a la central");
+    setSos("sent");
+    setMessage(
+      queued
+        ? "🚨 Sin señal: la alerta se enviará apenas vuelva la conexión"
+        : "🚨 Alerta de pánico enviada a la central",
+    );
+  }
+
+  // Pull-to-refresh: tirar hacia abajo desde el tope recarga la ruta. Se
+  // inhabilita con una hoja abierta para no robarle el gesto.
+  const overlayOpen = Boolean(activeStop) || sos !== "idle" || showChargers;
+  function onTouchStart(e: React.TouchEvent) {
+    if (overlayOpen || refreshing || window.scrollY > 0) return;
+    pullStart.current = e.touches[0]?.clientY ?? null;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (pullStart.current === null) return;
+    const dy = (e.touches[0]?.clientY ?? 0) - pullStart.current;
+    setPull(dy > 0 ? Math.min(dy, PULL_REFRESH_THRESHOLD * 1.6) : 0);
+  }
+  async function onTouchEnd() {
+    if (pullStart.current === null) return;
+    const trigger = pull >= PULL_REFRESH_THRESHOLD;
+    pullStart.current = null;
+    setPull(0);
+    if (!trigger) return;
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col">
+    <div
+      className="mx-auto flex min-h-screen max-w-md flex-col"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <header className="sticky top-0 z-10 flex items-center justify-between bg-navy px-4 py-3 text-white">
         <div>
           <div className="font-bold">
@@ -298,14 +536,27 @@ export default function App() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <span
+            role="status"
+            aria-label={online ? "En línea" : "Sin conexión"}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+              online ? "bg-emerald-500/20 text-emerald-100" : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+            />
+            {online ? "En línea" : "Sin conexión"}
+          </span>
           {pending > 0 && (
             <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold">
               {pending} sin sync
             </span>
           )}
           <button
-            onClick={panic}
-            aria-label="Enviar alerta de pánico a la central"
+            onClick={() => setSos("confirm")}
+            aria-label="Abrir confirmación de alerta de pánico"
             className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
           >
             SOS
@@ -339,6 +590,26 @@ export default function App() {
       )}
 
       <main className="flex-1 space-y-3 p-4">
+        {/* Indicador de pull-to-refresh. */}
+        {(pull > 0 || refreshing) && (
+          <div
+            role="status"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60"
+            style={{
+              height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
+            }}
+          >
+            {refreshing
+              ? "Actualizando…"
+              : pull >= PULL_REFRESH_THRESHOLD
+                ? "Suelta para actualizar"
+                : "Tira para actualizar"}
+          </div>
+        )}
+
+        {/* Carga inicial: esqueleto en vez del parpadeo de "sin ruta". */}
+        {!loaded && !route && <RouteSkeleton />}
+
         {/* Avisos push (D5): requiere un toque del conductor (gesto). */}
         {pushOffer && (
           <button
@@ -357,7 +628,7 @@ export default function App() {
           </button>
         )}
 
-        {!route && (
+        {loaded && !route && (
           <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
             No tiene ruta asignada hoy.
             <button onClick={load} className="mt-3 block w-full rounded-lg bg-slate-100 py-2 text-sm font-medium">
@@ -385,9 +656,12 @@ export default function App() {
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
-            className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95"
+            disabled={starting}
+            className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95 disabled:opacity-60"
           >
-            Iniciar ruta ({route.stops.length} paradas)
+            {starting
+              ? "Iniciando…"
+              : `Iniciar ruta (${route.stops.length} paradas)`}
           </button>
         )}
 
@@ -396,6 +670,7 @@ export default function App() {
             key={stop.id}
             stop={stop}
             routeActive={route.status === "IN_PROGRESS"}
+            isCurrent={stop.id === currentStopId}
             onAction={() => setActiveStop(stop)}
             onArrive={async () => {
               await apiOrQueue(`/routes/stops/${stop.id}/arrive`);
@@ -409,7 +684,7 @@ export default function App() {
       {activeStop && (
         <StopActionSheet
           stop={activeStop}
-          geo={geo.current}
+          geo={geo}
           onClose={() => setActiveStop(null)}
           onDone={async (queued) => {
             setActiveStop(null);
@@ -424,11 +699,85 @@ export default function App() {
       {showChargers && (
         <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
       )}
+
+      {/* SOS: confirmar antes de enviar (evita falsas alarmas) y reenviar si
+          el conductor sigue en peligro. La alerta va a la central, no al
+          consumidor (B2B). */}
+      {sos !== "idle" && (
+        <div
+          className="fixed inset-0 z-30 flex items-end bg-black/50"
+          onClick={() => sos === "confirm" && setSos("idle")}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Alerta de pánico"
+            className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sos === "confirm" ? (
+              <>
+                <div className="text-lg font-bold text-red-700">
+                  🚨 ¿Enviar alerta de pánico?
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Se notificará a la central con tu ubicación. Úsalo solo ante
+                  una emergencia real.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setSos("idle")}
+                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={sendPanic}
+                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                  >
+                    Confirmar SOS
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-red-700">
+                  🚨 Alerta enviada
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  La central fue notificada. Si sigues en peligro, puedes
+                  reenviarla.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setSos("idle")}
+                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    onClick={sendPanic}
+                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                  >
+                    Reenviar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Login({ onLogin }: { onLogin: () => void }) {
+function Login({
+  notice,
+  onLogin,
+}: {
+  notice: string | null;
+  onLogin: () => void;
+}) {
   const [email, setEmail] = useState("carlos@demo.moveos.co");
   const [password, setPassword] = useState("moveos123");
   const [error, setError] = useState<string | null>(null);
@@ -446,7 +795,15 @@ function Login({ onLogin }: { onLogin: () => void }) {
       setToken(res.token);
       onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      // Distinguir falta de red de credenciales malas: el conductor necesita
+      // saber si reintentar (señal) o corregir sus datos.
+      setError(
+        err instanceof TypeError
+          ? "Sin conexión. Verifica tu internet e intenta de nuevo."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo ingresar",
+      );
     } finally {
       setBusy(false);
     }
@@ -456,6 +813,14 @@ function Login({ onLogin }: { onLogin: () => void }) {
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
+        {notice && (
+          <p
+            role="status"
+            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            {notice}
+          </p>
+        )}
         <input
           className="w-full rounded-lg border border-cielo px-3 py-3 text-base focus:border-navy focus:outline-none"
           type="email"
@@ -495,15 +860,18 @@ function Login({ onLogin }: { onLogin: () => void }) {
 function StopCard({
   stop,
   routeActive,
+  isCurrent,
   onAction,
   onArrive,
 }: {
   stop: Stop;
   routeActive: boolean;
+  isCurrent: boolean;
   onAction: () => void;
   onArrive: () => void;
 }) {
   const done = stop.status === "COMPLETED" || stop.status === "FAILED";
+  const arrived = stop.status === "ARRIVED";
   const isPickup = stop.kind === "PICKUP";
   // En recogida se muestra la dirección de origen; en entrega, la del destino.
   const address = isPickup
@@ -517,11 +885,11 @@ function StopCard({
     <div
       className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
         isPickup && !done ? "border-l-4 border-cielo" : ""
-      }`}
+      } ${isCurrent && !done ? "ring-2 ring-lima" : ""}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
             <span
               className={`rounded px-1.5 py-0.5 ${
                 isPickup ? "bg-cielo/40 text-navy" : "bg-lima/50 text-navy"
@@ -532,6 +900,11 @@ function StopCard({
             <span className="text-navy/60">
               Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
             </span>
+            {isCurrent && !done && (
+              <span className="rounded bg-navy px-1.5 py-0.5 text-white">
+                {arrived ? "EN SITIO" : "SIGUIENTE"}
+              </span>
+            )}
           </div>
           <div className="mt-1 font-semibold">{stop.order.customerName}</div>
           <div className="text-sm text-slate-600">{address}</div>
@@ -609,7 +982,7 @@ function StopActionSheet({
   onDone,
 }: {
   stop: Stop;
-  geo: { lat: number; lng: number } | null;
+  geo: React.MutableRefObject<{ lat: number; lng: number } | null>;
   onClose: () => void;
   onDone: (queued: boolean) => void;
 }) {
@@ -626,22 +999,41 @@ function StopActionSheet({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
+  // Geocerca en vivo: `geo` es un ref que `watchPosition` actualiza sin
+  // re-render. Lo sondeamos para que la distancia al punto, el estado de la
+  // geocerca y la oferta de corregir pin se muevan mientras el conductor
+  // camina hacia la puerta — no congelados al abrir la hoja.
+  const [livePos, setLivePos] = useState(geo.current);
+  useEffect(() => {
+    const tick = () => {
+      const next = geo.current;
+      setLivePos((prev) =>
+        prev?.lat === next?.lat && prev?.lng === next?.lng ? prev : next,
+      );
+    };
+    tick();
+    const id = setInterval(tick, GEOFENCE_POLL_MS);
+    return () => clearInterval(id);
+  }, [geo]);
+
   const isPickup = stop.kind === "PICKUP";
   const refLat = isPickup ? stop.order.pickupLat : stop.order.lat;
   const refLng = isPickup ? stop.order.pickupLng : stop.order.lng;
   const sheetAddress = isPickup
     ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
     : stop.order.addressRaw;
-  // Fallback demo: si el navegador no da GPS, usar la coordenada de la parada.
-  const lat = geo?.lat ?? refLat ?? undefined;
-  const lng = geo?.lng ?? refLng ?? undefined;
+
+  // Política POD del comercio: en entregas, las pruebas que este cliente exige.
+  const podRequired = isPickup ? [] : stop.order.client?.podRequired ?? [];
+  const requiresPhoto = podRequired.includes("PHOTO");
+  const requiresReceiver = podRequired.includes("RECEIVER_NAME");
 
   // Corrección de pin (el tap más valioso del producto): si el GPS real está
   // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
   // verdadera — cada confirmación enseña al grafo de direcciones.
   const pinDriftM =
-    !isPickup && geo && refLat !== null && refLng !== null
-      ? Math.round(distanceM(geo, { lat: refLat, lng: refLng }))
+    !isPickup && livePos && refLat !== null && refLng !== null
+      ? Math.round(distanceM(livePos, { lat: refLat, lng: refLng }))
       : null;
   const offerPinFix = pinDriftM !== null && pinDriftM > ADDRESS_FIX_THRESHOLD_M;
 
@@ -667,6 +1059,16 @@ function StopActionSheet({
 
   async function deliver() {
     setError(null);
+    // Política POD del comercio: exigir nombre antes de gastar la subida; el
+    // servidor re-valida (esto es solo UX — no se puede saltar por offline).
+    if (requiresReceiver && !receivedBy.trim()) {
+      setError("Este cliente exige el nombre de quien recibe.");
+      return;
+    }
+    if (requiresPhoto && !photo) {
+      setError("Este cliente exige una foto de evidencia. Tómala antes de confirmar.");
+      return;
+    }
     setBusy(true);
     try {
       // Subir la foto primero; si no hay señal se entrega sin foto.
@@ -677,24 +1079,49 @@ function StopActionSheet({
         if (url) photoUrl = url;
         else photoSkipped = true;
       }
+      // Foto exigida pero no se pudo subir (sin señal): no se confirma sin la
+      // prueba que el cliente exige — se reintenta con señal (offline no la salta).
+      if (requiresPhoto && !photoUrl) {
+        setError(
+          "Sin conexión no se puede confirmar: este cliente exige foto y aún no se ha subido. Reintenta con señal.",
+        );
+        setBusy(false);
+        return;
+      }
 
+      // Posición más fresca al confirmar: lee el ref directo, no el sondeo de
+      // hace ~2 s, para que la evidencia de geocerca sea la del momento exacto.
+      // Fallback demo: sin GPS del navegador, usar la coordenada de la parada.
+      const here = geo.current ?? livePos;
+      const subLat = here?.lat ?? refLat ?? undefined;
+      const subLng = here?.lng ?? refLng ?? undefined;
+
+      // El POD solo declara las pruebas que REALMENTE tiene (el servidor
+      // valida la evidencia). Sin foto subida ni GPS no hay prueba verificable:
+      // se bloquea en lugar de fingir una foto (B2B: defensa ante disputas).
       const types: string[] = [];
       if (photoUrl) types.push("PHOTO");
-      if (lat !== undefined) types.push("GEOFENCE");
-      if (types.length === 0) types.push("PHOTO");
+      if (subLat !== undefined && subLng !== undefined) types.push("GEOFENCE");
+      if (types.length === 0) {
+        setError(
+          "Sin foto ni señal GPS no se puede confirmar la entrega. Toma una foto o espera la ubicación.",
+        );
+        setBusy(false);
+        return;
+      }
 
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
         types,
         photoUrl,
         receivedBy: receivedBy || undefined,
-        lat,
-        lng,
+        lat: subLat,
+        lng: subLng,
       });
       // Pin-drop: aprender la ubicación real de la entrega si difiere del pin.
-      if (offerPinFix && fixPin && geo) {
+      if (offerPinFix && fixPin && here) {
         await apiOrQueue(`/addresses/orders/${stop.order.id}/driver-fix`, {
-          lat: geo.lat,
-          lng: geo.lng,
+          lat: here.lat,
+          lng: here.lng,
         });
       }
       if (photoSkipped) {
@@ -721,13 +1148,24 @@ function StopActionSheet({
       if (photo) {
         const url = await uploadPodPhoto(photo.blob);
         if (url) photoUrl = url;
-        // Sin señal: el fallo se registra igual; la foto quedó tomada en el
-        // dispositivo pero no se pudo subir.
       }
+      // Evidencia obligatoria para motivos disputables: si la foto no se pudo
+      // subir (sin señal), NO se encola sin evidencia — el servidor la
+      // rechazaría igual. El conductor reintenta con señal (offline no se salta
+      // la evidencia).
+      if (EVIDENCE_REQUIRED_REASONS.includes(failReason) && !photoUrl) {
+        setError(
+          "Sin conexión no se puede registrar este fallo: requiere foto de evidencia. Reintenta con señal.",
+        );
+        setBusy(false);
+        return;
+      }
+      // Posición más fresca al registrar el fallo (igual que en la entrega).
+      const here = geo.current ?? livePos;
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
         reason: failReason,
-        lat,
-        lng,
+        lat: here?.lat ?? refLat ?? undefined,
+        lng: here?.lng ?? refLng ?? undefined,
         photoUrl,
       });
       onDone(queued);
@@ -780,6 +1218,19 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
+            {podRequired.length > 0 && (
+              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Este cliente exige:{" "}
+                {[
+                  requiresPhoto ? "foto de evidencia" : null,
+                  requiresReceiver ? "nombre de quien recibe" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            )}
+
             {/* Escaneo del paquete: evita entregar el bulto equivocado. */}
             {scan === null ? (
               <button
@@ -813,7 +1264,7 @@ function StopActionSheet({
             {!isPickup && (
               <input
                 className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
-                placeholder="¿Quién recibe?"
+                placeholder={requiresReceiver ? "¿Quién recibe? (obligatorio)" : "¿Quién recibe?"}
                 aria-label="Nombre de quien recibe"
                 value={receivedBy}
                 onChange={(e) => setReceivedBy(e.target.value)}
@@ -864,6 +1315,25 @@ function StopActionSheet({
                 >
                   Repetir
                 </button>
+              </div>
+            )}
+
+            {/* Geocerca: dónde estás respecto al punto de entrega, antes de
+                confirmar (el servidor re-valida y guarda geofenceOk). */}
+            {pinDriftM !== null && (
+              <div
+                role="status"
+                className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                  pinDriftM <= GEOFENCE_RADIUS_M
+                    ? "bg-emerald-50 text-emerald-800"
+                    : pinDriftM <= ADDRESS_FIX_THRESHOLD_M
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-red-50 text-red-700"
+                }`}
+              >
+                {pinDriftM <= GEOFENCE_RADIUS_M
+                  ? "✅ Estás en el punto de entrega"
+                  : `📍 Estás a ~${pinDriftM} m del punto de entrega`}
               </div>
             )}
 

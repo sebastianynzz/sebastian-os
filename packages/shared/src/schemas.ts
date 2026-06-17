@@ -1,12 +1,16 @@
 import { z } from "zod";
 import {
+  DRIVER_STATUSES,
+  POD_REQUIREMENTS,
   POD_TYPES,
   TELEMETRY_SOURCES,
+  TEMP_PROFILES,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
   TENANT_STATUSES,
   VEHICLE_COMMAND_TYPES,
+  VEHICLE_STATUSES,
   VEHICLE_TYPES,
 } from "./enums.js";
 
@@ -48,6 +52,10 @@ export const clientFields = z.object({
   pickupNotes: z.string().optional(),
   pickupLat: z.number().min(-90).max(90).optional(),
   pickupLng: z.number().min(-180).max(180).optional(),
+  // Política POD configurable: pruebas que ESTE comercio exige para aceptar
+  // una entrega (el servidor la hace cumplir en /complete). Vacío = sin
+  // exigencia extra (se conserva el comportamiento actual).
+  podRequired: z.array(z.enum(POD_REQUIREMENTS)).default([]),
 });
 
 const requireWebhookUrl = (c: { notifyChannel?: string; webhookUrl?: string }) =>
@@ -73,6 +81,9 @@ export const createOrderSchema = z.object({
   timeWindowEnd: z.string().datetime().optional(),
   weightKg: z.number().positive().optional(),
   volumeM3: z.number().positive().optional(),
+  // Perfil de cadena de frío del pedido. AMBIENT (seco) por defecto; CHILLED/
+  // FROZEN obligan a una Cold Box compatible en la asignación (optimizador).
+  tempProfile: z.enum(TEMP_PROFILES).default("AMBIENT"),
   priority: z.number().int().min(0).max(10).default(0),
   // Recogida en origen (opcional). Si se da pickupAddressRaw sin coordenadas,
   // se geocodifica. Habilita el flujo pickup→delivery.
@@ -97,6 +108,7 @@ export const portalCreateOrderSchema = z
     addressNotes: z.string().optional(),
     externalRef: z.string().optional(),
     weightKg: z.number().positive().optional(),
+    tempProfile: z.enum(TEMP_PROFILES).default("AMBIENT"),
     pickupMode: z.enum(["REGISTERED", "CUSTOM", "NONE"]).default("REGISTERED"),
     pickupAddressRaw: z.string().min(3).optional(),
     pickupNotes: z.string().optional(),
@@ -119,18 +131,48 @@ export const createDriverSchema = z.object({
   documentId: z.string().min(5),
   email: z.string().email().optional(),
   password: z.string().min(8).optional(),
+  licenseExpiresAt: z.string().datetime().optional(),
 });
+
+/** Actualización de conductor: disponibilidad y/o vencimiento de licencia. */
+export const updateDriverSchema = z
+  .object({
+    status: z.enum(DRIVER_STATUSES).optional(),
+    // null limpia la fecha; ausente la deja igual.
+    licenseExpiresAt: z.string().datetime().nullable().optional(),
+  })
+  .refine((d) => d.status !== undefined || d.licenseExpiresAt !== undefined, {
+    message: "Nada que actualizar",
+  });
+
+/** Vista guardada del panel: filtros (mapa string→string) con nombre por página. */
+export const createSavedViewSchema = z.object({
+  page: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  filters: z.record(z.string(), z.string()),
+});
+export type CreateSavedViewInput = z.infer<typeof createSavedViewSchema>;
 
 export const createVehicleSchema = z.object({
   plate: z.string().min(5).max(8),
   type: z.enum(VEHICLE_TYPES),
   capacityKg: z.number().positive(),
   capacityM3: z.number().positive().optional(),
-  isElectric: z.boolean().default(false),
+  // EV-only (restricción dura 1): toda la flota MoveOS es eléctrica. Por
+  // defecto eléctrico y se rechaza explícitamente un vehículo de combustión —
+  // el API es la fuente de verdad, no solo la UI.
+  isElectric: z
+    .boolean()
+    .default(true)
+    .refine((v) => v === true, {
+      message:
+        "La flota MoveOS es 100% eléctrica: no se permiten vehículos de combustión (ICE).",
+    }),
   batteryKwh: z.number().positive().optional(),
   nominalRangeKm: z.number().positive().optional(),
   soatExpiresAt: z.string().datetime().optional(),
   tecnoExpiresAt: z.string().datetime().optional(),
+  status: z.enum(VEHICLE_STATUSES).optional(),
 });
 
 export const planRoutesSchema = z.object({
@@ -152,16 +194,30 @@ export const trackingPingSchema = z.object({
   routeId: z.string().optional(),
 });
 
-export const submitPodSchema = z.object({
-  types: z.array(z.enum(POD_TYPES)).min(1),
-  photoUrl: z.string().url().optional(),
-  signatureUrl: z.string().url().optional(),
-  otpCode: z.string().optional(),
-  receivedBy: z.string().optional(),
-  notes: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-});
+export const submitPodSchema = z
+  .object({
+    types: z.array(z.enum(POD_TYPES)).min(1),
+    photoUrl: z.string().url().optional(),
+    signatureUrl: z.string().url().optional(),
+    otpCode: z.string().optional(),
+    receivedBy: z.string().optional(),
+    notes: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+  })
+  // Integridad del POD (fuente de verdad = servidor): una prueba declarada debe
+  // venir con su evidencia. Evita registrar una entrega como "con foto/firma/
+  // OTP/geocerca" sin la evidencia correspondiente (también desde la cola offline).
+  .superRefine((p, ctx) => {
+    if (p.types.includes("PHOTO") && !p.photoUrl)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba PHOTO requiere photoUrl", path: ["photoUrl"] });
+    if (p.types.includes("SIGNATURE") && !p.signatureUrl)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba SIGNATURE requiere signatureUrl", path: ["signatureUrl"] });
+    if (p.types.includes("OTP") && !p.otpCode)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba OTP requiere otpCode", path: ["otpCode"] });
+    if (p.types.includes("GEOFENCE") && (p.lat === undefined || p.lng === undefined))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba GEOFENCE requiere lat y lng", path: ["lat"] });
+  });
 
 /**
  * Ping de telemetría desde un dispositivo, el smartphone del conductor o el
@@ -190,21 +246,38 @@ export const vehicleCommandSchema = z.object({
   reason: z.string().max(280).optional(),
 });
 
-export const failStopSchema = z.object({
-  reason: z.enum([
-    "CLIENTE_AUSENTE",
-    "DIRECCION_ERRADA",
-    "RECHAZO_PRODUCTO",
-    "ZONA_INSEGURA",
-    "OTRO",
-  ]),
-  notes: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  // Foto de evidencia del fallo. La app la exige para los motivos disputables
-  // (CLIENTE_AUSENTE, RECHAZO_PRODUCTO): defensa ante disputas del comercio.
-  photoUrl: z.string().url().optional(),
-});
+/**
+ * Motivos de fallo "disputables": el comercio puede objetarlos, así que exigen
+ * foto de evidencia. La validación es la FUENTE DE VERDAD (servidor): un fallo
+ * sin foto no se acepta, ni siquiera reproducido desde la cola offline —
+ * "verificar que offline no pueda saltarse la evidencia".
+ */
+export const DISPUTABLE_FAIL_REASONS = [
+  "CLIENTE_AUSENTE",
+  "RECHAZO_PRODUCTO",
+] as const;
+
+export const failStopSchema = z
+  .object({
+    reason: z.enum([
+      "CLIENTE_AUSENTE",
+      "DIRECCION_ERRADA",
+      "RECHAZO_PRODUCTO",
+      "ZONA_INSEGURA",
+      "OTRO",
+    ]),
+    notes: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+    // Foto de evidencia del fallo (defensa ante disputas del comercio).
+    photoUrl: z.string().url().optional(),
+  })
+  .refine(
+    (f) =>
+      !(DISPUTABLE_FAIL_REASONS as readonly string[]).includes(f.reason) ||
+      !!f.photoUrl,
+    { message: "Este motivo requiere foto de evidencia", path: ["photoUrl"] },
+  );
 
 export type PortalCreateOrderInput = z.infer<typeof portalCreateOrderSchema>;
 export type CreatePortalAccessInput = z.infer<typeof createPortalAccessSchema>;
@@ -213,6 +286,7 @@ export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateClientInput = z.infer<typeof createClientSchema>;
 export type CreateDriverInput = z.infer<typeof createDriverSchema>;
+export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type PlanRoutesInput = z.infer<typeof planRoutesSchema>;
 export type TrackingPingInput = z.infer<typeof trackingPingSchema>;

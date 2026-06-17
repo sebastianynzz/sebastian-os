@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
   Banner,
   Button,
@@ -40,6 +41,9 @@ const CHANNEL_LABELS: Record<string, string> = {
   WEBHOOK: "Webhook (API)",
 };
 
+// Tamaño de página del feed de avisos (paginación por ventana).
+const FEED_PAGE = 20;
+
 const TEMPLATE_LABELS: Record<string, string> = {
   envio_en_reparto: "Envío en reparto",
   envio_entregado: "Envío entregado",
@@ -51,11 +55,17 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [channel, setChannel] = useState("IN_APP");
-  const [error, setError] = useState<string | null>(null);
+  const webhookRef = useRef<HTMLInputElement>(null);
+  const [webhookTest, setWebhookTest] = useState<
+    { testing?: boolean; ok?: boolean; status?: number; error?: string } | null
+  >(null);
+  const toast = useToast();
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
   const [portalFor, setPortalFor] = useState<string | null>(null);
   const [portalMsg, setPortalMsg] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [feedExhausted, setFeedExhausted] = useState<Set<string>>(new Set());
 
   async function load() {
     try {
@@ -68,20 +78,48 @@ export default function Clientes() {
     void load();
   }, []);
 
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.contactName ?? "").toLowerCase().includes(q) ||
+        (c.email ?? "").toLowerCase().includes(q),
+    );
+  }, [clients, query]);
+
+  function markExhausted(id: string) {
+    setFeedExhausted((s) => new Set(s).add(id));
+  }
+
   async function toggleFeed(id: string) {
     if (openClient === id) {
       setOpenClient(null);
       return;
     }
-    setFeed((f) => ({ ...f, [id]: f[id] ?? [] }));
-    const n = await api<Notification[]>("GET", `/clients/${id}/notifications`);
-    setFeed((f) => ({ ...f, [id]: n }));
     setOpenClient(id);
+    if (feed[id]) return; // ya cargado: conservar la página ya vista
+    const n = await api<Notification[]>(
+      "GET",
+      `/clients/${id}/notifications?skip=0&take=${FEED_PAGE}`,
+    );
+    setFeed((f) => ({ ...f, [id]: n }));
+    if (n.length < FEED_PAGE) markExhausted(id);
+  }
+
+  async function loadMoreFeed(id: string) {
+    const current = feed[id] ?? [];
+    const more = await api<Notification[]>(
+      "GET",
+      `/clients/${id}/notifications?skip=${current.length}&take=${FEED_PAGE}`,
+    );
+    setFeed((f) => ({ ...f, [id]: [...(f[id] ?? []), ...more] }));
+    if (more.length < FEED_PAGE) markExhausted(id);
   }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     const data = new FormData(e.currentTarget);
     try {
       await api("POST", "/clients", {
@@ -93,11 +131,37 @@ export default function Clientes() {
         webhookUrl: data.get("webhookUrl") || undefined,
         pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
         pickupNotes: data.get("pickupNotes") || undefined,
+        // Política POD configurable: pruebas que este comercio exige por entrega.
+        podRequired: data.getAll("podRequired"),
       });
       setShowForm(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err);
+    }
+  }
+
+  /** Prueba la URL del webhook antes de guardar, para no descubrir que está
+   *  rota cuando ya dependa de ella un pedido real. */
+  async function testWebhook() {
+    const url = webhookRef.current?.value.trim();
+    if (!url) {
+      setWebhookTest({ ok: false, error: "Ingresa la URL primero" });
+      return;
+    }
+    setWebhookTest({ testing: true });
+    try {
+      const res = await api<{ ok: boolean; status?: number; error?: string }>(
+        "POST",
+        "/clients/test-webhook",
+        { webhookUrl: url },
+      );
+      setWebhookTest(res);
+    } catch (err) {
+      setWebhookTest({
+        ok: false,
+        error: err instanceof Error ? err.message : "Error",
+      });
     }
   }
 
@@ -168,8 +232,35 @@ export default function Clientes() {
             {channel === "WEBHOOK" && (
               <div className="sm:col-span-2">
                 <Field label="URL del webhook (recibe los eventos de entrega)">
-                  <input name="webhookUrl" type="url" className={inputClass} placeholder="https://..." />
+                  <div className="flex gap-2">
+                    <input
+                      ref={webhookRef}
+                      name="webhookUrl"
+                      type="url"
+                      className={inputClass}
+                      placeholder="https://..."
+                      onChange={() => setWebhookTest(null)}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={testWebhook}
+                      disabled={webhookTest?.testing}
+                    >
+                      {webhookTest?.testing ? "Probando…" : "Probar"}
+                    </Button>
+                  </div>
                 </Field>
+                {webhookTest && !webhookTest.testing && (
+                  <p
+                    role="status"
+                    className={`mt-1 text-sm ${webhookTest.ok ? "text-emerald-700" : "text-red-600"}`}
+                  >
+                    {webhookTest.ok
+                      ? `✅ Respondió correctamente (HTTP ${webhookTest.status})`
+                      : `❌ ${webhookTest.error ?? `Respuesta HTTP ${webhookTest.status}`}`}
+                  </p>
+                )}
               </div>
             )}
             <Field label="Dirección de recogida (origen de sus envíos del portal)">
@@ -182,13 +273,18 @@ export default function Clientes() {
             <Field label="Indicaciones de recogida">
               <input name="pickupNotes" className={inputClass} placeholder="Local 2, bodega…" />
             </Field>
-            {error && (
-              <div className="sm:col-span-2">
-                <Banner kind="error" onDismiss={() => setError(null)}>
-                  {error}
-                </Banner>
+            <Field label="Prueba de entrega exigida (política POD)">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="PHOTO" />
+                  Foto de evidencia
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="RECEIVER_NAME" />
+                  Nombre de quien recibe
+                </label>
               </div>
-            )}
+            </Field>
             <div className="sm:col-span-2">
               <Button type="submit">Crear cliente</Button>
             </div>
@@ -202,7 +298,18 @@ export default function Clientes() {
         </Banner>
       )}
 
-      <Card>
+      <Card
+        actions={
+          <input
+            type="search"
+            className={`${inputClass} sm:w-64`}
+            placeholder="Buscar negocio, contacto o correo…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Buscar negocios cliente"
+          />
+        }
+      >
         {loading ? (
           <Loading label="Cargando negocios cliente…" />
         ) : (
@@ -221,7 +328,7 @@ export default function Clientes() {
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
+            {shown.map((c) => (
               <Fragment key={c.id}>
                 <tr className={tableRowClass}>
                   <td className="py-2 font-medium">{c.name}</td>
@@ -307,6 +414,7 @@ export default function Clientes() {
                             <li key={n.id} className="flex items-baseline gap-3">
                               <span className="font-mono text-xs text-navy/50">
                                 {new Date(n.createdAt).toLocaleString("es-CO", {
+                                  timeZone: "America/Bogota",
                                   day: "2-digit",
                                   month: "2-digit",
                                   hour: "2-digit",
@@ -323,6 +431,14 @@ export default function Clientes() {
                             </li>
                           ))}
                         </ul>
+                      )}
+                      {(feed[c.id]?.length ?? 0) > 0 && !feedExhausted.has(c.id) && (
+                        <button
+                          onClick={() => void loadMoreFeed(c.id)}
+                          className="mt-2 text-xs font-medium text-navy underline hover:text-navy/70"
+                        >
+                          Ver más avisos
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -341,6 +457,13 @@ export default function Clientes() {
                   >
                     Sin negocios cliente aún. Cree el primero.
                   </EmptyState>
+                </td>
+              </tr>
+            )}
+            {clients.length > 0 && shown.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-navy/40">
+                  Ningún negocio coincide con «{query}».
                 </td>
               </tr>
             )}

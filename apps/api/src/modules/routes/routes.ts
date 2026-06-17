@@ -17,6 +17,7 @@ const clientSelect = {
   phone: true,
   notifyChannel: true,
   webhookUrl: true,
+  podRequired: true,
 } as const;
 
 const GEOFENCE_RADIUS_KM = 0.3; // 300 m para validar POD georreferenciado
@@ -66,12 +67,20 @@ export default async function routesRoutes(app: FastifyInstance) {
       const body = z.object({ driverId: z.string() }).parse(request.body);
 
       const route = await prisma.route.findFirst({
-        where: { id, tenantId: request.user.tenantId, status: "PLANNED" },
+        where: { id, tenantId: request.user.tenantId },
         include: {
           stops: { include: { order: { include: { client: { select: clientSelect } } } } },
         },
       });
-      if (!route) return reply.code(404).send({ error: "Ruta no encontrada o ya despachada" });
+      if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+      // Conflicto de transición (no "no encontrada"): otra persona ya la
+      // despachó o ya está en curso. 409 para que el front lo distinga y
+      // refresque la vista en vez de mostrar un error genérico.
+      if (route.status !== "PLANNED") {
+        return reply
+          .code(409)
+          .send({ error: "La ruta ya fue despachada o está en curso." });
+      }
 
       const driver = await prisma.driver.findFirst({
         where: { id: body.driverId, tenantId: request.user.tenantId },
@@ -179,7 +188,13 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
       include: {
         vehicle: true,
-        stops: { orderBy: { sequence: "asc" }, include: { order: true, pod: true } },
+        stops: {
+          orderBy: { sequence: "asc" },
+          include: {
+            order: { include: { client: { select: { podRequired: true } } } },
+            pod: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -249,6 +264,27 @@ export default async function routesRoutes(app: FastifyInstance) {
     const order = stop.order;
     const isPickup = stop.kind === "PICKUP";
     const now = new Date();
+
+    // Política POD configurable por cliente (FUENTE DE VERDAD = servidor): el
+    // comercio puede exigir foto y/o nombre de quien recibe para aceptar la
+    // entrega. Solo aplica a entregas (la recogida es en su propia bodega). El
+    // conductor también lo valida en el dispositivo, pero aquí no se puede
+    // saltar — ni siquiera reproducido desde la cola offline.
+    if (!isPickup) {
+      const required = order.client?.podRequired ?? [];
+      const missing: string[] = [];
+      if (required.includes("PHOTO") && !input.types.includes("PHOTO")) {
+        missing.push("una foto de evidencia");
+      }
+      if (required.includes("RECEIVER_NAME") && !input.receivedBy?.trim()) {
+        missing.push("el nombre de quien recibe");
+      }
+      if (missing.length > 0) {
+        return reply.code(422).send({
+          error: `Este cliente exige ${missing.join(" y ")} para confirmar la entrega.`,
+        });
+      }
+    }
 
     // Geocerca: validar contra el punto correcto (recogida vs entrega).
     const refLat = isPickup ? order.pickupLat : order.lat;

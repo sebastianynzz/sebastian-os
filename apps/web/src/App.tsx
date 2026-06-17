@@ -5,9 +5,11 @@ import {
   Outlet,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
-import { Loading } from "./components/ui";
+import { ToastProvider } from "./toast";import { Loading } from "./components/ui";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
 import Clientes from "./pages/Clientes";
@@ -30,7 +32,15 @@ import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
 import PortalVerde from "./pages/PortalVerde";
 
-const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
+// `module` oculta tras una entitlement de pago; `roles` restringe por rol
+// (refleja la autorización real del API — p. ej. activar/desactivar módulos es
+// solo de ADMIN, así que el DISPATCHER no debe ver esa sección).
+const NAV_ITEMS: {
+  to: string;
+  label: string;
+  module?: string;
+  roles?: string[];
+}[] = [
   { to: "/excepciones", label: "Excepciones" },
   { to: "/pedidos", label: "Pedidos" },
   { to: "/direcciones", label: "Direcciones" },
@@ -46,7 +56,8 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
-  { to: "/modulos", label: "Módulos" },
+  // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
+  { to: "/modulos", label: "Módulos", roles: ["ADMIN"] },
 ];
 
 /** Portal de clientes (rol CLIENT): navegación propia, sin plano operativo. */
@@ -59,6 +70,7 @@ const CLIENT_NAV: { to: string; label: string }[] = [
 
 function Shell() {
   const { session, loading, logout } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <Loading label="Cargando su sesión…" />;
@@ -69,11 +81,20 @@ function Shell() {
   const visibleNav = isClient
     ? CLIENT_NAV
     : NAV_ITEMS.filter(
-        (item) => !item.module || session.modules.includes(item.module),
+        (item) =>
+          (!item.module || session.modules.includes(item.module)) &&
+          (!item.roles || item.roles.includes(session.user.role)),
       );
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
+      {/* a11y: saltar el nav e ir directo al contenido (visible al enfocar con teclado). */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Saltar al contenido
+      </a>
       {/* En pantallas pequeñas la barra lateral se vuelve barra superior. */}
       <aside className="flex shrink-0 flex-col bg-navy md:w-56">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
@@ -122,7 +143,7 @@ function Shell() {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">
+      <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
         {/* Sesión de soporte: visible siempre, para que nadie opere "como
             tenant" sin que se note. La emisión quedó en PlatformAuditLog. */}
         {getImpersonatedBy() && (
@@ -139,7 +160,11 @@ function Shell() {
             </button>
           </div>
         )}
-        <Outlet />
+        {/* Límite de error por ruta: una vista que falle no tumba el shell, y
+            se reinicia al navegar (key por ruta). */}
+        <ErrorBoundary key={location.pathname} area={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );
@@ -159,6 +184,7 @@ function Home() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ToastProvider>
       <Routes>
         {/* Rastreo público: sin login, fuera del shell autenticado. */}
         <Route path="/t/:token" element={<Track />} />
@@ -193,6 +219,7 @@ export default function App() {
           <Route path="/portal/verde" element={<PortalVerde />} />
         </Route>
       </Routes>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

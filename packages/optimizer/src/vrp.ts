@@ -1,4 +1,10 @@
-import type { LatLng } from "@moveos/shared";
+import {
+  VEHICLE_TYPE_PROFILES,
+  configSupportsTempProfile,
+  type LatLng,
+  type TempProfile,
+  type VehicleType,
+} from "@moveos/shared";
 import { checkPicoYPlaca } from "./picoYPlaca.js";
 import { estimateUsableRangeKm } from "./evRange.js";
 import { haversineTravelModel, type TravelModel } from "./travel.js";
@@ -15,6 +21,42 @@ const DEFAULT_SERVICE_TIME_MIN = 6;
 const DEFAULT_DEPARTURE_MIN = 8 * 60;
 /** Jornada máxima de una ruta (minutos). */
 const MAX_ROUTE_DURATION_MIN = 10 * 60;
+
+/**
+ * Capacidad por configuración leída del catálogo (`VEHICLE_TYPE_PROFILES`),
+ * sin segunda copia. El flatbed (volumen `null`) ignora la restricción de
+ * volumen: se limita por peso (y por área de plataforma cuando se conozca).
+ */
+export function capacityOk(
+  type: VehicleType,
+  loadKg: number,
+  loadM3: number,
+): boolean {
+  const p = VEHICLE_TYPE_PROFILES[type];
+  if (loadKg > p.payloadKg) return false;
+  if (p.cargoVolumeM3 != null && loadM3 > p.cargoVolumeM3) return false;
+  return true;
+}
+
+/**
+ * Factibilidad de cadena de frío: un vehículo puede servir un pedido solo si
+ * cubre su perfil térmico. AMBIENT (o ausente) → cualquier vehículo. FROZEN →
+ * solo RAP_MOVE_COLD_BOX; CHILLED → cualquiera de las dos Cold Box.
+ */
+export function reeferOk(
+  type: VehicleType,
+  orderTempProfile?: TempProfile,
+): boolean {
+  if (!orderTempProfile || orderTempProfile === "AMBIENT") return true;
+  return configSupportsTempProfile(type, orderTempProfile);
+}
+
+/** Razón en español de una asignación de cadena de frío infactible. */
+function reeferRejectionReason(type: VehicleType, profile: TempProfile): string {
+  const r = VEHICLE_TYPE_PROFILES[type].reefer;
+  if (!r) return `Requiere cadena de frío ${profile}; vehículo no refrigerado`;
+  return `Vehículo refrigerado no soporta ${profile} (solo ${r.modes.join("/")})`;
+}
 
 interface VehicleState {
   vehicle: OptimizableVehicle;
@@ -108,6 +150,58 @@ function simulateRoute(ctx: SimContext, orders: OptimizableOrder[]): SimResult |
   if (clock - ctx.departureMin > ctx.maxDurationMin) return null;
 
   return { stops, totalDistanceKm: totalKm, totalDurationMin: clock - ctx.departureMin };
+}
+
+/**
+ * Evalúa una secuencia FIJA de pedidos SIN reoptimizar: recalcula ETAs,
+ * distancia y duración con el mismo modelo que el planificador, o devuelve null
+ * si la secuencia viola ventanas horarias, autonomía o jornada. La usa el ajuste
+ * manual de paradas antes de despachar (el despachador fija el orden de visita).
+ */
+export interface EvaluateSequenceRequest {
+  /** Pedidos en el orden de visita deseado (cada uno: recogida→entrega). */
+  orders: OptimizableOrder[];
+  vehicle: OptimizableVehicle;
+  depot: LatLng;
+  departureMin?: number;
+  /** Presupuesto de autonomía (km). Infinity para combustión. */
+  rangeBudgetKm: number;
+  maxDurationMin?: number;
+  travel?: TravelModel;
+}
+export interface EvaluatedStop {
+  orderId: string;
+  kind: "PICKUP" | "DELIVERY";
+  etaMin: number;
+}
+export interface EvaluateSequenceResult {
+  stops: EvaluatedStop[];
+  totalDistanceKm: number;
+  totalDurationMin: number;
+}
+export function evaluateSequence(
+  req: EvaluateSequenceRequest,
+): EvaluateSequenceResult | null {
+  const ctx: SimContext = {
+    start: req.depot,
+    returnTo: req.depot,
+    vehicle: req.vehicle,
+    departureMin: req.departureMin ?? DEFAULT_DEPARTURE_MIN,
+    rangeBudgetKm: req.rangeBudgetKm,
+    maxDurationMin: req.maxDurationMin ?? MAX_ROUTE_DURATION_MIN,
+    travel: req.travel ?? haversineTravelModel(),
+  };
+  const sim = simulateRoute(ctx, req.orders);
+  if (!sim) return null;
+  return {
+    stops: sim.stops.map((s) => ({
+      orderId: s.orderId,
+      kind: s.kind,
+      etaMin: Math.round(s.etaMin),
+    })),
+    totalDistanceKm: Number(sim.totalDistanceKm.toFixed(2)),
+    totalDurationMin: Math.round(sim.totalDurationMin),
+  };
 }
 
 /**
@@ -224,6 +318,14 @@ export function planRoutes(request: PlanRequest): PlanResult {
     let lastRejection = "Sin vehículos disponibles";
 
     for (const state of states) {
+      // Cadena de frío: compatibilidad dura vehículo↔pedido (antes que carga).
+      if (!reeferOk(state.vehicle.type, order.tempProfile)) {
+        lastRejection = reeferRejectionReason(
+          state.vehicle.type,
+          order.tempProfile!,
+        );
+        continue;
+      }
       if (state.loadKg + order.weightKg > state.vehicle.capacityKg) {
         lastRejection = "Capacidad de peso excedida en todos los vehículos";
         continue;
@@ -341,6 +443,12 @@ export interface InsertResult {
  */
 export function insertOrderIntoRoute(req: InsertRequest): InsertResult | null {
   const travel = req.travel ?? haversineTravelModel();
+
+  // Cadena de frío: no insertar un pedido refrigerado en un vehículo que no
+  // cubre su perfil (FROZEN→solo RAP_MOVE_COLD_BOX, CHILLED→cualquier Cold Box).
+  if (!reeferOk(req.vehicle.type, req.newOrder.tempProfile)) {
+    return null;
+  }
 
   if (req.currentLoadKg + req.newOrder.weightKg > req.vehicle.capacityKg) {
     return null; // capacidad de peso excedida

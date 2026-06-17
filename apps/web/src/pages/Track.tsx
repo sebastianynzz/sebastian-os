@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { BASE_URL } from "../api";
+import { formatDateTimeBogota } from "../format";
 
 /**
  * Página pública de rastreo (sin login). El negocio cliente abre el enlace
@@ -124,7 +125,7 @@ export default function Track() {
               {data.deliveredAt && (
                 <div className="mt-3 rounded-lg bg-lima/30 px-3 py-2 text-sm font-medium text-navy">
                   ✅ Entregado el{" "}
-                  {new Date(data.deliveredAt).toLocaleString("es-CO")}
+                  {formatDateTimeBogota(data.deliveredAt)}
                 </div>
               )}
             </div>
@@ -147,7 +148,7 @@ export default function Track() {
                       <div className="pb-1">
                         <div className="text-sm font-medium text-navy">{e.label}</div>
                         <div className="text-xs text-navy/50">
-                          {new Date(e.at).toLocaleString("es-CO")}
+                          {formatDateTimeBogota(e.at)}
                         </div>
                       </div>
                     </li>

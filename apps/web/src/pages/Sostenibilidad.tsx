@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../api";
 import {
   Button,
@@ -14,7 +14,8 @@ import { vehicleLabel } from "./PortalVerde";
 /**
  * Informe verde mensual del tenant (módulo Analítica Pro): CO₂ de la flota
  * por tipo de vehículo y por negocio cliente — el argumento ESG para vender
- * última milla eléctrica. Imprimible para enviarlo a cada cliente.
+ * última milla eléctrica. Imprimible y exportable (CSV) para enviarlo a cada
+ * cliente.
  */
 
 interface TypeRow {
@@ -51,23 +52,92 @@ interface GreenReport {
   byClient: ClientRow[];
 }
 
+/** Celda CSV: entre comillas, con comillas internas escapadas. */
+function csvCell(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+function reportToCsv(r: GreenReport): string {
+  const rows: string[][] = [
+    ["Informe verde", r.month],
+    [],
+    ["Resumen"],
+    ["km recorridos", String(r.totalKm)],
+    ["CO2e emitido (kg)", String(r.co2Kg)],
+    ["CO2e evitado vs gasolina (kg)", String(r.co2SavedKg)],
+    ["km electricos (%)", String(r.electricSharePct ?? 0)],
+    ["arboles equivalentes/ano", String(r.treesEquivalent)],
+    ["rutas", String(r.routes)],
+    ["entregas", String(r.deliveredOrders)],
+    [
+      "CO2 por entrega (kg)",
+      r.co2PerDeliveryKg === null ? "" : String(r.co2PerDeliveryKg),
+    ],
+    [],
+    ["Por tipo de vehiculo"],
+    ["tipo", "electrico", "rutas", "km", "co2_kg", "co2_evitado_kg"],
+    ...r.byVehicleType.map((t) => [
+      vehicleLabel(t),
+      t.isElectric ? "si" : "no",
+      String(t.routes),
+      String(t.km),
+      String(t.co2Kg),
+      String(t.co2SavedKg),
+    ]),
+    [],
+    ["Por negocio cliente"],
+    ["negocio", "entregas", "km", "co2_kg", "co2_evitado_kg"],
+    ...r.byClient.map((c) => [
+      c.name,
+      String(c.deliveredOrders),
+      String(c.km),
+      String(c.co2Kg),
+      String(c.co2SavedKg),
+    ]),
+  ];
+  // BOM para que Excel reconozca UTF-8 (acentos en español).
+  return "﻿" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
 export default function Sostenibilidad() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [report, setReport] = useState<GreenReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [moduleOff, setModuleOff] = useState(false);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
+    setError(false);
     void api<GreenReport>("GET", `/analytics/green-report?month=${month}`)
       .then(setReport)
       .catch((err) => {
         if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
           setModuleOff(true);
+        } else {
+          setError(true);
         }
       })
       .finally(() => setLoading(false));
   }, [month]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function exportCsv() {
+    if (!report) return;
+    const blob = new Blob([reportToCsv(report)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `informe-verde-${report.month}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   if (moduleOff) {
     return <ModuleDisabled title="Sostenibilidad" moduleName="Analítica Pro" />;
@@ -89,7 +159,10 @@ export default function Sostenibilidad() {
               className={inputClass}
               aria-label="Mes del informe"
             />
-            <Button variant="secondary" onClick={() => window.print()}>
+            <Button variant="secondary" onClick={exportCsv} disabled={!report}>
+              Exportar CSV
+            </Button>
+            <Button variant="secondary" onClick={() => window.print()} disabled={!report}>
               Imprimir / PDF
             </Button>
           </div>
@@ -98,7 +171,18 @@ export default function Sostenibilidad() {
 
       {loading && <Loading label="Calculando huella de la flota…" />}
 
-      {!loading && report && (
+      {!loading && error && (
+        <Card>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-red-700">No se pudo calcular el informe verde.</span>
+            <Button variant="secondary" onClick={load}>
+              Reintentar
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {!loading && !error && report && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Card>
@@ -128,6 +212,15 @@ export default function Sostenibilidad() {
               <div className="text-xs text-navy/50">árboles equivalentes/año</div>
             </Card>
           </div>
+
+          {report.routes === 0 && (
+            <Card>
+              <EmptyState>
+                Sin operación registrada en {report.month}. Elige otro mes o
+                despacha rutas para ver la huella.
+              </EmptyState>
+            </Card>
+          )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Card title="Por tipo de vehículo">

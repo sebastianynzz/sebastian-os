@@ -67,6 +67,10 @@ export default async function telematicsRoutes(app: FastifyInstance) {
       where: { id: vehicle.id },
       data: {
         lastSpeedKmh: input.speedKmh ?? vehicle.lastSpeedKmh,
+        // Posición denormalizada (lat/lng son obligatorios en el ping) para el
+        // mapa de flota de plataforma sin recorrer TelemetryPing.
+        lastLat: input.lat,
+        lastLng: input.lng,
         lastSeenAt: ping.recordedAt,
         ...(input.batterySoc !== undefined ? { socPercent: input.batterySoc } : {}),
         ...(input.engineOn !== undefined ? { engineOn: input.engineOn } : {}),
