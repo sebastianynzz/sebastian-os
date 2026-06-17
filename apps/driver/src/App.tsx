@@ -253,6 +253,7 @@ export default function App() {
   const [pending, setPending] = useState(queueSize());
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
+  const [starting, setStarting] = useState(false);
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
@@ -349,9 +350,26 @@ export default function App() {
   }
 
   async function startRoute() {
-    if (!route) return;
-    await api("POST", `/routes/${route.id}/start`);
-    await load();
+    // Doble-guard: el botón se deshabilita Y la función rechaza la re-entrada,
+    // para que un doble-toque no dispare dos POST /start (arranque duplicado).
+    if (!route || starting) return;
+    setStarting(true);
+    try {
+      await api("POST", `/routes/${route.id}/start`);
+      await load();
+    } catch (err) {
+      // Iniciar ruta no se encola (es un arranque puntual, no una entrega):
+      // si falla, el conductor lo ve y reintenta.
+      setMessage(
+        err instanceof TypeError
+          ? "Sin conexión: no se pudo iniciar la ruta. Reintenta con señal."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la ruta",
+      );
+    } finally {
+      setStarting(false);
+    }
   }
 
   async function panic() {
@@ -465,9 +483,12 @@ export default function App() {
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
-            className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95"
+            disabled={starting}
+            className="w-full rounded-xl bg-lima py-4 text-lg font-bold text-navy active:brightness-95 disabled:opacity-60"
           >
-            Iniciar ruta ({route.stops.length} paradas)
+            {starting
+              ? "Iniciando…"
+              : `Iniciar ruta (${route.stops.length} paradas)`}
           </button>
         )}
 
