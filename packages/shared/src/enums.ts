@@ -71,6 +71,45 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
 };
 
 /**
+ * Catálogo de eventos del ciclo de vida que pueden notificar al NEGOCIO cliente
+ * (Tier 2, motor de notificaciones B2B). Nunca se mensajea al consumidor final.
+ * El operador decide, por evento, si notifica y con qué texto (MessageTemplate).
+ */
+export const NOTIFICATION_EVENTS = [
+  "STOP_ALLOCATED",
+  "OUT_FOR_DELIVERY",
+  "NEXT_IN_ROUTE",
+  "DEPARTED",
+  "ATTEMPTED",
+  "DELIVERED",
+  "FAILED",
+] as const;
+export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
+  STOP_ALLOCATED: "Asignado a ruta",
+  OUT_FOR_DELIVERY: "Salió a reparto",
+  NEXT_IN_ROUTE: "Próxima parada",
+  DEPARTED: "Salió del depósito",
+  ATTEMPTED: "Intento de entrega",
+  DELIVERED: "Entregado",
+  FAILED: "Entrega fallida",
+};
+/**
+ * Cuerpo por defecto de cada evento (placeholders {{guia}}, {{destinatario}},
+ * {{motivo}}, {{rastreo}}). Dirigido al negocio, en español. El operador puede
+ * personalizarlo por tenant.
+ */
+export const DEFAULT_NOTIFICATION_BODIES: Record<NotificationEvent, string> = {
+  STOP_ALLOCATED: "Tu envío {{guia}} fue asignado a una ruta.",
+  OUT_FOR_DELIVERY: "Tu envío {{guia}} salió a reparto. Seguimiento: {{rastreo}}",
+  NEXT_IN_ROUTE: "Tu envío {{guia}} es la próxima parada del conductor.",
+  DEPARTED: "El conductor salió del depósito con tu envío {{guia}}.",
+  ATTEMPTED: "Se intentó entregar tu envío {{guia}} sin éxito.",
+  DELIVERED: "Tu envío {{guia}} fue entregado a {{destinatario}}.",
+  FAILED: "La entrega de tu envío {{guia}} no se pudo completar: {{motivo}}.",
+};
+
+/**
  * Nivel de privacidad de la página pública de rastreo (Tier 2, B2B). Controla
  * cuánto se expone del envío al abrir el enlace público:
  *  - ETA_ONLY:     estado + ETA + historial (sin ubicación del conductor).

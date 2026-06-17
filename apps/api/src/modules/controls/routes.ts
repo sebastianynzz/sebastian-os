@@ -2,10 +2,14 @@ import type { FastifyInstance } from "fastify";
 import {
   costConfigSchema,
   defaultPodPolicyConfig,
+  messageTemplateSchema,
   podPolicyConfigSchema,
   trackingTierSchema,
   DEFAULT_DRIVER_COST_PER_HOUR_COP,
   DEFAULT_ENERGY_TARIFF_COP,
+  DEFAULT_NOTIFICATION_BODIES,
+  NOTIFICATION_EVENTS,
+  type NotificationEvent,
   type PodPolicyConfig,
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
@@ -106,5 +110,40 @@ export default async function controlsRoutes(app: FastifyInstance) {
       select: { trackingTier: true },
     });
     return { trackingTier: updated.trackingTier };
+  });
+
+  /**
+   * Motor de notificaciones B2B (Tier 2): por evento del ciclo de vida, ¿se
+   * notifica al negocio cliente y con qué cuerpo? Sin fila = cuerpo por defecto
+   * y activo. Solo se notifica al NEGOCIO, nunca al consumidor final.
+   */
+  app.get("/notifications", async (request) => {
+    const rows = await prisma.messageTemplate.findMany({
+      where: { tenantId: request.user.tenantId },
+    });
+    const byEvent = new Map(rows.map((r) => [r.event, r]));
+    return NOTIFICATION_EVENTS.map((event) => {
+      const row = byEvent.get(event);
+      return {
+        event,
+        enabled: row?.enabled ?? true,
+        body: row?.body ?? DEFAULT_NOTIFICATION_BODIES[event as NotificationEvent],
+        isDefault: !row,
+      };
+    });
+  });
+
+  app.patch("/notifications", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const parsed = messageTemplateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Plantilla de notificación inválida" });
+    }
+    const { event, enabled, body } = parsed.data;
+    const row = await prisma.messageTemplate.upsert({
+      where: { tenantId_event: { tenantId: request.user.tenantId, event } },
+      create: { tenantId: request.user.tenantId, event, enabled, body },
+      update: { enabled, body },
+    });
+    return { event: row.event, enabled: row.enabled, body: row.body, isDefault: false };
   });
 }

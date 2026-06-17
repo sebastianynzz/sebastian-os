@@ -10,6 +10,21 @@
 const TZ = "America/Bogota";
 const LOCALE = "es-CO";
 
+/**
+ * Renderiza una plantilla de notificación: reemplaza {{clave}} por `vars[clave]`
+ * (vacío si falta). Determinista y sin ejecución de código — solo interpolación
+ * de texto para los cuerpos B2B (motor de notificaciones, Tier 2).
+ */
+export function renderTemplate(
+  body: string,
+  vars: Record<string, unknown>,
+): string {
+  return body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, key: string) => {
+    const v = vars[key];
+    return v === undefined || v === null ? "" : String(v);
+  });
+}
+
 /** Pesos colombianos sin decimales: "$ 12.345". */
 export function formatCop(amount: number): string {
   return new Intl.NumberFormat(LOCALE, {

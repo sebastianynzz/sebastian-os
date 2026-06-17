@@ -132,6 +132,7 @@ export default async function routesRoutes(app: FastifyInstance) {
           orderId: stop.orderId,
           client: stop.order.client,
           template: "envio_en_reparto",
+          event: "OUT_FOR_DELIVERY",
           payload: {
             guia: stop.order.trackingNumber,
             destinatario: stop.order.customerName,
@@ -385,6 +386,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       orderId: order.id,
       client: order.client,
       template: "envio_entregado",
+      event: "DELIVERED",
       payload: {
         guia: order.trackingNumber,
         destinatario: order.customerName,
@@ -451,6 +453,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       orderId: stop.orderId,
       client: stop.order.client,
       template: "envio_fallido",
+      event: "FAILED",
       payload: {
         guia: stop.order.trackingNumber,
         destinatario: stop.order.customerName,

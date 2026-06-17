@@ -70,6 +70,7 @@ model Tenant {
   savedViews    SavedView[]
   depots        Depot[]
   zones         Zone[]
+  messageTemplates MessageTemplate[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -542,6 +543,25 @@ model Zone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
+}
+
+/// Plantilla de notificación B2B por evento (Tier 2, motor de notificaciones).
+/// El operador decide, por evento del ciclo de vida, si notifica al NEGOCIO
+/// cliente (`enabled`) y con qué cuerpo (`body`, con placeholders {{guia}}…).
+/// El canal lo define cada cliente (Client.notifyChannel). Nunca al consumidor
+/// final. Una fila por (tenant, evento); sin fila = comportamiento por defecto.
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event     String // NOTIFICATION_EVENTS
+  enabled   Boolean  @default(true)
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, event])
   @@index([tenantId])
 }
 

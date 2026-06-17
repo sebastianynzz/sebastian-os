@@ -13,6 +13,7 @@ import {
   type DeliveryType,
   type PickupType,
   type PodReq,
+  NOTIFICATION_EVENTS,
   TELEMETRY_SOURCES,
   TEMP_PROFILES,
   TRACKING_TIERS,
@@ -223,6 +224,16 @@ export const serviceSchema = z.object({
   active: z.boolean().default(true),
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
+
+// === Motor de notificaciones B2B (Tier 2) ===
+
+/** Plantilla de notificación por evento: ¿notifica? y con qué cuerpo. */
+export const messageTemplateSchema = z.object({
+  event: z.enum(NOTIFICATION_EVENTS),
+  enabled: z.boolean(),
+  body: z.string().min(1).max(500),
+});
+export type MessageTemplateInput = z.infer<typeof messageTemplateSchema>;
 
 // === Seguimiento público / privacidad (Tier 2) ===
 
