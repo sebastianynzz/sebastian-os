@@ -99,6 +99,18 @@ const GEOFENCE_RADIUS_M = 80;
  */
 const GEOFENCE_POLL_MS = 2000;
 
+/**
+ * Filtro de precisión del GPS: por encima de esta imprecisión (m) se ignora el
+ * fix para no contaminar la geocerca (un fix de antena a 2 km marcaría "estás
+ * en el punto" en falso). En modo ahorro toleramos fixes más gruesos a
+ * propósito, así que el umbral se relaja.
+ */
+const GPS_ACCURACY_MAX_M = 100;
+const GPS_ACCURACY_MAX_LOW_POWER_M = 500;
+
+/** Descargando y por debajo de esta carga, bajamos el GPS a modo ahorro. */
+const GPS_LOW_BATTERY_LEVEL = 0.2;
+
 /** Motivos de fallo disputables: exigen foto de evidencia. */
 const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
 
@@ -141,19 +153,75 @@ async function checkPhotoQuality(
   }
 }
 
+/** Subconjunto de la Battery Status API que usamos (no está en lib.dom). */
+interface BatteryLike {
+  charging: boolean;
+  level: number;
+  addEventListener: (type: string, cb: () => void) => void;
+  removeEventListener: (type: string, cb: () => void) => void;
+}
+
 function useGeo() {
   const pos = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Modo ahorro: el watchPosition de alta precisión drena el GPS. Si el celular
+  // del conductor está descargando y con poca batería, bajamos a modo grueso —
+  // un repartidor no puede quedarse sin teléfono a media ruta.
+  const [lowPower, setLowPower] = useState(false);
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      getBattery?: () => Promise<BatteryLike>;
+    };
+    if (!nav.getBattery) return;
+    let battery: BatteryLike | null = null;
+    let cancelled = false;
+    const apply = () => {
+      if (!battery) return;
+      const save = !battery.charging && battery.level <= GPS_LOW_BATTERY_LEVEL;
+      setLowPower((prev) => (prev === save ? prev : save));
+    };
+    void nav.getBattery().then((b) => {
+      if (cancelled) return;
+      battery = b;
+      apply();
+      b.addEventListener("levelchange", apply);
+      b.addEventListener("chargingchange", apply);
+    });
+    return () => {
+      cancelled = true;
+      battery?.removeEventListener("levelchange", apply);
+      battery?.removeEventListener("chargingchange", apply);
+    };
+  }, []);
+
+  // Re-suscribe el watch cuando cambia el modo de energía.
   useEffect(() => {
     if (!navigator.geolocation) return;
+    const maxAccuracyM = lowPower
+      ? GPS_ACCURACY_MAX_LOW_POWER_M
+      : GPS_ACCURACY_MAX_M;
+    const options: PositionOptions = lowPower
+      ? { enableHighAccuracy: false, maximumAge: 30000 }
+      : { enableHighAccuracy: true, maximumAge: 0 };
     const id = navigator.geolocation.watchPosition(
       (p) => {
+        // Filtro de precisión: descarta fixes muy imprecisos salvo que aún no
+        // tengamos ninguno (mejor algo que nada para encuadrar el mapa).
+        if (
+          typeof p.coords.accuracy === "number" &&
+          p.coords.accuracy > maxAccuracyM &&
+          pos.current !== null
+        ) {
+          return;
+        }
         pos.current = { lat: p.coords.latitude, lng: p.coords.longitude };
       },
       () => {},
-      { enableHighAccuracy: true },
+      options,
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [lowPower]);
+
   return pos;
 }
 
