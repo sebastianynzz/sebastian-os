@@ -30,6 +30,7 @@ import Copilot from "./pages/Copilot";
 import ControlesPod from "./pages/ControlesPod";
 import ControlesServicios from "./pages/ControlesServicios";
 import ControlesDepots from "./pages/ControlesDepots";
+import ControlesZonas from "./pages/ControlesZonas";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -63,6 +64,8 @@ const NAV_ITEMS: {
   { to: "/controles/servicios", label: "Servicios", roles: ["ADMIN"] },
   // Depósitos (multi-depot): centros de salida/regreso de rutas, solo ADMIN.
   { to: "/controles/depositos", label: "Depósitos", roles: ["ADMIN"] },
+  // Zonas de entrega: polígonos + conductores asignados, solo ADMIN.
+  { to: "/controles/zonas", label: "Zonas", roles: ["ADMIN"] },
   // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
   { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
@@ -223,6 +226,7 @@ export default function App() {
           <Route path="/modulos" element={<Modulos />} />
           <Route path="/controles/servicios" element={<ControlesServicios />} />
           <Route path="/controles/depositos" element={<ControlesDepots />} />
+          <Route path="/controles/zonas" element={<ControlesZonas />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
