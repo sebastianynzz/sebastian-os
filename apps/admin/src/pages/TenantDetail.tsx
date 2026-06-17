@@ -4,6 +4,7 @@ import {
   VEHICLE_TYPES,
   VEHICLE_TYPE_PROFILES,
   formatShortBogota,
+  moduleName,
   type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
@@ -20,7 +21,13 @@ interface TenantDetailData {
   operatorType: string;
   businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; routes: number; clients: number };
-  modules: { key: string; nombre: string; enabled: boolean; core?: boolean }[];
+  modules: {
+    key: string;
+    nombre: string;
+    enabled: boolean;
+    core?: boolean;
+    requires?: string[];
+  }[];
 }
 
 interface TenantUser {
@@ -498,7 +505,14 @@ export default function TenantDetail() {
               key={m.key}
               className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2"
             >
-              <span className="text-sm">{m.nombre}</span>
+              <div className="min-w-0">
+                <span className="text-sm">{m.nombre}</span>
+                {m.requires && m.requires.length > 0 && (
+                  <span className="block text-xs text-cielo">
+                    Requiere: {m.requires.map(moduleName).join(", ")}
+                  </span>
+                )}
+              </div>
               {m.core ? (
                 <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
                   Núcleo

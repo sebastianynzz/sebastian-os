@@ -189,7 +189,9 @@ export function modulesBlockingDisable(
   return blockers;
 }
 
-/** Nombre legible de un módulo (para mensajes al usuario). */
-export function moduleName(key: ModuleKey): string {
+/** Nombre legible de un módulo (para mensajes al usuario). Acepta `string`
+ *  para usarse con arrays serializados (`requires`) en el frontend; si la clave
+ *  no existe, devuelve la clave tal cual. */
+export function moduleName(key: string): string {
   return MODULE_CATALOG.find((m) => m.key === key)?.nombre ?? key;
 }

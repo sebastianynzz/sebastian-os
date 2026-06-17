@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { moduleName } from "@moveos/shared";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -11,6 +12,8 @@ interface ModuleInfo {
   enabled: boolean;
   /** Módulo de núcleo (p. ej. flota eléctrica): siempre activo, no togglable. */
   core?: boolean;
+  /** Otros módulos que este requiere (se activan en cascada). */
+  requires?: string[];
 }
 
 /**
@@ -67,6 +70,11 @@ export default function Modulos() {
               <div>
                 <h3 className="font-semibold">{m.nombre}</h3>
                 <p className="mt-1 text-sm text-navy/60">{m.descripcion}</p>
+                {m.requires && m.requires.length > 0 && (
+                  <p className="mt-1 text-xs text-navy/50">
+                    Requiere: {m.requires.map(moduleName).join(", ")}
+                  </p>
+                )}
               </div>
               {m.core ? (
                 <span className="shrink-0 rounded-full bg-lima/30 px-3 py-1 text-xs font-bold text-navy">

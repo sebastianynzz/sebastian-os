@@ -260,6 +260,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         // Núcleo: siempre activo (EV-only — restricción dura 1.3).
         enabled: m.core === true || (enabledByKey.get(m.key) ?? false),
         core: m.core === true,
+        requires: m.requires ?? [],
       })),
     };
   });
