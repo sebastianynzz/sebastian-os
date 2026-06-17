@@ -1,145 +1,135 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/dazzling-rubin-ri547l` (pushed through `61d9345`).
-Paste the prompt below as the first message of a fresh session, and re-attach the
-4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
-vehicleTypeProfiles) — uploads don't carry across sessions.
+Branch: `claude/relaxed-ramanujan-jqykyw` (pushed through `925071d`).
+Resume work at **Phase D3b** (see "What's left").
 
 To resume:
 
 ```bash
-cd /home/user/move-os && git checkout claude/dazzling-rubin-ri547l && git pull && claude
+cd /home/user/move-os && git checkout claude/relaxed-ramanujan-jqykyw && git pull && claude
 ```
+
+The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
+(uploads do NOT carry across sessions — read them from the repo).
 
 ---
 
-## Kickoff prompt
+## Kickoff prompt (paste as the first message of a fresh session)
 
-Continue the MoveOS go-live build on branch `claude/dazzling-rubin-ri547l` (already
-checked out, pushed through commit `61d9345`). Read `CLAUDE.md` AND this file's
-ledger below first (EV-only, B2B-only, tenant isolation, Spanish/America-Bogotá).
-I've re-attached the 4 spec docs.
+> Continue the MoveOS go-live build on branch `claude/relaxed-ramanujan-jqykyw`
+> (already checked out, pushed through `925071d`). Read `CLAUDE.md` and the
+> specs in `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`, then read
+> the ledger below. Respect the hard constraints: EV-only, **B2B-only (no
+> direct-to-consumer messaging)**, **no payments/COD**, tenant isolation,
+> Spanish + America/Bogotá, "deterministic solvers do the math; the LLM only
+> triggers and explains; confirm-before-mutate."
+>
+> Phases A, B, C are DONE; Phase D Tier-1 is in progress (D1, D2, D3a done).
+> **Start at D3b.** Before coding each chunk: list the files you'll touch + a
+> 3–5 line plan. After coding: add/extend tests, run the build + test gates,
+> confirm CLAUDE.md compliance and design-token usage (no hardcoded hex), then
+> commit + push and STOP to summarize. One feature per commit. Keep additive
+> Prisma migrations (`migrate deploy`-safe). Do not reintroduce COD.
 
-**Before coding, propose what to work on from "Next story" below and wait for my
-pick** — the remaining items are either low-value mechanical, need a dependency
-decision, or are underspecified polish. Don't auto-grind; recommend and confirm.
+---
 
-**DONE (committed & green):**
-- **Phase A** — 6-config EV vehicle catalog (shared enum + `VEHICLE_TYPE_PROFILES`,
-  additive migration + remap, optimizer diff, type-driven `Vehiculos.tsx`).
-- **Phase B** — full 9-action AI optimization layer
-  (`packages/shared/aiActions.ts`; `apps/api/src/modules/ai/{registry,executor,explain,routes}.ts`;
-  `AiProposal` model; `<AiOptimizeButton>`; Copiloto unified via
-  `/copilot/actions/confirm` → same `applyProposal`). Actions: optimize_routes,
-  reoptimize_route, resolve_addresses (mutating); optimize_load, pick_vehicle,
-  optimize_charging, optimize_cold_chain, optimize_schedule, plan_capacity
-  (advisory — persistence deferred by product decision).
-- **Phase C (initial 8 stories)** — error boundaries (web/admin/driver);
-  tenant-isolation test (`isolation.test.ts`); i18n helpers
-  (`apps/web/src/format.ts`, dispatcher pages only); driver PWA update toast
-  (`sw.template.js`/`sw.ts`/`UpdateToast`); offline-queue hardening (driver
-  `api.ts` + `OfflineQueue.tsx`); fail-evidence + POD-evidence enforcement
-  (`failStopSchema`/`submitPodSchema` refines + tests); deliver geofence feedback.
-- **Phase C — Part 1 Driver (9 stories, this session)** all in
-  `apps/driver/src/{App.tsx,api.ts}`, gated by `pnpm --filter @moveos/driver build`
-  (driver app has no unit harness): continuously-live geofence (geo **ref** +
-  2s poll, freshest fix at submit); GPS battery-aware mode (Battery Status API,
-  low-power on discharging ≤20%) + accuracy filter (drop >100m/>500m fixes);
-  start-route double-guard + error feedback; SOS confirm window (idle→confirm→
-  sent, 10s auto-disarm) + re-send; POD photo upload retry-with-backoff (3x,
-  skip 4xx); connection-status pill (online/offline); auth session-expiry
-  (`SESSION_EXPIRED_EVENT` on 401-with-token → clean re-login) + network-vs-creds
-  login copy; today's route SWR cache + first-load skeleton + pull-to-refresh;
-  StopCard current-stop ring + SIGUIENTE/EN SITIO (ARRIVED) badge.
+## DONE this session (committed + pushed, builds green)
 
-**WHAT'S LEFT (Phase C, doc order):**
-1. **Part 4 cross-cutting** — DONE: typed-error toast+retry system
-   (`apps/web/src/toast.tsx`, adopted by Rutas + Modulos; other pages can adopt
-   incrementally — mechanical, low value); i18n single-source Bogotá formatting in
-   `@moveos/shared`; idempotent order creation by externalRef (`idempotency.test.ts`).
-   STILL LEFT: performance (virtualization/memoization beyond the Pedidos window);
-   broad a11y & responsive sweep; broader observability.
-2. **Part 1 Driver** — DONE except minor polish (nav deeplink polish; dark mode;
-   tap-target a11y audit). **client-configurable POD** shipped in `bc6b830`:
-   `Client.podRequired` (`POD_REQUIREMENTS` = PHOTO | RECEIVER_NAME, additive
-   migration `20260617000000_client_pod_policy`), enforced server-side on
-   `/routes/stops/:id/complete` (422, source of truth), configured on the
-   Clientes form, enforced pre-submit in the driver deliver sheet; e2e in
-   `podPolicy.test.ts`.
-3. **Part 2 Web** — DONE so far: Pedidos CSV import per-row errors (`2c5d40b`,
-   `/orders/bulk` returns `{created,failed,results}`, `bulkImport.test.ts`);
-   Pedidos windowed server pagination + "Ver más" (`6314895`); Rutas 409
-   transition conflicts + status-aware dispatch (`cf15f7d`, `/routes/:id/dispatch`
-   404-vs-409); Clientes test-webhook (`0380960`, `POST /clients/test-webhook`,
-   `webhookTest.test.ts`); Planificación order filter + bulk select (`8348b1a`).
-   Also DONE: MapaEnVivo EV-only telemetry (`306c4df`, dropped RPM/fuel/coolant)
-   + follow-vehicle (`0bb5057`); web-wide role-based nav (`b696508`, `roles` on
-   NAV_ITEMS, Módulos → ADMIN only); **EV page (`Ev.tsx`) hardened** — range
-   calculator wiring the existing `/ev/range-estimate` + client-side charging
-   directory search (`8b338ed`, `ev.test.ts` range-estimate coverage), and reefer
-   energy-draw surfaced from `VEHICLE_TYPE_PROFILES` via `reeferEnergyKwh`
-   (`61d9345`, analytics-only/never a range penalty; Cold Box cards show kW +
-   kWh/shift). STILL LEFT: Pedidos virtualization; Planificación manual stop tweak;
-   EV charging-station *map* (search done; leaflet map optional);
-   Seguridad/Analítica/Sostenibilidad polish; Excepciones/Direcciones/Copiloto
-   finishers; Modulos; saved views; responsive.
-4. **Part 3 Admin** — DONE: FaaS vehicle assignment via 6-config catalog
-   (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always); TenantDetail
-   plan-change confirm + health badge (`d8199e7`); module dependency graph
-   (`333ddd2`, `requires` in MODULE_CATALOG, enable-cascade + 409 disable-block on
-   both toggle endpoints, `moduleDeps.test.ts`); **admin Flota clustered fleet
-   map** (`1696532`, leaflet/react-leaflet-cluster mirroring dispatcher MapaEnVivo;
-   stale-signal color + no-fix handling + plate→fly-to). Backed by position
-   denormalization (`aea3092`: additive `Vehicle.lastLat`/`lastLng` migration +
-   telemetry-ingest write + `/fleet/owned` projection; `telematics`/`platform`
-   tests). last-admin guard already enforced backend (`platform/users.ts`).
-   STILL LEFT (all underspecified polish on already-working pages — spec before
-   touching): Tenants list; Métricas; Auditoría; **data flywheel** investor
-   screen; integration-health view.
-5. **EV-only compliance (cross-cutting, done):** API now rejects ICE vehicle
-   creation (`bdef27e`, `createVehicleSchema.isElectric` default true + reject
-   false, `evOnlyVehicle.test.ts`); MapaEnVivo no longer shows ICE telemetry.
+**Phase A — Design system (complete), per `docs/01`:**
+- A1 token foundation to Manual de Identidad v2.0 (navy #233955, canvas #F3F3F3,
+  lime #CFDD80, sky #A7B6C4 + semantic/radius/shadow tokens) across web/admin/driver
+  (`fb3806f`); self-hosted **Aileron** (6 WOFF2, weights 300/400/600 + italics)
+  with active `@font-face` (`52930ad`).
+- A2 base components (`a9084f0`): Button (primary=navy, `cta`=lime, ghost),
+  navy-focus inputs, token Badges/Banner, `KpiCard`, `PillToggle`, `Modal`,
+  `Drawer`, warm `EmptyState`.
+- A3 restyle: web (`9a8d7b6`), admin dark theme (`0671993`), driver tokenize
+  (`432fdb2`) + **user-switchable dark/light theme, dark-first** (`102d702`).
+- Logo (`925071d`): `move-{lime,navy,white}.svg` in each app's `public/`, wired
+  into both shells, both logins, driver header. **Generated from Aileron
+  outlines** because the official file never transferred (only arrived as chat
+  images) — swap `apps/*/public/move-*.svg` with the official asset anytime.
 
-**PROTOCOL:** one story per chunk; before coding name the files + a 3-5 line plan;
-after coding add/extend tests, run type-check + tests, confirm CLAUDE.md
-compliance, then commit/push and STOP to summarize. Solvers are deterministic;
-the LLM only triggers and explains; confirm-before-mutate on every mutation.
+**Phase D — competitive Tier 1 (`docs/04`):**
+- **D1 strategy selector** (`ef1a728`): `OPTIMIZATION_OBJECTIVES` (5, default
+  BALANCE) in `@moveos/shared`; `planRoutes()` assignment policy per objective
+  (`assignmentScore`); threaded API `runPlan`→`solveVrp`; Planificación `<select>`.
+  77 optimizer tests pass (incl. new objective test).
+- **D2 configurable POD per type** (`4766b43` backend, `64e1464` frontend):
+  `DELIVERY_TYPES/PICKUP_TYPES/POD_REQ`, `podPolicyConfigSchema`,
+  `resolvePodReq()`; `PodPolicy` model + `ProofOfDelivery.deliveryType` (migration
+  `20260618000000_pod_policy_by_type`); `/controls/pod-policy` (GET/PATCH, ADMIN);
+  enforcement in `/routes/stops/:id/complete` (per-type + per-client); Controles ›
+  "Prueba de entrega" page; driver deliver-sheet type picker.
+  **NO COD** (deliberate deviation from Spoke — MoveOS takes no payments).
+  Tests: `controlsPodPolicy.test.ts` (3) + `podPolicy`/`podEvidence` (8) green.
+- **D3a Services/SLA foundation** (`fd9d44c`): `SERVICE_STOP_TYPES`, `WEEKDAYS`,
+  `serviceSchema`, `slaDueAt()`/`isSlaBreached()`; `Service` model + nullable
+  `Order.serviceId` FK (migration `20260618010000_services_sla`); `/services`
+  CRUD module (GET any-staff; POST/PATCH/DELETE ADMIN; 409 on dup identifier);
+  `createOrder` persists `serviceId`. Smoke-verified; **no e2e test yet** (D3b).
 
-**ENVIRONMENT NOTES:**
-- Tests need Postgres, which **stops between turns**. Restart with:
+(Phases B vehicle types + C AI optimization were completed by prior sessions.)
+
+## What's left
+
+**D3b — finish Services/SLA (start here):**
+1. `SLA_BREACH` in the Exceptions Cockpit — `apps/api/src/services/exceptions.ts`
+   already has `order.createdAt`; join the order's `service` and raise a breach
+   (or predicted breach) exception via the existing exception machinery.
+2. Per-client SLA report in analytics.
+3. **Controles › Servicios** CRUD page (web) + a service column/filter on Pedidos
+   (`Order.serviceId`); send `serviceId` on order create (single + portal).
+4. `services` e2e test (mirror `controlsPodPolicy.test.ts`); add an `slaDueAt`
+   unit test.
+
+**D4 multi-depot · D5 delivery zones · D6 cost/failure analytics** (energy-native
+cost = routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification
+engine B2B-only, developer platform, custom stop props, driver permissions, barcode).
+
+**Carry-over polish:**
+- `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
+  in the Phase E a11y pass (it's the spec-defined caption color; left as-spec).
+- **Aileron Medium (500)** not provided — weight 500 currently falls back to
+  Regular 400 (no faux-bold). Drop `apps/*/public/fonts/aileron-medium.woff2` +
+  add a 500 `@font-face` when available.
+- Official **logo** file (see above) to replace the font-derived SVGs.
+
+## Environment notes
+
+- **Postgres stops between turns / on container restart.** Bring it up:
   ```bash
   export PATH=/usr/lib/postgresql/16/bin:$PATH
-  pg_isready -h localhost -p 5432 || su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgdata -o '-p 5432' -l /tmp/pg.log start"
+  pg_isready -h localhost -p 5432 || su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/lib/moveos-pg -l /tmp/pg.log start"
+  export DATABASE_URL="postgresql://moveos:moveos@localhost:5432/moveos"
   ```
-  Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
-  `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 140**; all frontends build; migrations apply
-  clean to a fresh DB. (API 140 incl. platform module-dep cascade/block test.)
-- Prioritized batch DONE: (1) global typed-error toast+retry (`3aab72e`,
-  `apps/web/src/toast.tsx`, adopted by Rutas + Modulos `34ae136`; rest optional);
-  (2) i18n single-source Bogotá formatting in `@moveos/shared` (`c32b98e`, fixed
-  timezone bug in portal/Track/admin); (3) TenantDetail plan-confirm + health badge
-  (`d8199e7`); (4) module dependency graph (`333ddd2`, `requires` in MODULE_CATALOG,
-  enable-cascade + 409 disable-block on both toggle endpoints, `moduleDeps.test.ts`).
-  DEFERRED by product decision: marker clustering (do with Flota), saved views (UX).
-- A **GateGuard** hook fact-gates the first write/edit per file (state
-  importers/callers + the user's instruction, then retry the identical call). To
-  quiet it: run with `ECC_GATEGUARD=off`.
+  First-time setup, demo logins, and the headless-Chromium driver are documented
+  in the `run-move-os` skill (`.claude/skills/run-move-os/SKILL.md`). After schema
+  changes: `pnpm --filter @moveos/api exec prisma generate` then `db:migrate:deploy`.
+- **Start the API as a managed background task** (not a detached `nohup &`) — a
+  detached `tsx src/server.ts` from a prior turn can survive and hold port 3000,
+  serving a STALE build (symptom: new routes 404 while old ones 200). If that
+  happens, `pkill -9 -f "src/server.ts"` then restart.
+- **Gates:** `pnpm -r build` (6 packages, strict tsc + vite);
+  `pnpm --filter @moveos/optimizer test` (77); API e2e need Postgres:
+  `pnpm --filter @moveos/api exec vitest run src/tests/<file>`.
+- **Screenshots:** `node .claude/skills/run-move-os/driver.mjs shot <url> <out.png> [email] [pwd]`
+  (npm-bundled Chromium; the chrome-devtools MCP can't find a system Chrome here).
+  Use `waitUntil:"domcontentloaded"` for authed pages (SSE keeps the socket open,
+  so `networkidle` times out). To render an SVG/HTML to PNG, point a tiny
+  playwright-core script at a `file://` and run it FROM the skill dir (so
+  `node_modules` resolves).
+- **GateGuard** fact-gates the first write/edit per file (and the first Bash) —
+  state importers/affected API/data/instruction, then retry the identical call.
+  Quiet it with `ECC_GATEGUARD=off` or `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force`.
+- The logo SVGs were generated with `fontTools` (`SVGPathPen` over the Aileron
+  glyph outlines) — see the chat history if you need to regenerate.
 
-**Next story (pick one — all are now either low-value or need a spec):**
-- Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
-  all use the shared toast; Login/Track stay inline by design.
-- Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`,
-  react-leaflet-cluster@^2.1.0). **Admin Flota clustered map DONE** (decision A
-  taken): position denormalized onto `Vehicle.lastLat`/`lastLng` (`aea3092`,
-  additive migration + telemetry-ingest write + `/fleet/owned` projection), then
-  the clustered map built in `apps/admin` (`1696532`, leaflet + react-leaflet +
-  react-leaflet-cluster; stale-signal gray >5min; no-fix vehicles stay in the
-  table; plate click flies the map to the vehicle).
-- Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
-  Modulos + TenantDetail.
-- Any **newly-specified** page feature. The remaining Part 2/3 "polish"
-  (Seguridad/Analítica/Sostenibilidad/Métricas/Auditoría/Flywheel,
-  Excepciones/Direcciones/Copiloto finishers, saved views, perf, a11y sweep)
-  is UNDERSPECIFIED — spec the concrete target before touching working code.
-Bring up Postgres first (env notes) and keep the `pnpm -r test` gate green.
+## Protocol
+
+One feature per commit; before coding name the files + a 3–5 line plan; after
+coding add/extend tests, run build + tests, confirm CLAUDE.md compliance + design
+tokens (no hardcoded hex), then commit/push and STOP to summarize. Solvers are
+deterministic; the LLM only triggers and explains; confirm-before-mutate on every
+mutation. Commit-message trailers:
+`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` and the `Claude-Session:` link.
