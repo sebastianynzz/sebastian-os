@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
-  Banner,
   Button,
   Card,
   EmptyState,
@@ -26,7 +26,7 @@ export default function Conductores() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function load() {
     try {
@@ -41,7 +41,6 @@ export default function Conductores() {
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     const data = new FormData(e.currentTarget);
     try {
       await api("POST", "/drivers", {
@@ -54,7 +53,7 @@ export default function Conductores() {
       setShowForm(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err);
     }
   }
 
@@ -88,13 +87,6 @@ export default function Conductores() {
             <Field label="Contraseña (opcional)">
               <input name="password" type="password" className={inputClass} minLength={8} />
             </Field>
-            {error && (
-              <div className="sm:col-span-2">
-                <Banner kind="error" onDismiss={() => setError(null)}>
-                  {error}
-                </Banner>
-              </div>
-            )}
             <div className="sm:col-span-2">
               <Button type="submit">Crear conductor</Button>
             </div>

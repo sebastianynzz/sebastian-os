@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import { api } from "../api";
-import { Banner, Button, Card, PageHeader, formatEta } from "../components/ui";
+import { useToast } from "../toast";
+import { Button, Card, PageHeader, formatEta } from "../components/ui";
 import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
 // Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
@@ -53,9 +54,9 @@ export default function Planificacion() {
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [plan, setPlan] = useState<PlanResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState("");
+  const toast = useToast();
 
   useEffect(() => {
     void (async () => {
@@ -115,7 +116,6 @@ export default function Planificacion() {
 
   async function onPlan() {
     setBusy(true);
-    setError(null);
     try {
       const res = await api<PlanResponse>("POST", "/optimization/plans", {
         date,
@@ -131,7 +131,7 @@ export default function Planificacion() {
       setPlan(res);
       setOrders(await api<Order[]>("GET", "/orders?status=GEOCODED"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err, { retry: () => void onPlan() });
     } finally {
       setBusy(false);
     }
@@ -211,12 +211,6 @@ export default function Planificacion() {
         />
         <AiOptimizeButton actionId="optimize_schedule" context={{ date }} />
       </div>
-
-      {error && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card title={`Paso 1 · Selecciona pedidos (${selectedOrders.size}/${orders.length})`}>

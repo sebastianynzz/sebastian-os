@@ -5,6 +5,7 @@ import {
   type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
   Banner,
   Button,
@@ -62,8 +63,8 @@ export default function Vehiculos() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
 
   // Estado del formulario, dirigido por la configuración seleccionada.
   const [type, setType] = useState<VehicleType>(VEHICLE_TYPES[0]);
@@ -112,7 +113,6 @@ export default function Vehiculos() {
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     const data = new FormData(e.currentTarget);
     try {
@@ -131,7 +131,7 @@ export default function Vehiculos() {
       onTypeChange(VEHICLE_TYPES[0]); // reset
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear el vehículo");
+      toast.error(err, { fallback: "Error al crear el vehículo" });
     } finally {
       setSubmitting(false);
     }
@@ -246,13 +246,6 @@ export default function Vehiculos() {
               </div>
             )}
 
-            {error && (
-              <div className="sm:col-span-3">
-                <Banner kind="error" onDismiss={() => setError(null)}>
-                  {error}
-                </Banner>
-              </div>
-            )}
             <div className="sm:col-span-3">
               <Button type="submit" disabled={submitting}>
                 {submitting ? "Creando…" : "Crear vehículo"}

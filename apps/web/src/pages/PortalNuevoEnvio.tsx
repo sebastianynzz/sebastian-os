@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
   Banner,
   Button,
@@ -37,7 +38,7 @@ interface AddressCheck {
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
   const [pickupMode, setPickupMode] = useState<"REGISTERED" | "CUSTOM" | "NONE">("REGISTERED");
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [created, setCreated] = useState<CreatedOrder | null>(null);
   const [busy, setBusy] = useState(false);
   const [addressCheck, setAddressCheck] = useState<AddressCheck | null>(null);
@@ -73,7 +74,6 @@ export default function PortalNuevoEnvio() {
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     setCreated(null);
     setBusy(true);
     const form = e.currentTarget;
@@ -95,7 +95,7 @@ export default function PortalNuevoEnvio() {
       setCreated(order);
       form.reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err);
     } finally {
       setBusy(false);
     }
@@ -245,14 +245,6 @@ export default function PortalNuevoEnvio() {
               </span>
             </label>
           </div>
-
-          {error && (
-            <div className="sm:col-span-2">
-              <Banner kind="error" onDismiss={() => setError(null)}>
-                {error}
-              </Banner>
-            </div>
-          )}
           <div className="sm:col-span-2">
             <Button type="submit" disabled={busy}>
               {busy ? "Creando…" : "Crear envío"}

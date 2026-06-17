@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
   Banner,
   Button,
@@ -55,7 +56,7 @@ export default function Clientes() {
   const [webhookTest, setWebhookTest] = useState<
     { testing?: boolean; ok?: boolean; status?: number; error?: string } | null
   >(null);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
   const [portalFor, setPortalFor] = useState<string | null>(null);
@@ -85,7 +86,6 @@ export default function Clientes() {
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     const data = new FormData(e.currentTarget);
     try {
       await api("POST", "/clients", {
@@ -103,7 +103,7 @@ export default function Clientes() {
       setShowForm(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err);
     }
   }
 
@@ -251,13 +251,6 @@ export default function Clientes() {
                 </label>
               </div>
             </Field>
-            {error && (
-              <div className="sm:col-span-2">
-                <Banner kind="error" onDismiss={() => setError(null)}>
-                  {error}
-                </Banner>
-              </div>
-            )}
             <div className="sm:col-span-2">
               <Button type="submit">Crear cliente</Button>
             </div>
