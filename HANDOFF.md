@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `8348b1a`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `bdef27e`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -65,14 +65,22 @@ docs.
    transition conflicts + status-aware dispatch (`cf15f7d`, `/routes/:id/dispatch`
    404-vs-409); Clientes test-webhook (`0380960`, `POST /clients/test-webhook`,
    `webhookTest.test.ts`); Planificación order filter + bulk select (`8348b1a`).
-   STILL LEFT: Pedidos virtualization; Planificación manual stop tweak; MapaEnVivo
-   (clustering/follow); Seguridad/Ev/Analítica/Sostenibilidad polish;
-   Excepciones/Direcciones/Copiloto finishers; Modulos; web-wide (saved views,
-   role-based nav, responsive).
-4. **Part 3 Admin** (not started): TenantDetail (validation, status/plan confirm,
-   module toggles + deps, last-admin guard, **FaaS vehicle assignment using the
-   6-config catalog**, health); Tenants list; Flota (SSE telematics, clustering);
-   Métricas; Auditoría; **data flywheel** investor screen; integration-health view.
+   Also DONE: MapaEnVivo EV-only telemetry (`306c4df`, dropped RPM/fuel/coolant)
+   + follow-vehicle (`0bb5057`); web-wide role-based nav (`b696508`, `roles` on
+   NAV_ITEMS, Módulos → ADMIN only). STILL LEFT: Pedidos virtualization;
+   Planificación manual stop tweak; map clustering (deferred to admin Flota — needs
+   leaflet cluster lib); Seguridad/Ev/Analítica/Sostenibilidad polish;
+   Excepciones/Direcciones/Copiloto finishers; Modulos; saved views; responsive.
+4. **Part 3 Admin** — DONE so far: FaaS vehicle assignment via 6-config catalog
+   (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always). last-admin guard
+   already enforced backend (`platform/users.ts`). STILL LEFT: TenantDetail health +
+   plan-change confirm + module-dep enforcement (MODULE_CATALOG has no `requires`
+   field yet — needs a product call on the dep graph); Tenants list; Flota SSE +
+   clustering; Métricas; Auditoría; **data flywheel** investor screen;
+   integration-health view.
+5. **EV-only compliance (cross-cutting, done):** API now rejects ICE vehicle
+   creation (`bdef27e`, `createVehicleSchema.isElectric` default true + reject
+   false, `evOnlyVehicle.test.ts`); MapaEnVivo no longer shows ICE telemetry.
 
 **PROTOCOL:** one story per chunk; before coding name the files + a 3-5 line plan;
 after coding add/extend tests, run type-check + tests, confirm CLAUDE.md
@@ -87,7 +95,7 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   ```
   Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
   `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 132**; all frontends build; migrations apply
+- Last green: **optimizer 73 + API 134**; all frontends build; migrations apply
   clean to a fresh DB.
 - A **GateGuard** hook fact-gates the first write/edit per file (state
   importers/callers + the user's instruction, then retry the identical call). To
