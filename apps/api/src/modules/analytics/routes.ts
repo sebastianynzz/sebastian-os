@@ -11,6 +11,7 @@ import {
   MONTH_RE,
   tenantGreenReport,
 } from "../../services/greenReport.js";
+import { tenantSlaReport } from "../../services/slaReport.js";
 
 /** Módulo Analítica Pro: KPIs operativos y financieros. */
 export default async function analyticsRoutes(app: FastifyInstance) {
@@ -96,6 +97,21 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       request.user.tenantId,
       query.month ?? currentMonth(),
     );
+  });
+
+  /**
+   * Cumplimiento de SLA por negocio cliente: para los pedidos con un Service en
+   * el rango (por defecto 30 días), cuántos se entregaron a tiempo, cuántos
+   * incumplieron y cuántos siguen en curso. Base del seguimiento de SLA y de la
+   * facturación B2B. La hora límite es determinista (`slaDueAt`).
+   */
+  app.get("/sla-report", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+    return tenantSlaReport(request.user.tenantId, range.from, range.to);
   });
 
   app.get("/notifications", async (request) => {
