@@ -89,6 +89,9 @@ function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
 /** Si llega a >300 m del pin guardado, proponemos corregirlo (flywheel). */
 const ADDRESS_FIX_THRESHOLD_M = 300;
 
+/** Radio de la geocerca: dentro de esto se considera "en el punto de entrega". */
+const GEOFENCE_RADIUS_M = 80;
+
 /** Motivos de fallo disputables: exigen foto de evidencia. */
 const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
 
@@ -884,6 +887,25 @@ function StopActionSheet({
                 >
                   Repetir
                 </button>
+              </div>
+            )}
+
+            {/* Geocerca: dónde estás respecto al punto de entrega, antes de
+                confirmar (el servidor re-valida y guarda geofenceOk). */}
+            {pinDriftM !== null && (
+              <div
+                role="status"
+                className={`rounded-lg px-3 py-2 text-xs font-medium ${
+                  pinDriftM <= GEOFENCE_RADIUS_M
+                    ? "bg-emerald-50 text-emerald-800"
+                    : pinDriftM <= ADDRESS_FIX_THRESHOLD_M
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-red-50 text-red-700"
+                }`}
+              >
+                {pinDriftM <= GEOFENCE_RADIUS_M
+                  ? "✅ Estás en el punto de entrega"
+                  : `📍 Estás a ~${pinDriftM} m del punto de entrega`}
               </div>
             )}
 
