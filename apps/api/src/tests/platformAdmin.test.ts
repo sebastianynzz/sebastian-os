@@ -344,6 +344,17 @@ describe("series de tiempo de plataforma", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("exporta la serie como CSV con encabezado y tipo text/csv", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/platform/metrics/timeseries/export?tenantId=${tenantId}`,
+      headers: { authorization: `Bearer ${platformToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.body).toContain("fecha,creados,entregados");
+  });
 });
 
 describe("filtros y exportación de auditoría", () => {

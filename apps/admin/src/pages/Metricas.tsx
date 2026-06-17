@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@moveos/shared";
-import { api } from "../api";
+import { api, BASE_URL, getToken } from "../api";
 import { TrendChart } from "../components/charts";
 import { Card, inputClass } from "../components/ui";
 
@@ -153,6 +153,7 @@ export default function Metricas() {
   const [prev, setPrev] = useState<DayPoint[] | null>(null);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const len = rangeLength(from, to);
   const rangeError =
@@ -203,6 +204,33 @@ export default function Metricas() {
     const t = todayBogota();
     setFrom(addDays(t, -(days - 1)));
     setTo(t);
+  }
+
+  async function exportCsv() {
+    if (rangeError) return;
+    setExporting(true);
+    try {
+      const p = new URLSearchParams({ from, to });
+      if (tenantId) p.set("tenantId", tenantId);
+      const res = await fetch(
+        `${BASE_URL}/platform/metrics/timeseries/export?${p.toString()}`,
+        { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} },
+      );
+      if (!res.ok) throw new Error("export");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `metricas-${from}_a_${to}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(true);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const tenantName = tenants.find((t) => t.id === tenantId)?.name;
@@ -263,6 +291,13 @@ export default function Metricas() {
               </option>
             ))}
           </select>
+          <button
+            onClick={() => void exportCsv()}
+            disabled={exporting || !!rangeError}
+            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-niebla hover:bg-white/20 disabled:opacity-50"
+          >
+            {exporting ? "Exportando…" : "⬇ Exportar CSV"}
+          </button>
         </div>
       </div>
 

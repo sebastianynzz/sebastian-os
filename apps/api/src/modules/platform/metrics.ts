@@ -38,6 +38,72 @@ export default async function platformMetricsRoutes(app: FastifyInstance) {
     return { from: range.from, to: range.to, days };
   });
 
+  /** Exporta la serie diaria (rango + tenant opcional) como CSV. */
+  app.get("/timeseries/export", async (request, reply) => {
+    const query = z
+      .object({
+        tenantId: z.string().optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+
+    let days;
+    if (query.tenantId) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: query.tenantId },
+        select: { id: true },
+      });
+      if (!tenant) return reply.code(404).send({ error: "Tenant no encontrado" });
+      days = await getTenantTimeseries(query.tenantId, range.from, range.to);
+    } else {
+      days = await getPlatformTimeseries(range.from, range.to);
+    }
+
+    const header = [
+      "fecha",
+      "creados",
+      "entregados",
+      "fallidos",
+      "rutas",
+      "paradas_completadas",
+      "distancia_km",
+      "duracion_min",
+      "conductores_activos",
+      "co2_kg",
+      "co2_evitado_kg",
+      "tasa_entrega_pct",
+    ];
+    const lines = [header.join(",")];
+    for (const d of days) {
+      lines.push(
+        [
+          d.date,
+          d.ordersCreated,
+          d.ordersDelivered,
+          d.ordersFailed,
+          d.routesPlanned,
+          d.stopsCompleted,
+          d.totalDistanceKm,
+          d.totalDurationMin,
+          d.activeDrivers,
+          d.co2Kg,
+          d.co2SavedKg,
+          d.successRate === null ? "" : (d.successRate * 100).toFixed(1),
+        ].join(","),
+      );
+    }
+    const scope = query.tenantId ? `tenant-${query.tenantId}` : "plataforma";
+    const filename = `metricas-${scope}-${range.from}_a_${range.to}.csv`;
+    reply
+      .header("Content-Type", "text/csv; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="${filename}"`);
+    // BOM para que Excel reconozca UTF-8 (acentos en español).
+    return "﻿" + lines.join("\n");
+  });
+
   app.get("/", async () => {
     const [tenants, ordersTotal, delivered, attempted, byPlan, adoption, byDay] =
       await Promise.all([
