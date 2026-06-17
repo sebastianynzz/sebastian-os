@@ -195,21 +195,38 @@ export const vehicleCommandSchema = z.object({
   reason: z.string().max(280).optional(),
 });
 
-export const failStopSchema = z.object({
-  reason: z.enum([
-    "CLIENTE_AUSENTE",
-    "DIRECCION_ERRADA",
-    "RECHAZO_PRODUCTO",
-    "ZONA_INSEGURA",
-    "OTRO",
-  ]),
-  notes: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  // Foto de evidencia del fallo. La app la exige para los motivos disputables
-  // (CLIENTE_AUSENTE, RECHAZO_PRODUCTO): defensa ante disputas del comercio.
-  photoUrl: z.string().url().optional(),
-});
+/**
+ * Motivos de fallo "disputables": el comercio puede objetarlos, así que exigen
+ * foto de evidencia. La validación es la FUENTE DE VERDAD (servidor): un fallo
+ * sin foto no se acepta, ni siquiera reproducido desde la cola offline —
+ * "verificar que offline no pueda saltarse la evidencia".
+ */
+export const DISPUTABLE_FAIL_REASONS = [
+  "CLIENTE_AUSENTE",
+  "RECHAZO_PRODUCTO",
+] as const;
+
+export const failStopSchema = z
+  .object({
+    reason: z.enum([
+      "CLIENTE_AUSENTE",
+      "DIRECCION_ERRADA",
+      "RECHAZO_PRODUCTO",
+      "ZONA_INSEGURA",
+      "OTRO",
+    ]),
+    notes: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+    // Foto de evidencia del fallo (defensa ante disputas del comercio).
+    photoUrl: z.string().url().optional(),
+  })
+  .refine(
+    (f) =>
+      !(DISPUTABLE_FAIL_REASONS as readonly string[]).includes(f.reason) ||
+      !!f.photoUrl,
+    { message: "Este motivo requiere foto de evidencia", path: ["photoUrl"] },
+  );
 
 export type PortalCreateOrderInput = z.infer<typeof portalCreateOrderSchema>;
 export type CreatePortalAccessInput = z.infer<typeof createPortalAccessSchema>;

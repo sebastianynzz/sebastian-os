@@ -723,8 +723,17 @@ function StopActionSheet({
       if (photo) {
         const url = await uploadPodPhoto(photo.blob);
         if (url) photoUrl = url;
-        // Sin señal: el fallo se registra igual; la foto quedó tomada en el
-        // dispositivo pero no se pudo subir.
+      }
+      // Evidencia obligatoria para motivos disputables: si la foto no se pudo
+      // subir (sin señal), NO se encola sin evidencia — el servidor la
+      // rechazaría igual. El conductor reintenta con señal (offline no se salta
+      // la evidencia).
+      if (EVIDENCE_REQUIRED_REASONS.includes(failReason) && !photoUrl) {
+        setError(
+          "Sin conexión no se puede registrar este fallo: requiere foto de evidencia. Reintenta con señal.",
+        );
+        setBusy(false);
+        return;
       }
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
         reason: failReason,
