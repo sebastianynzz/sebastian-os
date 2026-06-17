@@ -211,20 +211,43 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       select: { id: true, name: true },
     });
     const ownerName = new Map(owners.map((o) => [o.id, o.name]));
-    return vehicles.map((v) => ({
-      id: v.id,
-      plate: v.plate,
-      type: v.type,
-      isElectric: v.isElectric,
-      socPercent: v.socPercent,
-      engineOn: v.engineOn,
-      immobilized: v.immobilized,
-      lastSpeedKmh: v.lastSpeedKmh,
-      lastSeenAt: v.lastSeenAt,
-      operatedBy: v.tenant,
-      ownerTenantId: v.ownerTenantId,
-      ownerName: ownerName.get(v.ownerTenantId!) ?? null,
-    }));
+    // Vista cruzada de plataforma (FaaS): adjunta la última posición conocida de
+    // cada activo para pintarlo en el mapa de flota. Telemetría EV-only
+    // (Constraint 1): solo lat/lng/velocidad + marca de tiempo (para detectar
+    // pings rancios) — NUNCA RPM/combustible/refrigerante. El ping se acota al
+    // tenant operador (usa el índice [tenantId, vehicleId, recordedAt]); leer a
+    // través de tenants aquí es la vista de flota de plataforma explícita.
+    return Promise.all(
+      vehicles.map(async (v) => {
+        const last = await prisma.telemetryPing.findFirst({
+          where: { tenantId: v.tenantId, vehicleId: v.id },
+          orderBy: { recordedAt: "desc" },
+          select: { lat: true, lng: true, speedKmh: true, recordedAt: true },
+        });
+        return {
+          id: v.id,
+          plate: v.plate,
+          type: v.type,
+          isElectric: v.isElectric,
+          socPercent: v.socPercent,
+          engineOn: v.engineOn,
+          immobilized: v.immobilized,
+          lastSpeedKmh: v.lastSpeedKmh,
+          lastSeenAt: v.lastSeenAt,
+          operatedBy: v.tenant,
+          ownerTenantId: v.ownerTenantId,
+          ownerName: ownerName.get(v.ownerTenantId!) ?? null,
+          position: last
+            ? {
+                lat: last.lat,
+                lng: last.lng,
+                speedKmh: last.speedKmh,
+                recordedAt: last.recordedAt,
+              }
+            : null,
+        };
+      }),
+    );
   });
 
   /** Detalle de un tenant con la matriz completa de módulos. */

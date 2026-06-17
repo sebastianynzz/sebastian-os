@@ -195,6 +195,7 @@ describe("panel de plataforma + seguridad de planos", () => {
 
   describe("fleet-as-a-service: aprovisionar sub-operador", () => {
     let subTenantId: string;
+    let subVehicleId: string;
     const subAdminEmail = `sub-admin+${runId}@test.moveos.co`;
 
     it("la plataforma crea un tenant SUB_OPERATOR con su admin", async () => {
@@ -245,6 +246,7 @@ describe("panel de plataforma + seguridad de planos", () => {
       expect(res.status).toBe(201);
       expect(res.body.tenantId).toBe(subTenantId); // lo opera el sub-operador
       expect(res.body.ownerTenantId).toBe(tenantId); // lo posee MOVE
+      subVehicleId = res.body.id;
     });
 
     it("la flota cruzada del dueño aparece en /platform/tenants/fleet/owned", async () => {
@@ -254,6 +256,36 @@ describe("panel de plataforma + seguridad de planos", () => {
       expect(mine).toBeDefined();
       expect(mine.operatedBy.id).toBe(subTenantId);
       expect(mine.ownerTenantId).toBe(tenantId);
+      // Sin pings todavía: no hay posición para el mapa.
+      expect(mine.position).toBeNull();
+    });
+
+    it("la posición refleja el último ping (EV-only, sin campos ICE)", async () => {
+      // El ping trae campos CAN ICE; la vista de flota NO debe exponerlos.
+      await prisma.telemetryPing.create({
+        data: {
+          tenantId: subTenantId,
+          vehicleId: subVehicleId,
+          lat: 4.65,
+          lng: -74.06,
+          speedKmh: 32,
+          rpm: 2200,
+          fuelLevelPct: 80,
+          coolantTempC: 90,
+        },
+      });
+      const res = await api("GET", "/platform/tenants/fleet/owned", platformToken);
+      expect(res.status).toBe(200);
+      const mine = res.body.find((v: { plate: string }) => v.plate === "FAS99E");
+      expect(mine.position).not.toBeNull();
+      expect(mine.position.lat).toBeCloseTo(4.65);
+      expect(mine.position.lng).toBeCloseTo(-74.06);
+      expect(mine.position.speedKmh).toBe(32);
+      expect(mine.position.recordedAt).toBeTruthy();
+      // Constraint 1: telemetría EV-only — sin RPM/combustible/refrigerante.
+      expect(mine.position).not.toHaveProperty("rpm");
+      expect(mine.position).not.toHaveProperty("fuelLevelPct");
+      expect(mine.position).not.toHaveProperty("coolantTempC");
     });
 
     afterAll(async () => {
