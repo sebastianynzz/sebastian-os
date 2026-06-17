@@ -220,6 +220,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       engineOn: v.engineOn,
       immobilized: v.immobilized,
       lastSpeedKmh: v.lastSpeedKmh,
+      // Posición denormalizada del último ping; null si el vehículo aún no reporta.
+      lastLat: v.lastLat,
+      lastLng: v.lastLng,
       lastSeenAt: v.lastSeenAt,
       operatedBy: v.tenant,
       ownerTenantId: v.ownerTenantId,

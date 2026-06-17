@@ -191,6 +191,11 @@ model Vehicle {
   engineOn       Boolean   @default(true)
   immobilized    Boolean   @default(false) // motor bloqueado por comando (relé)
   lastSpeedKmh   Float?    // fuente del interlock de seguridad (apagado solo si 0)
+  // Última posición conocida, denormalizada del TelemetryPing más reciente por
+  // el path de ingesta telemática (misma fuente que lastSpeedKmh/lastSeenAt).
+  // Alimenta el mapa de flota agrupado del panel de plataforma sin recorrer pings.
+  lastLat        Float?
+  lastLng        Float?
   lastSeenAt     DateTime?
   routes         Route[]
   telemetry      TelemetryPing[]

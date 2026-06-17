@@ -254,6 +254,10 @@ describe("panel de plataforma + seguridad de planos", () => {
       expect(mine).toBeDefined();
       expect(mine.operatedBy.id).toBe(subTenantId);
       expect(mine.ownerTenantId).toBe(tenantId);
+      // El mapa de flota agrupado consume la posición denormalizada: el contrato
+      // expone lastLat/lastLng (null hasta que el vehículo reporte un ping).
+      expect(mine).toHaveProperty("lastLat");
+      expect(mine).toHaveProperty("lastLng");
     });
 
     afterAll(async () => {

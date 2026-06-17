@@ -92,6 +92,12 @@ describe("plano telemático / IoT", () => {
     expect(entry).toBeDefined();
     expect(entry.vehicle.lastSpeedKmh).toBe(32);
     expect(entry.ping.rpm).toBe(3200);
+
+    // La posición queda denormalizada en el vehículo (alimenta el mapa de flota
+    // de plataforma sin recorrer TelemetryPing).
+    const v = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    expect(v?.lastLat).toBe(4.65);
+    expect(v?.lastLng).toBe(-74.06);
   });
 
   it("RECHAZA apagar el motor en movimiento (interlock de seguridad)", async () => {
