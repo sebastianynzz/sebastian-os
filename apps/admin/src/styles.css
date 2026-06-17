@@ -91,13 +91,15 @@
 }
 
 /*
- * TODO(A1 — tipografía): self-host Aileron al recibir los .woff2 en public/fonts/.
- * El stack --font-sans ya prioriza 'Aileron' (Inter/sistema hasta entonces).
- *
- * @font-face { font-family:"Aileron"; font-weight:300; src:url("/fonts/aileron-light.woff2") format("woff2"); font-display:swap; }
- * @font-face { font-family:"Aileron"; font-weight:400; src:url("/fonts/aileron-regular.woff2") format("woff2"); font-display:swap; }
- * @font-face { font-family:"Aileron"; font-weight:500; src:url("/fonts/aileron-medium.woff2") format("woff2"); font-display:swap; }
+ * Aileron self-hosted (Manual de Identidad v2.0). Pesos: Light 300, Regular 400,
+ * SemiBold 600 (+ itálicas). Sin Medium (500) aún → el peso 500 cae a Regular 400.
  */
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/aileron-light.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: italic; font-display: swap; src: url("/fonts/aileron-light-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/aileron-regular.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/aileron-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
 
 body {
   @apply bg-navydeep text-niebla font-sans;

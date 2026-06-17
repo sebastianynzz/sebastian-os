@@ -106,15 +106,18 @@
 }
 
 /*
- * TODO(A1 — tipografía): self-host Aileron cuando lleguen los .woff2 a
- * public/fonts/. El stack --font-sans ya lista 'Aileron' primero, así que al
- * soltar los archivos se activa automáticamente (hasta entonces, Inter/sistema).
- * Aileron es libre (self-host); Soliden es licenciado → fallback a Inter.
- *
- * @font-face { font-family:"Aileron"; font-weight:300; font-style:normal; font-display:swap; src:url("/fonts/aileron-light.woff2") format("woff2"); }
- * @font-face { font-family:"Aileron"; font-weight:400; font-style:normal; font-display:swap; src:url("/fonts/aileron-regular.woff2") format("woff2"); }
- * @font-face { font-family:"Aileron"; font-weight:500; font-style:normal; font-display:swap; src:url("/fonts/aileron-medium.woff2") format("woff2"); }
+ * Aileron self-hosted (Manual de Identidad v2.0). Pesos: Light 300, Regular 400,
+ * SemiBold 600 (+ itálicas). Aileron es libre; Soliden es licenciado → Inter.
+ * Aún no hay Medium (500): el peso 500 cae a Regular 400 por el algoritmo de
+ * coincidencia de CSS (sin negrita sintética). Al recibir Aileron Medium .woff2
+ * se añade una cara 500.
  */
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/aileron-light.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: italic; font-display: swap; src: url("/fonts/aileron-light-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/aileron-regular.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/aileron-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
 
 body {
   @apply bg-canvas text-navy font-sans;
