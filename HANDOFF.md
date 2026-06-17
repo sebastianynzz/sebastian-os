@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `080e51e`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `933cb9e`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -16,7 +16,7 @@ cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && c
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `080e51e`). Read `CLAUDE.md` first (EV-only,
+checked out, pushed through commit `933cb9e`). Read `CLAUDE.md` first (EV-only,
 B2B-only, tenant isolation, Spanish/America-Bogotá). I've re-attached the 4 spec
 docs.
 
@@ -118,8 +118,8 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   all use the shared toast; Login/Track stay inline by design.
 - Marker clustering on the live maps (admin Flota first) — needs the
   `leaflet.markercluster` dependency added (deferred earlier, your call).
-- Module-deps UI hint: show "requiere TELEMATICS" next to each toggle in
-  Modulos/TenantDetail (small, real polish on top of `333ddd2`).
+- Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
+  Modulos + TenantDetail.
 - Any **newly-specified** page feature. The remaining Part 2/3 "polish"
   (Seguridad/Analítica/Sostenibilidad/Métricas/Auditoría/Flywheel,
   Excepciones/Direcciones/Copiloto finishers, saved views, perf, a11y sweep)
