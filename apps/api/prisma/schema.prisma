@@ -45,6 +45,9 @@ model Tenant {
   // energía (COP/kWh). Nullable → se usan los valores por defecto compartidos.
   driverCostPerHourCop Int?
   energyTariffCop      Float?
+  // Privacidad de la página pública de rastreo (Tier 2): ETA_ONLY |
+  // ETA_POSITION | FULL. FULL preserva el comportamiento actual.
+  trackingTier  String   @default("FULL")
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]

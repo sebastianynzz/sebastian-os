@@ -15,6 +15,7 @@ import {
   type PodReq,
   TELEMETRY_SOURCES,
   TEMP_PROFILES,
+  TRACKING_TIERS,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
@@ -222,6 +223,14 @@ export const serviceSchema = z.object({
   active: z.boolean().default(true),
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
+
+// === Seguimiento público / privacidad (Tier 2) ===
+
+/** Nivel de privacidad de la página pública de rastreo del tenant. */
+export const trackingTierSchema = z.object({
+  trackingTier: z.enum(TRACKING_TIERS),
+});
+export type TrackingTierInput = z.infer<typeof trackingTierSchema>;
 
 // === Configuración de costos (D6) ===
 

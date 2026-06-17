@@ -3,6 +3,7 @@ import {
   costConfigSchema,
   defaultPodPolicyConfig,
   podPolicyConfigSchema,
+  trackingTierSchema,
   DEFAULT_DRIVER_COST_PER_HOUR_COP,
   DEFAULT_ENERGY_TARIFF_COP,
   type PodPolicyConfig,
@@ -80,5 +81,30 @@ export default async function controlsRoutes(app: FastifyInstance) {
       driverCostPerHourCop: updated.driverCostPerHourCop ?? DEFAULT_DRIVER_COST_PER_HOUR_COP,
       energyTariffCop: updated.energyTariffCop ?? DEFAULT_ENERGY_TARIFF_COP,
     };
+  });
+
+  /**
+   * Privacidad de la página pública de rastreo (Tier 2, B2B): ETA_ONLY |
+   * ETA_POSITION | FULL. Controla cuánto ve quien abre el enlace público.
+   */
+  app.get("/tracking", async (request) => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: { trackingTier: true },
+    });
+    return { trackingTier: tenant.trackingTier };
+  });
+
+  app.patch("/tracking", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const parsed = trackingTierSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Nivel de rastreo inválido" });
+    }
+    const updated = await prisma.tenant.update({
+      where: { id: request.user.tenantId },
+      data: { trackingTier: parsed.data.trackingTier },
+      select: { trackingTier: true },
+    });
+    return { trackingTier: updated.trackingTier };
   });
 }

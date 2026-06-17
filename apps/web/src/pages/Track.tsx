@@ -22,6 +22,8 @@ interface Tracking {
   status: string;
   deliveredAt: string | null;
   etaMin: number | null;
+  trackingTier: string;
+  queuePosition: { position: number; totalPending: number } | null;
   timeline: TimelineEntry[];
   driverPosition: { lat: number; lng: number; at: string } | null;
 }
@@ -121,6 +123,26 @@ export default function Track() {
                 <div className="mt-3 rounded-lg bg-cielo/30 px-3 py-2 text-sm font-medium text-navy">
                   🛵 En camino · ETA aprox. {formatEta(data.etaMin)}
                 </div>
+              )}
+              {/* Posición en cola (ETA_POSITION / FULL): cuántas paradas faltan. */}
+              {data.queuePosition && (
+                <div className="mt-3 rounded-lg bg-niebla px-3 py-2 text-sm font-medium text-navy">
+                  📍 Tu envío es la parada N.° {data.queuePosition.position} de{" "}
+                  {data.queuePosition.totalPending} pendientes en la ruta.
+                </div>
+              )}
+              {/* Ubicación en vivo (solo FULL): enlace a mapa externo, sin
+                  incrustar dependencias en la página pública. */}
+              {data.driverPosition && (
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${data.driverPosition.lat}&mlon=${data.driverPosition.lng}#map=16/${data.driverPosition.lat}/${data.driverPosition.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 block rounded-lg bg-lima/30 px-3 py-2 text-sm font-medium text-navy underline-offset-2 hover:underline"
+                >
+                  🛰️ Ubicación del conductor en vivo · ver en el mapa (actualizado{" "}
+                  {formatDateTimeBogota(data.driverPosition.at)})
+                </a>
               )}
               {data.deliveredAt && (
                 <div className="mt-3 rounded-lg bg-lima/30 px-3 py-2 text-sm font-medium text-navy">

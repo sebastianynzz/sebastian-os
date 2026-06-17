@@ -71,6 +71,23 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
 };
 
 /**
+ * Nivel de privacidad de la página pública de rastreo (Tier 2, B2B). Controla
+ * cuánto se expone del envío al abrir el enlace público:
+ *  - ETA_ONLY:     estado + ETA + historial (sin ubicación del conductor).
+ *  - ETA_POSITION: lo anterior + posición en la cola de la ruta.
+ *  - FULL:         lo anterior + ubicación del conductor en vivo (mapa).
+ * Sigue siendo B2B: el enlace lo comparte el negocio; nunca se mensajea al
+ * consumidor final.
+ */
+export const TRACKING_TIERS = ["ETA_ONLY", "ETA_POSITION", "FULL"] as const;
+export type TrackingTier = (typeof TRACKING_TIERS)[number];
+export const TRACKING_TIER_LABELS: Record<TrackingTier, string> = {
+  ETA_ONLY: "Solo ETA",
+  ETA_POSITION: "ETA + posición en cola",
+  FULL: "Completo (ubicación en vivo)",
+};
+
+/**
  * Motivos estandarizados de entrega fallida. Base del análisis de fallos (D6)
  * y de la recuperación B2B. DIRECCION_ERRADA alimenta el relato del grafo de
  * direcciones (moat). `OTRO` recoge lo no clasificado (incl. sin motivo).

@@ -59,7 +59,7 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
           addressRaw: true,
           status: true,
           deliveredAt: true,
-          tenant: { select: { name: true } },
+          tenant: { select: { name: true, trackingTier: true } },
           client: { select: { name: true } },
           events: {
             where: {
@@ -70,7 +70,7 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
           },
           stops: {
             orderBy: { sequence: "asc" },
-            select: { kind: true, etaMin: true, status: true, routeId: true },
+            select: { kind: true, etaMin: true, status: true, routeId: true, sequence: true },
           },
         },
       });
@@ -79,14 +79,37 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: "Envío no encontrado" });
       }
 
-      // Posición del conductor solo si hay una entrega aún en curso.
-      const deliveryStop = order.stops.find((s) => s.kind === "DELIVERY");
-      let driverPosition: { lat: number; lng: number; at: string } | null = null;
-      if (
+      // Nivel de privacidad del rastreo público (Tier 2). Por defecto FULL.
+      const tier = order.tenant.trackingTier;
+      const inTransit =
         order.status === "IN_TRANSIT" &&
-        deliveryStop?.routeId &&
-        deliveryStop.status !== "COMPLETED"
+        order.stops.some((s) => s.kind === "DELIVERY" && s.status !== "COMPLETED");
+      const deliveryStop = order.stops.find((s) => s.kind === "DELIVERY");
+
+      // Posición en la cola de la ruta (ETA_POSITION y FULL): cuántas paradas
+      // pendientes van antes de la tuya — sin exponer ubicación ni otros pedidos.
+      let queuePosition: { position: number; totalPending: number } | null = null;
+      if (
+        (tier === "ETA_POSITION" || tier === "FULL") &&
+        inTransit &&
+        deliveryStop?.routeId
       ) {
+        const routeStops = await prisma.routeStop.findMany({
+          where: {
+            routeId: deliveryStop.routeId,
+            status: { in: ["PENDING", "ARRIVED"] },
+          },
+          select: { sequence: true },
+        });
+        const ahead = routeStops.filter(
+          (s) => s.sequence < deliveryStop.sequence,
+        ).length;
+        queuePosition = { position: ahead + 1, totalPending: routeStops.length };
+      }
+
+      // Ubicación del conductor en vivo SOLO en FULL.
+      let driverPosition: { lat: number; lng: number; at: string } | null = null;
+      if (tier === "FULL" && inTransit && deliveryStop?.routeId) {
         const route = await prisma.route.findUnique({
           where: { id: deliveryStop.routeId },
           select: { driverId: true, tenantId: true },
@@ -116,6 +139,8 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
         status: order.status,
         deliveredAt: order.deliveredAt,
         etaMin: deliveryStop?.etaMin ?? null,
+        trackingTier: tier,
+        queuePosition,
         timeline: order.events.map((e) => ({
           type: e.type,
           label: PUBLIC_EVENT_LABELS[e.type] ?? e.type,
