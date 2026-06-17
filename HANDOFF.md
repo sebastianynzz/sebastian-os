@@ -1,8 +1,9 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `0dd3e15`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `df193be`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
-Resume work at **Phase D4 multi-depot** (see "What's left").
+Resume work at **Phase D5 delivery zones** (see "What's left"); D4 multi-depot
+core is done (one fast-follow left — the global header depot selector).
 
 To resume:
 
@@ -79,14 +80,28 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
   validated in `createOrder` (tenant-scoped), in the orders list, Pedidos column
   + filter + form, portal schema + `GET /portal/services` + portal selector.
   (5) `services.test.ts` e2e (9). Full API suite green: 34 files / 199 tests.
+- **D4 multi-depot core** (`3f5ab84`…`df193be`, 3 commits):
+  (1) `Depot` model + additive migration `20260619000000_multi_depot` (nullable
+  `Route.depotId`, `Driver.depotId`, `Vehicle.homeDepotId`, ON DELETE SET NULL) +
+  `/depots` CRUD (ADMIN mutate) keeping a single `isMain` per tenant + shared
+  `depotSchema` + e2e. (2) **Controles › Depósitos** CRUD page (ADMIN nav).
+  (3) `planRoutesSchema.depotId` → `runPlan` resolves the depot tenant-scoped, its
+  coords drive the optimizer depart/return point and `Route.depotId` is linked
+  (manual + AI `optimize_routes`); Planificación depot selector. Full API suite
+  green: 35 files / 207 tests.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**D4 multi-depot · D5 delivery zones · D6 cost/failure analytics** (energy-native
-cost = routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification
-engine B2B-only, developer platform, custom stop props, driver permissions, barcode).
+**D4 fast-follow (deferred):** global **depot selector in the web header** scoping
+Pedidos/Rutas/Mapa/Analítica (cross-cutting — orders have no depot, so scope via
+the route's depot), a depot column on Rutas, and nearest-depot auto-assignment.
+Optionally expose `Vehicle.homeDepotId` / `Driver.depotId` in their edit forms.
+
+**D5 delivery zones · D6 cost/failure analytics** (energy-native cost =
+routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification engine
+B2B-only, developer platform, custom stop props, driver permissions, barcode).
 
 **Carry-over polish:**
 - `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
