@@ -1,9 +1,9 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `071e0ee`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `fcb0c8d`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
-Resume work at **Phase D6 cost/failure analytics** (see "What's left"); D4
-multi-depot + D5 delivery-zones cores are done (fast-follows noted below).
+**Phase D Tier-1 (D1–D6) is COMPLETE.** Resume at **Tier 2** (notification engine
+B2B-only first); see "What's left". A few small fast-follows are noted below.
 
 To resume:
 
@@ -98,10 +98,33 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
   `checkServiceability` logs a non-blocking `OUT_OF_ZONE` event when the
   destination is outside all zones; portal address validator returns coverage and
   the "Nuevo envío" form warns. Full API suite green: 37 files / 220 tests.
+- **D6 cost/failure analytics** (`7bb4417`…`fcb0c8d`, 3 commits):
+  (1) `GET /analytics/failures` aggregates FAILED/REJECTED by standardized reason
+  + day; shared `FAIL_REASONS`/`FAIL_REASON_LABELS`; Analítica "Análisis de
+  fallos" card. (2) Energy-native `GET /analytics/cost` = Σ(routeHours×driverCost)
+  + Σ(kWh×energyTariff) ÷ deliveries (kWh via new shared `evKwhForKm`); tenant cost
+  config (additive Tenant columns + `/controls/cost`, migration
+  `20260621000000_tenant_cost_config`). (3) Controles › Costos page + Analítica
+  cost card. Full API suite green: 39 files / 225 tests.
+
+**Phase D Tier-1 (D1–D6) is COMPLETE** — strategy selector, configurable POD,
+Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
+
+**Tier 2 (docs/04 §7–11), build in order:**
+1. Event-driven **notification engine** — B2B-adapted: notify the MERCHANT +
+   enrich the public tracking page (TRACKING_TIER), never the consumer. Extend
+   `services/notifications` (`dispatchToChannel`); Controls › Tracking &
+   notifications; MessageTemplate model.
+2. **Developer platform** — webhooks (reuse NOTIFICATION_EVENTS) + API keys +
+   connectors (Shopify/Zapier + VTEX/Mercado Libre).
+3. **Custom stop properties** (visible-to-driver/recipient; plan-capped).
+4. **Driver permissions layer** (nav app, edit/create-routes policy).
+5. **Barcode scanning** at load-out + delivery (ScanEvent — partly modeled:
+   SCANNED/SCAN_MISMATCH order events already exist).
 
 **Fast-follows (deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
