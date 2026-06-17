@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `bdef27e`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `333ddd2`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -95,8 +95,15 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   ```
   Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
   `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 134**; all frontends build; migrations apply
+- Last green: **optimizer 73 + API 139**; all frontends build; migrations apply
   clean to a fresh DB.
+- Prioritized batch DONE: (1) global typed-error toast+retry (`3aab72e`,
+  `apps/web/src/toast.tsx`, Rutas migrated; other pages adopt incrementally);
+  (2) i18n single-source Bogotá formatting in `@moveos/shared` (`c32b98e`, fixed
+  timezone bug in portal/Track/admin); (3) TenantDetail plan-confirm + health badge
+  (`d8199e7`); (4) module dependency graph (`333ddd2`, `requires` in MODULE_CATALOG,
+  enable-cascade + 409 disable-block on both toggle endpoints, `moduleDeps.test.ts`).
+  DEFERRED by product decision: marker clustering (do with Flota), saved views (UX).
 - A **GateGuard** hook fact-gates the first write/edit per file (state
   importers/callers + the user's instruction, then retry the identical call). To
   quiet it: run with `ECC_GATEGUARD=off`.
