@@ -43,6 +43,13 @@ export default async function clientsRoutes(app: FastifyInstance) {
   /** Confirmaciones enviadas a un negocio cliente (feed B2B). */
   app.get("/:id/notifications", async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    // Paginación por ventana (skip/take): el feed puede crecer sin límite.
+    const query = z
+      .object({
+        skip: z.coerce.number().int().min(0).optional(),
+        take: z.coerce.number().int().min(1).max(100).optional(),
+      })
+      .parse(request.query);
     const client = await prisma.client.findFirst({
       where: { id, tenantId: request.user.tenantId },
     });
@@ -50,7 +57,8 @@ export default async function clientsRoutes(app: FastifyInstance) {
     return prisma.notificationLog.findMany({
       where: { tenantId: request.user.tenantId, clientId: id },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: query.skip ?? 0,
+      take: query.take ?? 20,
     });
   });
 
