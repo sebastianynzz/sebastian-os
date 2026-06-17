@@ -140,6 +140,37 @@ describe("flota eléctrica como núcleo", () => {
     expect(overview.body[0].usableRangeKm).toBeLessThan(50);
   });
 
+  it("/ev/range-estimate aplica las condiciones de operación", async () => {
+    const overview = await api("GET", "/ev/overview", adminToken);
+    const vehicleId = overview.body[0].id as string;
+
+    const base = await api(
+      "GET",
+      `/ev/range-estimate?vehicleId=${vehicleId}`,
+      adminToken,
+    );
+    expect(base.status).toBe(200);
+    expect(base.body.usableRangeKm).toBeGreaterThan(0);
+
+    // Frío (-5 °C, por debajo de los 21 °C de referencia) derrata la autonomía.
+    const cold = await api(
+      "GET",
+      `/ev/range-estimate?vehicleId=${vehicleId}&temperatureC=-5`,
+      adminToken,
+    );
+    expect(cold.status).toBe(200);
+    expect(cold.body.usableRangeKm).toBeLessThan(base.body.usableRangeKm);
+  });
+
+  it("/ev/range-estimate responde 404 para un vehículo inexistente", async () => {
+    const res = await api(
+      "GET",
+      "/ev/range-estimate?vehicleId=no-existe",
+      adminToken,
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("el catálogo reporta EV_MANAGEMENT activo y de núcleo; el toggle se rechaza", async () => {
     const modules = await api("GET", "/modules", adminToken);
     expect(modules.status).toBe(200);
