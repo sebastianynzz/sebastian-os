@@ -8,7 +8,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
-import { Loading } from "./components/ui";
+import { ToastProvider } from "./toast";import { Loading } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
@@ -177,6 +177,7 @@ function Home() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ToastProvider>
       <Routes>
         {/* Rastreo público: sin login, fuera del shell autenticado. */}
         <Route path="/t/:token" element={<Track />} />
@@ -211,6 +212,7 @@ export default function App() {
           <Route path="/portal/verde" element={<PortalVerde />} />
         </Route>
       </Routes>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

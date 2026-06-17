@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError } from "../api";
+import { useToast } from "../toast";
 import {
-  Banner,
   Button,
   Card,
   EmptyState,
@@ -59,8 +59,7 @@ export default function Rutas() {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<Record<string, string>>({});
   const [inserting, setInserting] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const toast = useToast();
 
   async function load() {
     try {
@@ -80,28 +79,18 @@ export default function Rutas() {
     void load();
   }, []);
 
-  // Mensaje claro por tipo de error del servidor; 409 = la ruta cambió de
-  // estado bajo nuestros pies (otro despachador la tomó), así que refrescamos.
-  function describeError(err: unknown): string {
-    if (err instanceof ApiError) {
-      if (err.status === 409)
-        return "La ruta cambió de estado (otro despachador la tomó). Actualizamos la vista.";
-      return err.message; // 422 y otros: el servidor ya da un mensaje útil
-    }
-    return err instanceof Error ? err.message : "Error";
-  }
-
   async function dispatch(routeId: string) {
     const driverId = assigning[routeId];
     if (!driverId) return;
-    setError(null);
     try {
       await api("POST", `/routes/${routeId}/dispatch`, { driverId });
       await load();
     } catch (err) {
-      setError(describeError(err));
-      // Conflicto de transición: la vista estaba obsoleta — recargar la corrige.
-      if (err instanceof ApiError && err.status === 409) await load();
+      // Conflicto de transición (otro despachador la tomó): el toast ya explica
+      // y recargamos; no ofrecemos reintentar porque volvería a chocar.
+      const isConflict = err instanceof ApiError && err.status === 409;
+      toast.error(err, isConflict ? undefined : { retry: () => void dispatch(routeId) });
+      if (isConflict) await load();
     }
   }
 
@@ -109,37 +98,25 @@ export default function Rutas() {
   async function insertOrder(routeId: string) {
     const orderId = inserting[routeId];
     if (!orderId) return;
-    setError(null);
-    setNotice(null);
     try {
       const res = await api<{ insertedAt: number }>(
         "POST",
         `/optimization/routes/${routeId}/insert`,
         { orderId },
       );
-      setNotice(`Pedido insertado en la posición ${res.insertedAt + 1} de la ruta.`);
+      toast.success(`Pedido insertado en la posición ${res.insertedAt + 1} de la ruta.`);
       setInserting((s) => ({ ...s, [routeId]: "" }));
       await load();
     } catch (err) {
-      setError(describeError(err));
-      // La ruta pudo cerrarse mientras tanto: refrescar para reflejarlo.
-      if (err instanceof ApiError && err.status === 409) await load();
+      const isConflict = err instanceof ApiError && err.status === 409;
+      toast.error(err, isConflict ? undefined : { retry: () => void insertOrder(routeId) });
+      if (isConflict) await load();
     }
   }
 
   return (
     <div className="space-y-4">
       <PageHeader title="Rutas" />
-      {error && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
-      {notice && (
-        <Banner kind="success" onDismiss={() => setNotice(null)}>
-          {notice}
-        </Banner>
-      )}
       {loading && (
         <Card>
           <Loading label="Cargando rutas…" />
