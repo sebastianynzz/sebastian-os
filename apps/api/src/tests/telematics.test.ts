@@ -140,11 +140,15 @@ describe("plano telemático / IoT", () => {
   });
 
   it("bloquea la API si el módulo TELEMATICS está inactivo", async () => {
+    // SAFETY depende de TELEMATICS: desactivar la dependencia antes de poder
+    // apagar TELEMATICS (grafo de dependencias de módulos).
+    await api("PATCH", "/modules/SAFETY", adminToken, { enabled: false });
     await api("PATCH", "/modules/TELEMATICS", adminToken, { enabled: false });
     const blocked = await api("GET", "/telematics/vehicles/live", adminToken);
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe("MODULE_NOT_ENABLED");
     await api("PATCH", "/modules/TELEMATICS", adminToken, { enabled: true });
+    await api("PATCH", "/modules/SAFETY", adminToken, { enabled: true });
   });
 
   it("exige el módulo SAFETY para enviar comandos de motor", async () => {

@@ -133,7 +133,13 @@ export default function TenantDetail() {
   }
 
   async function toggleModule(key: string, enabled: boolean) {
-    await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
+    try {
+      await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
+    } catch (err) {
+      // Bloqueo por dependencia (u otro error): avisar al operador. El reload
+      // de abajo re-sincroniza el toggle con el estado real.
+      alert(err instanceof Error ? err.message : "No se pudo cambiar el módulo");
+    }
     await load();
   }
 

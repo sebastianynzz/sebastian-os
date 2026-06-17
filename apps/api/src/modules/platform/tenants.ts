@@ -7,6 +7,9 @@ import {
   initialModulesForBusinessModel,
   MODULE_CATALOG,
   MODULE_KEYS,
+  modulesBlockingDisable,
+  modulesToEnableWith,
+  moduleName,
   TENANT_BUSINESS_MODELS,
   TENANT_OPERATOR_TYPES,
   TENANT_PLANS,
@@ -337,15 +340,54 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: params.id } });
     if (!tenant) return reply.code(404).send({ error: "Tenant no encontrado" });
+    const key = params.key as ModuleKey;
 
+    if (body.enabled) {
+      // Habilitar arrastra sus dependencias (cascada).
+      const toEnable = modulesToEnableWith(key);
+      await prisma.$transaction(
+        toEnable.map((moduleKey) =>
+          prisma.moduleEntitlement.upsert({
+            where: { tenantId_moduleKey: { tenantId: params.id, moduleKey } },
+            create: { tenantId: params.id, moduleKey, enabled: true },
+            update: { enabled: true },
+          }),
+        ),
+      );
+      await auditPlatform(request, "MODULE_TOGGLE", {
+        targetTenantId: params.id,
+        details: { moduleKey: key, enabled: true, cascade: toEnable },
+      });
+      return reply.send({ enabled: toEnable });
+    }
+
+    // Desactivar: bloquear si un módulo habilitado depende de este.
+    const enabled = await prisma.moduleEntitlement.findMany({
+      where: { tenantId: params.id, enabled: true },
+    });
+    const enabledKeys: ModuleKey[] = [
+      ...CORE_MODULE_KEYS,
+      ...enabled.map((e) => e.moduleKey as ModuleKey),
+    ];
+    const blockers = modulesBlockingDisable(key, enabledKeys);
+    if (blockers.length > 0) {
+      return reply.code(409).send({
+        error: `No se puede desactivar: ${blockers.map(moduleName).join(", ")} ${
+          blockers.length > 1 ? "dependen" : "depende"
+        } de este módulo. Desactívalo(s) primero.`,
+        code: "MODULE_DEPENDENCY",
+        moduleKey: key,
+        blockedBy: blockers,
+      });
+    }
     const entitlement = await prisma.moduleEntitlement.upsert({
-      where: { tenantId_moduleKey: { tenantId: params.id, moduleKey: params.key } },
-      create: { tenantId: params.id, moduleKey: params.key, enabled: body.enabled },
-      update: { enabled: body.enabled },
+      where: { tenantId_moduleKey: { tenantId: params.id, moduleKey: key } },
+      create: { tenantId: params.id, moduleKey: key, enabled: false },
+      update: { enabled: false },
     });
     await auditPlatform(request, "MODULE_TOGGLE", {
       targetTenantId: params.id,
-      details: { moduleKey: params.key, enabled: body.enabled },
+      details: { moduleKey: key, enabled: false },
     });
     return entitlement;
   });
