@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `c20dd67`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `ec45e60`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
 **Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notifications) + §8 (developer platform
 core) COMPLETE.** Resume at **Tier-2 §9 (custom stop properties)**; see "What's
@@ -19,20 +19,40 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 
 ## Kickoff prompt (paste as the first message of a fresh session)
 
-> Continue the MoveOS go-live build on branch `claude/relaxed-ramanujan-jqykyw`
-> (already checked out, pushed through `925071d`). Read `CLAUDE.md` and the
-> specs in `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`, then read
-> the ledger below. Respect the hard constraints: EV-only, **B2B-only (no
-> direct-to-consumer messaging)**, **no payments/COD**, tenant isolation,
-> Spanish + America/Bogotá, "deterministic solvers do the math; the LLM only
-> triggers and explains; confirm-before-mutate."
+> Continue the MoveOS go-live build on branch `claude/pensive-hypatia-otcrfu`
+> (already checked out, pushed through `ec45e60`). First read, in order:
+> `CLAUDE.md`, `HANDOFF.md` (this file — esp. "What's left", "Environment notes",
+> "Protocol"), and the specs `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
+> (uploads don't carry across sessions — read them from the repo).
 >
-> Phases A, B, C are DONE; Phase D Tier-1 is in progress (D1, D2, D3a done).
-> **Start at D3b.** Before coding each chunk: list the files you'll touch + a
-> 3–5 line plan. After coding: add/extend tests, run the build + test gates,
-> confirm CLAUDE.md compliance and design-token usage (no hardcoded hex), then
-> commit + push and STOP to summarize. One feature per commit. Keep additive
-> Prisma migrations (`migrate deploy`-safe). Do not reintroduce COD.
+> Respect the hard constraints: **EV-only**; **B2B-only** (never message the end
+> consumer — notify the merchant + the public tracking page); **no payments/COD**;
+> tenant isolation (`verifyTenantToken` / every query scoped by `tenantId`);
+> Spanish + America/Bogotá; deterministic solvers do the math, the LLM only
+> triggers and explains, confirm-before-mutate on every mutation; design tokens
+> only (no hardcoded hex).
+>
+> State of play: Phases A/B/C done; **Phase D Tier-1 (D1–D6) COMPLETE**; **Tier-2
+> §7 (notification engine: tracking-privacy tiers + per-event B2B templates) and
+> §8 (developer platform core: signed webhooks + API keys + order ingestion + UI)
+> COMPLETE.** Full API suite green (43 files / 244 tests).
+>
+> **START AT Tier-2 §9 — custom stop properties** (docs/04 §9): `CustomProperty`
+> model + `Order.customFields Json`; per-field visible-to-driver / visible-to-
+> recipient; plan-capped with upsell; surfaced in Pedidos (import + manual form),
+> the client portal, the driver app, and the public tracking page where
+> visible-to-recipient. Then §10 driver permissions, §11 barcode; then §8
+> connectors / Tier 3 / Phase E hardening (see "What's left").
+>
+> Working agreement (per chunk): bring Postgres up first (commands under
+> "Environment notes"); before coding list the files you'll touch + a 3–5 line
+> plan; after coding add/extend tests, run `pnpm -r build`,
+> `pnpm --filter @moveos/optimizer test`, and the relevant API e2e (needs
+> Postgres); confirm CLAUDE.md compliance + design tokens; keep Prisma migrations
+> additive (`migrate deploy`-safe); one feature per commit; then commit + push to
+> `claude/pensive-hypatia-otcrfu` and STOP to summarize. Do not reintroduce COD.
+> (GateGuard fact-gates the first edit per file — state importers/affected
+> API/data/instruction then retry; or `ECC_GATEGUARD=off` to silence it.)
 
 ---
 
@@ -161,10 +181,13 @@ the new /developer webhooks already use the standard events.
 - D5: **assignment prefers a zone's drivers** (optimizer hint), and tie the
   coverage signal into the demand-heatmap AI feature.
 
-**D6 cost/failure analytics** (energy-native cost = routeHours×driverCostPerHour
-+ kWh×tariff; aggregate standardized fail reasons by reason/zone/time), then
-**Tier 2** (notification engine B2B-only, developer platform, custom stop props,
-driver permissions, barcode).
+**Tier 3 (docs/04 §12–14, later):** usage metering + feature-flag upsell;
+tenant-facing billing (invoices, plan/tax-ID); guided onboarding (depot setup →
+checklist → connect driver app via QR).
+
+**Phase E — feature hardening (docs/05, not started):** global typed-error
+toasts + retry, i18n sweep (admin/portal/Track), remaining Driver/Web/Admin
+stories, design tokens on every touched screen.
 
 **Carry-over polish:**
 - `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
