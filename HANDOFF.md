@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `bc6b830`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `8348b1a`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -59,12 +59,16 @@ docs.
    `/routes/stops/:id/complete` (422, source of truth), configured on the
    Clientes form, enforced pre-submit in the driver deliver sheet; e2e in
    `podPolicy.test.ts`.
-3. **Part 2 Web** (mostly not started): Pedidos (server pagination/virtualization,
-   CSV import per-row errors); Planificación (filters/bulk/manual tweak); Rutas
-   (422 handling, status transitions); MapaEnVivo (clustering/follow); Clientes
-   (channel-conditional, test webhook); Seguridad/Ev/Analítica/Sostenibilidad
-   polish; Excepciones/Direcciones/Copiloto finishers; Modulos; web-wide
-   (saved views, role-based nav, responsive).
+3. **Part 2 Web** — DONE so far: Pedidos CSV import per-row errors (`2c5d40b`,
+   `/orders/bulk` returns `{created,failed,results}`, `bulkImport.test.ts`);
+   Pedidos windowed server pagination + "Ver más" (`6314895`); Rutas 409
+   transition conflicts + status-aware dispatch (`cf15f7d`, `/routes/:id/dispatch`
+   404-vs-409); Clientes test-webhook (`0380960`, `POST /clients/test-webhook`,
+   `webhookTest.test.ts`); Planificación order filter + bulk select (`8348b1a`).
+   STILL LEFT: Pedidos virtualization; Planificación manual stop tweak; MapaEnVivo
+   (clustering/follow); Seguridad/Ev/Analítica/Sostenibilidad polish;
+   Excepciones/Direcciones/Copiloto finishers; Modulos; web-wide (saved views,
+   role-based nav, responsive).
 4. **Part 3 Admin** (not started): TenantDetail (validation, status/plan confirm,
    module toggles + deps, last-admin guard, **FaaS vehicle assignment using the
    6-config catalog**, health); Tenants list; Flota (SSE telematics, clustering);
@@ -83,15 +87,16 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   ```
   Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
   `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 127**; all frontends build; migrations apply
+- Last green: **optimizer 73 + API 132**; all frontends build; migrations apply
   clean to a fresh DB.
 - A **GateGuard** hook fact-gates the first write/edit per file (state
   importers/callers + the user's instruction, then retry the identical call). To
   quiet it: run with `ECC_GATEGUARD=off`.
 
-**Next story:** Part 1 Driver is complete. Move to **Part 2 (Web)** — e.g.
-Pedidos server pagination/virtualization + CSV per-row errors, or Rutas 422
-handling/status transitions — or **Part 3 (Admin)** (TenantDetail validation +
-module-dep toggles + FaaS vehicle assignment using the 6-config catalog), or
+**Next story:** Part 1 done; 5 Part-2 stories done. Continue **Part 2 (Web)** —
+MapaEnVivo follow-vehicle / clustering (clustering needs a leaflet cluster lib;
+follow needs none), Excepciones/Direcciones/Copiloto finishers, Modulos, or
+web-wide role-based nav — or jump to **Part 3 (Admin)** (TenantDetail validation +
+module-dep toggles + FaaS vehicle assignment using the 6-config catalog) or
 **Part 4 cross-cutting** (typed-error toasts/retry, perf, a11y, broader i18n).
 Bring up Postgres first (env notes) and keep the `pnpm -r test` gate green.
