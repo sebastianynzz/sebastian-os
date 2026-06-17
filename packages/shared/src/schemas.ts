@@ -191,6 +191,9 @@ export const createVehicleSchema = z.object({
 export const planRoutesSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   depot: z.object({ lat: z.number(), lng: z.number() }),
+  /** Depósito (multi-depot, D4): si se indica, sus coordenadas mandan y la
+   *  ruta queda enlazada a él. Sin depotId se usa `depot` tal cual (compat). */
+  depotId: z.string().optional(),
   orderIds: z.array(z.string()).min(1),
   vehicleIds: z.array(z.string()).min(1),
   /** SoC inicial por vehículo eléctrico (0-100), opcional. */

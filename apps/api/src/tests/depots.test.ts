@@ -138,3 +138,76 @@ describe("Depósitos / multi-depot (D4)", () => {
     expect((await api("DELETE", "/depots/nope", adminToken)).status).toBe(404);
   });
 });
+
+describe("planificación con depósito (D4)", () => {
+  it("la ruta queda enlazada al depósito y sus coordenadas mandan", async () => {
+    await prisma.moduleEntitlement.upsert({
+      where: { tenantId_moduleKey: { tenantId, moduleKey: "ROUTE_OPTIMIZATION" } },
+      create: { tenantId, moduleKey: "ROUTE_OPTIMIZATION", enabled: true },
+      update: { enabled: true },
+    });
+    const depot = await api("POST", "/depots", adminToken, {
+      name: "Plan Depot",
+      lat: 4.701,
+      lng: -74.071,
+    });
+    const vehicle = await api("POST", "/vehicles", adminToken, {
+      plate: "DPT1Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+    });
+    const order = await api("POST", "/orders", adminToken, {
+      customerName: "Destino Depot",
+      customerPhone: "+573111111120",
+      addressRaw: "Cra 13 # 54-20",
+      lat: 4.6416,
+      lng: -74.0639,
+    });
+
+    const plan = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-20",
+      // Coordenadas distintas a propósito: el depotId debe imponerse sobre estas.
+      depot: { lat: 4.6, lng: -74.1 },
+      depotId: depot.body.id,
+      orderIds: [order.body.id],
+      vehicleIds: [vehicle.body.id],
+    });
+    expect(plan.status).toBe(201);
+    expect(plan.body.routes.length).toBeGreaterThan(0);
+
+    const route = await prisma.route.findUnique({
+      where: { id: plan.body.routes[0].id },
+      select: { depotId: true, depotLat: true, depotLng: true },
+    });
+    expect(route?.depotId).toBe(depot.body.id);
+    expect(route?.depotLat).toBeCloseTo(4.701);
+    expect(route?.depotLng).toBeCloseTo(-74.071);
+  });
+
+  it("rechaza un depotId que no pertenece al tenant (400)", async () => {
+    const vehicle = await api("POST", "/vehicles", adminToken, {
+      plate: "DPT2Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+    });
+    const order = await api("POST", "/orders", adminToken, {
+      customerName: "Destino Depot 2",
+      customerPhone: "+573111111121",
+      addressRaw: "Cra 7 # 40-10",
+      lat: 4.63,
+      lng: -74.06,
+    });
+    const bad = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-20",
+      depot: { lat: 4.6, lng: -74.1 },
+      depotId: "depot-inexistente",
+      orderIds: [order.body.id],
+      vehicleIds: [vehicle.body.id],
+    });
+    expect(bad.status).toBe(400);
+  });
+});

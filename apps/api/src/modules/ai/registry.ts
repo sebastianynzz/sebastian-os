@@ -87,6 +87,7 @@ function planInputFromCtx(ctx: ActionContext): PlanRoutesInput {
   return {
     date,
     depot,
+    depotId: ctx.params?.depotId as string | undefined,
     orderIds: ctx.orderIds ?? [],
     vehicleIds: ctx.vehicleIds ?? [],
     socByVehicleId: ctx.params?.socByVehicleId as
@@ -183,7 +184,7 @@ const optimizeRoutes: RegisteredAction<PlanRoutesInput, PlanChange> = {
     }
     const created = await persistPlan(
       ctx.tenantId,
-      { date: input.date, depot: input.depot },
+      { date: input.date, depot: outcome.depot, depotId: outcome.depotId },
       outcome.result,
       outcome.dbVehicles,
     );
