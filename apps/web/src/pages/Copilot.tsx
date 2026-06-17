@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import {
@@ -43,14 +43,65 @@ const SUGGESTIONS = [
   "¿Cuántas direcciones nuevas aprendió el grafo esta semana?",
 ];
 
+// Historial: la conversación se guarda en este navegador para sobrevivir
+// recargas y navegación (se conservan las últimas 40 entradas).
+const STORAGE_KEY = "moveos_copilot_transcript";
+const MAX_PERSISTED = 40;
+
+interface PersistedChat {
+  transcript: ChatEntry[];
+  executed: string[];
+}
+function loadPersisted(): PersistedChat {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { transcript: [], executed: [] };
+    const p = JSON.parse(raw) as Partial<PersistedChat>;
+    return { transcript: p.transcript ?? [], executed: p.executed ?? [] };
+  } catch {
+    return { transcript: [], executed: [] };
+  }
+}
+
 export default function Copilot() {
   const { session } = useAuth();
-  const [transcript, setTranscript] = useState<ChatEntry[]>([]);
+  const [transcript, setTranscript] = useState<ChatEntry[]>(
+    () => loadPersisted().transcript,
+  );
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-  const [executed, setExecuted] = useState<Set<string>>(new Set());
+  const [executed, setExecuted] = useState<Set<string>>(
+    () => new Set(loadPersisted().executed),
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Persiste la conversación (últimas 40 entradas) y qué acciones ya se
+  // ejecutaron, para que el hilo sobreviva recargas.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          transcript: transcript.slice(-MAX_PERSISTED),
+          executed: [...executed],
+        }),
+      );
+    } catch {
+      // almacenamiento lleno o no disponible: la sesión sigue en memoria.
+    }
+  }, [transcript, executed]);
+
+  function clearChat() {
+    setTranscript([]);
+    setExecuted(new Set());
+    setBanner(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }
 
   if (session && !session.modules.includes("AI_ADDONS")) {
     return <ModuleDisabled title="Copiloto IA" moduleName="IA Addons" />;
@@ -145,6 +196,13 @@ export default function Copilot() {
       <PageHeader
         title="Copiloto IA"
         subtitle="Pídele planear, explicar fallos o vigilar la operación. Toda acción requiere tu confirmación."
+        actions={
+          transcript.length > 0 ? (
+            <Button variant="secondary" onClick={clearChat} disabled={busy}>
+              Nueva conversación
+            </Button>
+          ) : undefined
+        }
       />
       {banner && (
         <Banner kind={banner.kind} onDismiss={() => setBanner(null)}>
