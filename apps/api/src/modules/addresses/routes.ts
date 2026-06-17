@@ -133,6 +133,69 @@ export default async function addressesRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Confirmación en lote (triage rápido): acepta el pin geocodificado ACTUAL de
+   * varios pedidos tal cual (sin moverlo) — útil cuando la cola tiene muchas
+   * direcciones de confianza media que el despachador valida de un vistazo.
+   * Cada una sigue el mismo camino del grafo que la corrección individual
+   * (verifica, fija confianza 1 y aprende el pin). Omite pedidos cerrados o sin
+   * coordenadas.
+   */
+  app.post(
+    "/triage/confirm",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request) => {
+      const { orderIds } = z
+        .object({ orderIds: z.array(z.string()).min(1).max(200) })
+        .parse(request.body);
+
+      const orders = await prisma.order.findMany({
+        where: {
+          id: { in: orderIds },
+          tenantId: request.user.tenantId,
+          status: { notIn: ["DELIVERED", "CANCELLED"] },
+        },
+        include: { tenant: { select: { city: true } } },
+      });
+
+      const confirmed: string[] = [];
+      const skipped: string[] = [];
+      const found = new Set(orders.map((o) => o.id));
+      for (const id of orderIds) if (!found.has(id)) skipped.push(id);
+
+      for (const order of orders) {
+        if (order.lat === null || order.lng === null) {
+          skipped.push(order.id);
+          continue;
+        }
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            geocodeSource: "MANUAL_PIN",
+            geoConfidence: 1,
+            addressVerifiedAt: new Date(),
+          },
+        });
+        await learnAddressPin(
+          order.tenantId,
+          order.addressRaw,
+          order.lat,
+          order.lng,
+          order.addressNotes ?? undefined,
+          { source: "DISPATCHER_CONFIRMED", city: order.tenant.city },
+        );
+        await logOrderEvent(
+          order.id,
+          "ADDRESS_CONFIRMED",
+          "Dirección confirmada en lote (triage) — pin aceptado tal cual",
+        );
+        emitOrderUpdate(order.tenantId, updated);
+        confirmed.push(order.id);
+      }
+      return { confirmed: confirmed.length, confirmedIds: confirmed, skipped };
+    },
+  );
+
+  /**
    * Corrección del conductor en campo: el tap más valioso del producto.
    * Cuando el conductor llega y el pin guardado está lejos de la entrega
    * real, confirma la ubicación verdadera con su GPS.

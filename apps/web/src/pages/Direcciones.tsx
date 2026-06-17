@@ -67,10 +67,12 @@ export default function Direcciones() {
   const [draft, setDraft] = useState<{ lat: number; lng: number } | null>(null);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const res = await api<{ orders: TriageOrder[] }>("GET", "/addresses/triage");
     setOrders(res.orders);
+    return res.orders;
   }, []);
 
   useEffect(() => {
@@ -87,6 +89,15 @@ export default function Direcciones() {
     setDraft(order.lat !== null && order.lng !== null ? { lat: order.lat, lng: order.lng } : null);
   }
 
+  function toggleCheck(id: string) {
+    setChecked((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   async function confirmPin() {
     if (!selected || !draft) return;
     setBusy(true);
@@ -100,8 +111,39 @@ export default function Direcciones() {
         kind: "success",
         text: `Pin de ${selected.trackingNumber ?? selected.customerName} confirmado y aprendido por el grafo`,
       });
-      setSelectedId(null);
-      setDraft(null);
+      // Triage rápido: avanza automáticamente a la siguiente dirección de la
+      // cola (la recién confirmada ya salió de ella).
+      const remaining = await load();
+      const next = remaining[0] ?? null;
+      if (next) select(next);
+      else {
+        setSelectedId(null);
+        setDraft(null);
+      }
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmBatch() {
+    if (checked.size === 0) return;
+    setBusy(true);
+    setBanner(null);
+    try {
+      const res = await api<{ confirmed: number; skipped: string[] }>(
+        "POST",
+        "/addresses/triage/confirm",
+        { orderIds: [...checked] },
+      );
+      const skippedNote =
+        res.skipped.length > 0 ? ` (${res.skipped.length} sin coordenadas, omitidas)` : "";
+      setBanner({
+        kind: "success",
+        text: `${res.confirmed} dirección(es) confirmadas en su pin actual y aprendidas por el grafo${skippedNote}`,
+      });
+      setChecked(new Set());
       await load();
     } catch (err) {
       setBanner({ kind: "error", text: err instanceof Error ? err.message : "Error" });
@@ -111,6 +153,8 @@ export default function Direcciones() {
   }
 
   if (!orders) return <Loading label="Cargando cola de triage…" />;
+
+  const allChecked = orders.length > 0 && orders.every((o) => checked.has(o.id));
 
   return (
     <div className="space-y-4">
@@ -147,10 +191,39 @@ export default function Direcciones() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card title={`Por revisar (${orders.length})`}>
+            {/* Confirmación en lote: acepta el pin geocodificado actual de las
+                seleccionadas y lo aprende (para confianza media que se valida
+                de un vistazo). Lo dudoso se corrige arrastrando el pin. */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-navy/60">
+                {checked.size > 0
+                  ? `${checked.size} seleccionadas`
+                  : "Selecciona filas para confirmar en lote"}
+              </span>
+              <Button onClick={confirmBatch} disabled={busy || checked.size === 0}>
+                {busy
+                  ? "Confirmando…"
+                  : `Confirmar ${checked.size || ""} en su pin actual`}
+              </Button>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className={theadRowClass}>
+                    <th className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todas"
+                        checked={allChecked}
+                        onChange={(e) =>
+                          setChecked(
+                            e.target.checked
+                              ? new Set(orders.map((o) => o.id))
+                              : new Set(),
+                          )
+                        }
+                      />
+                    </th>
                     <th className="py-2 pr-3">Guía</th>
                     <th className="py-2 pr-3">Dirección</th>
                     <th className="py-2 pr-3">Fuente</th>
@@ -164,6 +237,14 @@ export default function Direcciones() {
                       key={o.id}
                       className={`${tableRowClass} ${o.id === selectedId ? "bg-cielo/20" : ""}`}
                     >
+                      <td className="py-2 pr-2">
+                        <input
+                          type="checkbox"
+                          aria-label={`Seleccionar ${o.trackingNumber ?? o.customerName}`}
+                          checked={checked.has(o.id)}
+                          onChange={() => toggleCheck(o.id)}
+                        />
+                      </td>
                       <td className="py-2 pr-3 font-mono text-xs">{o.trackingNumber}</td>
                       <td className="py-2 pr-3">
                         <div className="font-medium">{o.customerName}</div>
