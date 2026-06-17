@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `f267778`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `13466ec`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -116,8 +116,10 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
 **Next story (pick one — all are now either low-value or need a spec):**
 - Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
   all use the shared toast; Login/Track stay inline by design.
-- Marker clustering on the live maps (admin Flota first) — needs the
-  `leaflet.markercluster` dependency added (deferred earlier, your call).
+- Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`,
+  react-leaflet-cluster@^2.1.0). NOTE: admin Flota is a TABLE (no leaflet in the
+  admin app) — clustering there needs a leaflet map built in Flota first
+  (add leaflet/react-leaflet to apps/admin), a separate larger task.
 - Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
   Modulos + TenantDetail.
 - Any **newly-specified** page feature. The remaining Part 2/3 "polish"
