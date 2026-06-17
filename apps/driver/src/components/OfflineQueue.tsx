@@ -75,15 +75,15 @@ export function OfflineQueue() {
       </button>
 
       {open && (
-        <ul className="mt-1 max-h-64 space-y-1 overflow-y-auto rounded-xl bg-white p-2 shadow-lg">
+        <ul className="mt-1 max-h-64 space-y-1 overflow-y-auto rounded-xl bg-white dark:bg-navy-700 p-2 shadow-lg">
           {items.map((i) => (
             <li
               key={i.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border px-2 py-1.5 text-xs"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border dark:border-white/10 px-2 py-1.5 text-xs"
             >
               <div className="min-w-0">
-                <div className="font-medium text-text-secondary">{displayLabel(i)}</div>
-                <div className={i.status === "ERROR" ? "text-danger" : "text-text-tertiary"}>
+                <div className="font-medium text-text-secondary dark:text-sky">{displayLabel(i)}</div>
+                <div className={i.status === "ERROR" ? "text-danger" : "text-text-tertiary dark:text-sky/70"}>
                   {i.status === "ERROR"
                     ? `Error: ${i.lastError ?? "rechazada por el servidor"}`
                     : i.attempts > 0
@@ -107,7 +107,7 @@ export function OfflineQueue() {
                       discardAction(i.id);
                       refresh();
                     }}
-                    className="rounded-md border border-border px-2 py-1 font-semibold text-text-secondary"
+                    className="rounded-md border border-border dark:border-white/10 px-2 py-1 font-semibold text-text-secondary dark:text-sky"
                   >
                     Descartar
                   </button>

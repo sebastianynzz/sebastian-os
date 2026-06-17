@@ -193,7 +193,7 @@ export function ChargerSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Estaciones de carga cercanas"
-        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -201,7 +201,7 @@ export function ChargerSheet({
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
           >
             ✕
           </button>
@@ -211,9 +211,9 @@ export function ChargerSheet({
             Sin señal: mostrando el último directorio consultado.
           </p>
         )}
-        {stations === null && <p className="text-sm text-text-tertiary">Buscando…</p>}
+        {stations === null && <p className="text-sm text-text-tertiary dark:text-sky/70">Buscando…</p>}
         {stations !== null && stations.length === 0 && (
-          <p className="text-sm text-text-tertiary">
+          <p className="text-sm text-text-tertiary dark:text-sky/70">
             No hay estaciones en el directorio todavía.
           </p>
         )}
@@ -228,18 +228,18 @@ export function ChargerSheet({
                       {s.isDepot ? "🏠 " : ""}
                       {s.name}
                     </div>
-                    <div className="text-xs text-text-tertiary">
+                    <div className="text-xs text-text-tertiary dark:text-sky/70">
                       {s.network}
                       {s.address ? ` · ${s.address}` : ""}
                     </div>
                   </div>
                   {s.distanceKm !== null && (
-                    <span className="shrink-0 text-sm font-bold text-navy">
+                    <span className="shrink-0 text-sm font-bold text-navy dark:text-niebla">
                       {s.distanceKm.toFixed(1)} km
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-text-secondary">
+                <div className="mt-1 text-xs text-text-secondary dark:text-sky">
                   {s.connectors.join(" · ")}
                   {s.powerKw ? ` · ${s.powerKw} kW` : ""}
                   {s.dcFast ? " · ⚡ DC rápida" : ""}

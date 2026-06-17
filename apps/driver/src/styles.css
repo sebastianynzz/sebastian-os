@@ -100,8 +100,21 @@
 @font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
 @font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
 
+/* Tema conmutable: variante dark por clase en <html> (default dark — spec
+   "dark-first"; el conductor puede cambiar a claro para luz solar directa). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 body {
   @apply bg-niebla text-navy font-sans;
+}
+
+/* Base del tema oscuro (dark-first): navy-900 + texto casi blanco. */
+.dark body {
+  background-color: var(--navy-900);
+  color: var(--canvas);
+}
+.dark .moveos-stop-label {
+  color: var(--canvas);
 }
 
 /* Etiquetas de secuencia sobre los marcadores del mapa de ruta. */

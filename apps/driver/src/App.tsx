@@ -287,8 +287,28 @@ function RouteSkeleton() {
 
 const PULL_REFRESH_THRESHOLD = 70;
 
+/**
+ * Tema conmutable del conductor. Default OSCURO (spec "dark-first"), pero el
+ * repartidor puede cambiar a claro para luz solar directa. La preferencia se
+ * persiste y se aplica como clase `.dark` en <html> (variante Tailwind).
+ */
+const THEME_KEY = "moveos-driver-theme";
+type Theme = "dark" | "light";
+function getInitialTheme(): Theme {
+  const saved = localStorage.getItem(THEME_KEY);
+  return saved === "light" || saved === "dark" ? saved : "dark";
+}
+function applyTheme(t: Theme) {
+  document.documentElement.classList.toggle("dark", t === "dark");
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
   const [route, setRoute] = useState<DriverRoute | null>(() => readCachedRoute());
   const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
@@ -540,7 +560,7 @@ export default function App() {
             role="status"
             aria-label={online ? "En línea" : "Sin conexión"}
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
-              online ? "bg-success-bg text-success" : "bg-niebla text-text-secondary"
+              online ? "bg-success-bg text-success" : "bg-niebla dark:bg-navy-900 text-text-secondary dark:text-sky"
             }`}
           >
             <span
@@ -560,6 +580,14 @@ export default function App() {
             className="rounded-lg bg-danger px-3 py-1.5 text-sm font-bold active:bg-danger"
           >
             SOS
+          </button>
+          <button
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+            title="Cambiar tema"
+            className="text-base leading-none opacity-80"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
           </button>
           <button
             onClick={() => {
@@ -594,7 +622,7 @@ export default function App() {
         {(pull > 0 || refreshing) && (
           <div
             role="status"
-            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60 dark:text-niebla/60"
             style={{
               height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
             }}
@@ -622,16 +650,16 @@ export default function App() {
                   : "No se pudieron activar los avisos en este dispositivo",
               );
             }}
-            className="w-full rounded-xl border border-navy/30 bg-white py-3 text-sm font-bold text-navy shadow-sm"
+            className="w-full rounded-xl border border-navy/30 bg-white dark:bg-navy-700 py-3 text-sm font-bold text-navy shadow-sm"
           >
             🔔 Activar avisos de rutas asignadas
           </button>
         )}
 
         {loaded && !route && (
-          <div className="rounded-xl bg-white p-6 text-center text-text-tertiary shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-navy-700 p-6 text-center text-text-tertiary dark:text-sky/70 shadow-sm">
             No tiene ruta asignada hoy.
-            <button onClick={load} className="mt-3 block w-full rounded-lg bg-niebla py-2 text-sm font-medium">
+            <button onClick={load} className="mt-3 block w-full rounded-lg bg-niebla dark:bg-navy-900 py-2 text-sm font-medium">
               Actualizar
             </button>
           </div>
@@ -712,7 +740,7 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label="Alerta de pánico"
-            className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
             {sos === "confirm" ? (
@@ -720,14 +748,14 @@ export default function App() {
                 <div className="text-lg font-bold text-danger">
                   🚨 ¿Enviar alerta de pánico?
                 </div>
-                <p className="mt-1 text-sm text-text-secondary">
+                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
                   Se notificará a la central con tu ubicación. Úsalo solo ante
                   una emergencia real.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                    className="flex-1 rounded-xl bg-niebla dark:bg-navy-900 py-4 text-base font-bold text-navy"
                   >
                     Cancelar
                   </button>
@@ -744,14 +772,14 @@ export default function App() {
                 <div className="text-lg font-bold text-danger">
                   🚨 Alerta enviada
                 </div>
-                <p className="mt-1 text-sm text-text-secondary">
+                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
                   La central fue notificada. Si sigues en peligro, puedes
                   reenviarla.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                    className="flex-1 rounded-xl bg-niebla dark:bg-navy-900 py-4 text-base font-bold text-navy"
                   >
                     Cerrar
                   </button>
@@ -811,7 +839,7 @@ function Login({
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white dark:bg-navy-700 p-6 shadow-sm">
         <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
         {notice && (
           <p
@@ -883,7 +911,7 @@ function StopCard({
   const nav = navLat !== null && navLng !== null ? navLinks(navLat, navLng) : null;
   return (
     <div
-      className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
+      className={`rounded-xl bg-white dark:bg-navy-700 p-4 shadow-sm ${done ? "opacity-60" : ""} ${
         isPickup && !done ? "border-l-4 border-cielo" : ""
       } ${isCurrent && !done ? "ring-2 ring-lima" : ""}`}
     >
@@ -897,7 +925,7 @@ function StopCard({
             >
               {isPickup ? "📦 RECOGER" : "📍 ENTREGAR"}
             </span>
-            <span className="text-navy/60">
+            <span className="text-navy/60 dark:text-niebla/60">
               Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
             </span>
             {isCurrent && !done && (
@@ -907,7 +935,7 @@ function StopCard({
             )}
           </div>
           <div className="mt-1 font-semibold">{stop.order.customerName}</div>
-          <div className="text-sm text-text-secondary">{address}</div>
+          <div className="text-sm text-text-secondary dark:text-sky">{address}</div>
           {notes && (
             <div className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
               📍 {notes}
@@ -916,7 +944,7 @@ function StopCard({
         </div>
         <a
           href={`tel:${stop.order.customerPhone}`}
-          className="rounded-lg bg-niebla px-3 py-2 text-sm"
+          className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-2 text-sm"
         >
           📞
         </a>
@@ -949,7 +977,7 @@ function StopCard({
           {stop.status === "PENDING" && (
             <button
               onClick={onArrive}
-              className="flex-1 rounded-lg border border-navy py-2.5 text-sm font-bold text-navy"
+              className="flex-1 rounded-lg border border-navy py-2.5 text-sm font-bold text-navy dark:text-niebla"
             >
               Llegué
             </button>
@@ -1181,22 +1209,22 @@ function StopActionSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`Gestionar entrega de la parada ${stop.sequence}`}
-        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Contexto de la parada: evita confirmar la entrega equivocada. */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs font-bold text-navy/70">
+            <div className="text-xs font-bold text-navy/70 dark:text-niebla/70">
               Parada {stop.sequence}
             </div>
             <div className="truncate font-semibold">{stop.order.customerName}</div>
-            <div className="truncate text-sm text-text-secondary">{sheetAddress}</div>
+            <div className="truncate text-sm text-text-secondary dark:text-sky">{sheetAddress}</div>
           </div>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="shrink-0 rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+            className="shrink-0 rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
           >
             ✕
           </button>
@@ -1204,13 +1232,13 @@ function StopActionSheet({
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setMode("deliver")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla dark:bg-navy-900"}`}
           >
             {isPickup ? "Recoger" : "Entregar"}
           </button>
           <button
             onClick={() => setMode("fail")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-danger text-white" : "bg-niebla"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-danger text-white" : "bg-niebla dark:bg-navy-900"}`}
           >
             No se pudo
           </button>
@@ -1235,7 +1263,7 @@ function StopActionSheet({
             {scan === null ? (
               <button
                 onClick={() => setScanOpen(true)}
-                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70 dark:text-niebla/70"
               >
                 📷 Escanear paquete {stop.order.trackingNumber ?? ""}
               </button>
@@ -1293,7 +1321,7 @@ function StopActionSheet({
                 />
                 <button
                   onClick={() => photoRef.current?.click()}
-                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy dark:text-niebla"
                 >
                   Cambiar foto
                 </button>
@@ -1301,7 +1329,7 @@ function StopActionSheet({
             ) : (
               <button
                 onClick={() => photoRef.current?.click()}
-                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70 dark:text-niebla/70"
               >
                 📷 Tomar foto de evidencia
               </button>
@@ -1377,7 +1405,7 @@ function StopActionSheet({
                 <button
                   key={value}
                   onClick={() => setFailReason(value)}
-                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-danger/30 bg-danger-bg text-danger" : "border-border"}`}
+                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-danger/30 bg-danger-bg text-danger" : "border-border dark:border-white/10"}`}
                 >
                   {label}
                 </button>
@@ -1394,7 +1422,7 @@ function StopActionSheet({
                 />
                 <button
                   onClick={() => photoRef.current?.click()}
-                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy dark:text-niebla"
                 >
                   Cambiar foto
                 </button>
@@ -1405,7 +1433,7 @@ function StopActionSheet({
                 className={`w-full rounded-lg border border-dashed py-3 text-sm font-medium ${
                   EVIDENCE_REQUIRED_REASONS.includes(failReason)
                     ? "border-danger/30 text-danger"
-                    : "border-navy/40 text-navy/70"
+                    : "border-navy/40 text-navy/70 dark:text-niebla/70"
                 }`}
               >
                 📷 Foto de evidencia

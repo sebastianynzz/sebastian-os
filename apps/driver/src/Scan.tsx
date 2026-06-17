@@ -123,7 +123,7 @@ export default function ScanSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Escanear paquete"
-        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -131,13 +131,13 @@ export default function ScanSheet({
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
           >
             ✕
           </button>
         </div>
         {expected && (
-          <p className="mb-2 text-xs text-text-tertiary">
+          <p className="mb-2 text-xs text-text-tertiary dark:text-sky/70">
             Guía esperada: <span className="font-mono font-bold">{expected}</span>
           </p>
         )}
