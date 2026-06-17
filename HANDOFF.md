@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `f15cd45`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `bc6b830`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -52,10 +52,13 @@ docs.
 1. Finish **Part 4 cross-cutting**: typed-error toasts + retry; performance
    (pagination/virtualization/memoization); a11y & responsive; i18n for
    portal + Track + admin; idempotency audit; broader observability.
-2. **Part 1 Driver** (remaining, smaller): **client-configurable POD**
-   (merchant configures which proofs each delivery requires — needs a `Client`
-   POD-policy field + API + driver enforcement; the continuously-live geofence
-   half is DONE); nav deeplink polish; dark mode; tap-target a11y audit.
+2. **Part 1 Driver** — DONE except minor polish (nav deeplink polish; dark mode;
+   tap-target a11y audit). **client-configurable POD** shipped in `bc6b830`:
+   `Client.podRequired` (`POD_REQUIREMENTS` = PHOTO | RECEIVER_NAME, additive
+   migration `20260617000000_client_pod_policy`), enforced server-side on
+   `/routes/stops/:id/complete` (422, source of truth), configured on the
+   Clientes form, enforced pre-submit in the driver deliver sheet; e2e in
+   `podPolicy.test.ts`.
 3. **Part 2 Web** (mostly not started): Pedidos (server pagination/virtualization,
    CSV import per-row errors); Planificación (filters/bulk/manual tweak); Rutas
    (422 handling, status transitions); MapaEnVivo (clustering/follow); Clientes
@@ -80,14 +83,15 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   ```
   Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
   `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 124**; all 4 frontends build; migrations apply
+- Last green: **optimizer 73 + API 127**; all frontends build; migrations apply
   clean to a fresh DB.
 - A **GateGuard** hook fact-gates the first write/edit per file (state
   importers/callers + the user's instruction, then retry the identical call). To
   quiet it: run with `ECC_GATEGUARD=off`.
 
-**Next story:** **client-configurable POD** is the highest-value remaining
-Part-1 item but is cross-cutting (needs a `Client` POD-policy field + migration +
-API + driver enforcement) — bring up Postgres first (see env notes) and run the
-full `pnpm -r test` gate. Otherwise pick from Part 2 (Web), Part 3 (Admin), or
-Part 4 (cross-cutting). The driver PWA itself is now well-hardened.
+**Next story:** Part 1 Driver is complete. Move to **Part 2 (Web)** — e.g.
+Pedidos server pagination/virtualization + CSV per-row errors, or Rutas 422
+handling/status transitions — or **Part 3 (Admin)** (TenantDetail validation +
+module-dep toggles + FaaS vehicle assignment using the 6-config catalog), or
+**Part 4 cross-cutting** (typed-error toasts/retry, perf, a11y, broader i18n).
+Bring up Postgres first (env notes) and keep the `pnpm -r test` gate green.
