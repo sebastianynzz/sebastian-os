@@ -249,9 +249,46 @@ function toMapStops(route: DriverRoute): MapStop[] {
   return result;
 }
 
+/**
+ * Caché de la ruta del día (stale-while-revalidate): al abrir sin señal el
+ * conductor ve de inmediato su última ruta conocida, y luego se revalida.
+ */
+const ROUTE_CACHE_KEY = "moveos_driver_route";
+function readCachedRoute(): DriverRoute | null {
+  try {
+    const raw = localStorage.getItem(ROUTE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as DriverRoute) : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedRoute(route: DriverRoute | null) {
+  try {
+    if (route) localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(route));
+    else localStorage.removeItem(ROUTE_CACHE_KEY);
+  } catch {
+    // cuota llena / modo privado: la caché es best-effort.
+  }
+}
+
+/** Esqueleto de carga inicial: evita el parpadeo de "sin ruta" antes del fetch. */
+function RouteSkeleton() {
+  return (
+    <div className="space-y-3" aria-hidden>
+      <div className="h-40 animate-pulse rounded-xl bg-white/70 shadow-sm" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-28 animate-pulse rounded-xl bg-white/70 shadow-sm" />
+      ))}
+    </div>
+  );
+}
+
+const PULL_REFRESH_THRESHOLD = 70;
+
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
-  const [route, setRoute] = useState<DriverRoute | null>(null);
+  const [route, setRoute] = useState<DriverRoute | null>(() => readCachedRoute());
+  const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(queueSize());
@@ -262,6 +299,10 @@ export default function App() {
   const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
   const [online, setOnline] = useState(navigator.onLine);
   const [sessionExpired, setSessionExpired] = useState(false);
+  // Pull-to-refresh: distancia tirada (px) y estado de recarga.
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullStart = useRef<number | null>(null);
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
@@ -295,13 +336,16 @@ export default function App() {
       }
       stopsSignature.current = signature;
       setRoute(next);
+      writeCachedRoute(next); // revalidado: actualiza la caché SWR
       // D2: dejar los tiles de la ruta listos para zonas sin señal.
       if (next && signature !== tilesSignature.current) {
         tilesSignature.current = signature;
         void precacheRouteTiles(toMapStops(next));
       }
     } catch {
-      // sin red: se mantiene la última vista
+      // sin red: se mantiene la última vista (la caché ya hidrató al abrir)
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -439,8 +483,39 @@ export default function App() {
     );
   }
 
+  // Pull-to-refresh: tirar hacia abajo desde el tope recarga la ruta. Se
+  // inhabilita con una hoja abierta para no robarle el gesto.
+  const overlayOpen = Boolean(activeStop) || sos !== "idle" || showChargers;
+  function onTouchStart(e: React.TouchEvent) {
+    if (overlayOpen || refreshing || window.scrollY > 0) return;
+    pullStart.current = e.touches[0]?.clientY ?? null;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (pullStart.current === null) return;
+    const dy = (e.touches[0]?.clientY ?? 0) - pullStart.current;
+    setPull(dy > 0 ? Math.min(dy, PULL_REFRESH_THRESHOLD * 1.6) : 0);
+  }
+  async function onTouchEnd() {
+    if (pullStart.current === null) return;
+    const trigger = pull >= PULL_REFRESH_THRESHOLD;
+    pullStart.current = null;
+    setPull(0);
+    if (!trigger) return;
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col">
+    <div
+      className="mx-auto flex min-h-screen max-w-md flex-col"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <header className="sticky top-0 z-10 flex items-center justify-between bg-navy px-4 py-3 text-white">
         <div>
           <div className="font-bold">
@@ -507,6 +582,26 @@ export default function App() {
       )}
 
       <main className="flex-1 space-y-3 p-4">
+        {/* Indicador de pull-to-refresh. */}
+        {(pull > 0 || refreshing) && (
+          <div
+            role="status"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60"
+            style={{
+              height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
+            }}
+          >
+            {refreshing
+              ? "Actualizando…"
+              : pull >= PULL_REFRESH_THRESHOLD
+                ? "Suelta para actualizar"
+                : "Tira para actualizar"}
+          </div>
+        )}
+
+        {/* Carga inicial: esqueleto en vez del parpadeo de "sin ruta". */}
+        {!loaded && !route && <RouteSkeleton />}
+
         {/* Avisos push (D5): requiere un toque del conductor (gesto). */}
         {pushOffer && (
           <button
@@ -525,7 +620,7 @@ export default function App() {
           </button>
         )}
 
-        {!route && (
+        {loaded && !route && (
           <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
             No tiene ruta asignada hoy.
             <button onClick={load} className="mt-3 block w-full rounded-lg bg-slate-100 py-2 text-sm font-medium">
