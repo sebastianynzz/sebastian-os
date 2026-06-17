@@ -1,9 +1,9 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `df193be`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `071e0ee`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
-Resume work at **Phase D5 delivery zones** (see "What's left"); D4 multi-depot
-core is done (one fast-follow left — the global header depot selector).
+Resume work at **Phase D6 cost/failure analytics** (see "What's left"); D4
+multi-depot + D5 delivery-zones cores are done (fast-follows noted below).
 
 To resume:
 
@@ -89,19 +89,32 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
   coords drive the optimizer depart/return point and `Route.depotId` is linked
   (manual + AI `optimize_routes`); Planificación depot selector. Full API suite
   green: 35 files / 207 tests.
+- **D5 delivery zones core** (`9651bea`…`071e0ee`, 3 commits):
+  (1) `Zone` model + additive migration `20260620000000_delivery_zones` + `/zones`
+  CRUD (ADMIN mutate; driverIds validated tenant-scoped) + shared `zoneSchema` +
+  deterministic `pointInPolygon` (ray casting) + tests (zones e2e 7, geo unit 3).
+  (2) **Controles › Zonas** page — draw polygons on Leaflet (click vertices,
+  undo/clear), color + driver assignment. (3) Serviceability at order create:
+  `checkServiceability` logs a non-blocking `OUT_OF_ZONE` event when the
+  destination is outside all zones; portal address validator returns coverage and
+  the "Nuevo envío" form warns. Full API suite green: 37 files / 220 tests.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**D4 fast-follow (deferred):** global **depot selector in the web header** scoping
-Pedidos/Rutas/Mapa/Analítica (cross-cutting — orders have no depot, so scope via
-the route's depot), a depot column on Rutas, and nearest-depot auto-assignment.
-Optionally expose `Vehicle.homeDepotId` / `Driver.depotId` in their edit forms.
+**Fast-follows (deferred):**
+- D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
+  Analítica (orders carry no depot → scope via the route's depot), a depot column
+  on Rutas, nearest-depot auto-assignment; expose `Vehicle.homeDepotId` /
+  `Driver.depotId` in their edit forms.
+- D5: **assignment prefers a zone's drivers** (optimizer hint), and tie the
+  coverage signal into the demand-heatmap AI feature.
 
-**D5 delivery zones · D6 cost/failure analytics** (energy-native cost =
-routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification engine
-B2B-only, developer platform, custom stop props, driver permissions, barcode).
+**D6 cost/failure analytics** (energy-native cost = routeHours×driverCostPerHour
++ kWh×tariff; aggregate standardized fail reasons by reason/zone/time), then
+**Tier 2** (notification engine B2B-only, developer platform, custom stop props,
+driver permissions, barcode).
 
 **Carry-over polish:**
 - `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
