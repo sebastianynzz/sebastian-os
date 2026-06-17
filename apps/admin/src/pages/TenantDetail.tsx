@@ -4,6 +4,8 @@ import {
   VEHICLE_TYPES,
   VEHICLE_TYPE_PROFILES,
   formatShortBogota,
+  moduleDependencyHints,
+  type ModuleKey,
   type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
@@ -284,6 +286,12 @@ export default function TenantDetail() {
 
   if (!t) return <p className="text-cielo">Cargando…</p>;
 
+  // Conjunto habilitado para las pistas de dependencia: incluye el núcleo
+  // (siempre activo), igual que el backend, para que "Necesario para" sea fiel.
+  const enabledModuleKeys = t.modules
+    .filter((m) => m.enabled)
+    .map((m) => m.key as ModuleKey);
+
   return (
     <div className="space-y-4">
       <Link to="/tenants" className="text-sm text-cielo hover:underline">
@@ -493,21 +501,38 @@ export default function TenantDetail() {
 
       <Card title="Módulos activos (override de plataforma)">
         <div className="grid grid-cols-2 gap-3">
-          {t.modules.map((m) => (
+          {t.modules.map((m) => {
+            const hints = moduleDependencyHints(m.key as ModuleKey, enabledModuleKeys);
+            return (
             <div
               key={m.key}
-              className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded-lg border border-white/10 px-3 py-2"
             >
-              <span className="text-sm">{m.nombre}</span>
+              <div className="min-w-0">
+                <span className="text-sm">{m.nombre}</span>
+                {hints.requires.length > 0 && (
+                  <p className="text-xs text-white/40">
+                    Requiere:{" "}
+                    <span className="text-cielo">{hints.requires.join(", ")}</span>
+                  </p>
+                )}
+                {hints.requiredBy.length > 0 && (
+                  <p className="text-xs text-white/40">
+                    Necesario para:{" "}
+                    <span className="text-cielo">{hints.requiredBy.join(", ")}</span>
+                  </p>
+                )}
+              </div>
               {m.core ? (
-                <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
+                <span className="shrink-0 rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
                   Núcleo
                 </span>
               ) : (
                 <Toggle on={m.enabled} onClick={() => toggleModule(m.key, !m.enabled)} />
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 

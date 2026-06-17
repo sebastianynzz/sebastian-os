@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { moduleDependencyHints, type ModuleKey } from "@moveos/shared";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../toast";
@@ -47,6 +48,12 @@ export default function Modulos() {
     }
   }
 
+  // Conjunto habilitado para las pistas de dependencia: igual que el backend,
+  // incluye el núcleo (siempre activo) para que "Necesario para" sea fiel al 409.
+  const enabledKeys = modules
+    .filter((m) => m.enabled)
+    .map((m) => m.key as ModuleKey);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -61,12 +68,34 @@ export default function Modulos() {
       {loading && <Loading label="Cargando módulos…" />}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {modules.map((m) => (
+        {modules.map((m) => {
+          const hints = moduleDependencyHints(m.key as ModuleKey, enabledKeys);
+          return (
           <Card key={m.key}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-semibold">{m.nombre}</h3>
                 <p className="mt-1 text-sm text-navy/60">{m.descripcion}</p>
+                {(hints.requires.length > 0 || hints.requiredBy.length > 0) && (
+                  <div className="mt-2 space-y-0.5 text-xs text-navy/50">
+                    {hints.requires.length > 0 && (
+                      <p>
+                        Requiere:{" "}
+                        <span className="font-medium text-navy/70">
+                          {hints.requires.join(", ")}
+                        </span>
+                      </p>
+                    )}
+                    {hints.requiredBy.length > 0 && (
+                      <p>
+                        Necesario para:{" "}
+                        <span className="font-medium text-navy/70">
+                          {hints.requiredBy.join(", ")}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               {m.core ? (
                 <span className="shrink-0 rounded-full bg-lima/30 px-3 py-1 text-xs font-bold text-navy">
@@ -92,7 +121,8 @@ export default function Modulos() {
               )}
             </div>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -193,3 +193,26 @@ export function modulesBlockingDisable(
 export function moduleName(key: ModuleKey): string {
   return MODULE_CATALOG.find((m) => m.key === key)?.nombre ?? key;
 }
+
+/**
+ * Pistas de dependencia para la UI de módulos, derivadas de la MISMA lógica
+ * que aplica el backend — así el texto nunca diverge del comportamiento real:
+ * - `requires`: módulos (no-núcleo) que se encienden en cascada al activar
+ *   este (lo que hace `modulesToEnableWith`); por qué prender uno prende otros.
+ * - `requiredBy`: módulos habilitados que dependen de este y por tanto impiden
+ *   desactivarlo (lo que produce el 409 `MODULE_DEPENDENCY`); por qué no se
+ *   puede apagar todavía.
+ * Devuelve nombres legibles en español. `enabledKeys` debe incluir el núcleo
+ * (igual que el backend) para que `requiredBy` sea fiel.
+ */
+export function moduleDependencyHints(
+  key: ModuleKey,
+  enabledKeys: Iterable<ModuleKey>,
+): { requires: string[]; requiredBy: string[] } {
+  return {
+    requires: modulesToEnableWith(key)
+      .filter((k) => k !== key)
+      .map(moduleName),
+    requiredBy: modulesBlockingDisable(key, enabledKeys).map(moduleName),
+  };
+}
