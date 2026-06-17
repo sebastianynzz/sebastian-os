@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/dazzling-rubin-ri547l` (pushed through `1696532`).
+Branch: `claude/dazzling-rubin-ri547l` (pushed through `61d9345`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -16,7 +16,7 @@ cd /home/user/move-os && git checkout claude/dazzling-rubin-ri547l && git pull &
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/dazzling-rubin-ri547l` (already
-checked out, pushed through commit `1696532`). Read `CLAUDE.md` AND this file's
+checked out, pushed through commit `61d9345`). Read `CLAUDE.md` AND this file's
 ledger below first (EV-only, B2B-only, tenant isolation, Spanish/America-Bogotá).
 I've re-attached the 4 spec docs.
 
@@ -74,10 +74,15 @@ decision, or are underspecified polish. Don't auto-grind; recommend and confirm.
    `webhookTest.test.ts`); Planificación order filter + bulk select (`8348b1a`).
    Also DONE: MapaEnVivo EV-only telemetry (`306c4df`, dropped RPM/fuel/coolant)
    + follow-vehicle (`0bb5057`); web-wide role-based nav (`b696508`, `roles` on
-   NAV_ITEMS, Módulos → ADMIN only). STILL LEFT: Pedidos virtualization;
-   Planificación manual stop tweak; map clustering (deferred to admin Flota — needs
-   leaflet cluster lib); Seguridad/Ev/Analítica/Sostenibilidad polish;
-   Excepciones/Direcciones/Copiloto finishers; Modulos; saved views; responsive.
+   NAV_ITEMS, Módulos → ADMIN only); **EV page (`Ev.tsx`) hardened** — range
+   calculator wiring the existing `/ev/range-estimate` + client-side charging
+   directory search (`8b338ed`, `ev.test.ts` range-estimate coverage), and reefer
+   energy-draw surfaced from `VEHICLE_TYPE_PROFILES` via `reeferEnergyKwh`
+   (`61d9345`, analytics-only/never a range penalty; Cold Box cards show kW +
+   kWh/shift). STILL LEFT: Pedidos virtualization; Planificación manual stop tweak;
+   EV charging-station *map* (search done; leaflet map optional);
+   Seguridad/Analítica/Sostenibilidad polish; Excepciones/Direcciones/Copiloto
+   finishers; Modulos; saved views; responsive.
 4. **Part 3 Admin** — DONE: FaaS vehicle assignment via 6-config catalog
    (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always); TenantDetail
    plan-change confirm + health badge (`d8199e7`); module dependency graph
