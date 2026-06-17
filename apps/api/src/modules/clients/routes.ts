@@ -110,6 +110,48 @@ export default async function clientsRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Prueba del webhook del comercio antes de guardarlo: envía un POST de
+   * muestra con el mismo formato que las notificaciones reales (B2B: el evento
+   * va al negocio, nunca al consumidor). Verifica que la URL responde antes de
+   * que un pedido real dependa de ella. Timeout corto para no colgar la UI.
+   */
+  app.post(
+    "/test-webhook",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { webhookUrl } = z
+        .object({ webhookUrl: z.string().url() })
+        .parse(request.body);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "test",
+            message: "Webhook de prueba de MoveOS",
+            sentAt: new Date().toISOString(),
+          }),
+          signal: controller.signal,
+        });
+        return reply.send({ ok: res.ok, status: res.status });
+      } catch (err) {
+        return reply.send({
+          ok: false,
+          error:
+            err instanceof Error && err.name === "AbortError"
+              ? "La URL no respondió en 5 s"
+              : "No se pudo conectar con la URL",
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
+
+  /**
    * Acceso del negocio al portal de clientes: crea un usuario con rol CLIENT
    * atado a este negocio. Solo el ADMIN del tenant entrega credenciales.
    */

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import {
   Banner,
@@ -51,6 +51,10 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [channel, setChannel] = useState("IN_APP");
+  const webhookRef = useRef<HTMLInputElement>(null);
+  const [webhookTest, setWebhookTest] = useState<
+    { testing?: boolean; ok?: boolean; status?: number; error?: string } | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
@@ -100,6 +104,30 @@ export default function Clientes() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  /** Prueba la URL del webhook antes de guardar, para no descubrir que está
+   *  rota cuando ya dependa de ella un pedido real. */
+  async function testWebhook() {
+    const url = webhookRef.current?.value.trim();
+    if (!url) {
+      setWebhookTest({ ok: false, error: "Ingresa la URL primero" });
+      return;
+    }
+    setWebhookTest({ testing: true });
+    try {
+      const res = await api<{ ok: boolean; status?: number; error?: string }>(
+        "POST",
+        "/clients/test-webhook",
+        { webhookUrl: url },
+      );
+      setWebhookTest(res);
+    } catch (err) {
+      setWebhookTest({
+        ok: false,
+        error: err instanceof Error ? err.message : "Error",
+      });
     }
   }
 
@@ -170,8 +198,35 @@ export default function Clientes() {
             {channel === "WEBHOOK" && (
               <div className="sm:col-span-2">
                 <Field label="URL del webhook (recibe los eventos de entrega)">
-                  <input name="webhookUrl" type="url" className={inputClass} placeholder="https://..." />
+                  <div className="flex gap-2">
+                    <input
+                      ref={webhookRef}
+                      name="webhookUrl"
+                      type="url"
+                      className={inputClass}
+                      placeholder="https://..."
+                      onChange={() => setWebhookTest(null)}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={testWebhook}
+                      disabled={webhookTest?.testing}
+                    >
+                      {webhookTest?.testing ? "Probando…" : "Probar"}
+                    </Button>
+                  </div>
                 </Field>
+                {webhookTest && !webhookTest.testing && (
+                  <p
+                    role="status"
+                    className={`mt-1 text-sm ${webhookTest.ok ? "text-emerald-700" : "text-red-600"}`}
+                  >
+                    {webhookTest.ok
+                      ? `✅ Respondió correctamente (HTTP ${webhookTest.status})`
+                      : `❌ ${webhookTest.error ?? `Respuesta HTTP ${webhookTest.status}`}`}
+                  </p>
+                )}
               </div>
             )}
             <Field label="Dirección de recogida (origen de sus envíos del portal)">
