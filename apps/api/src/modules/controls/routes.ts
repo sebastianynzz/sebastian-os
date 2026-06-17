@@ -1,7 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import {
+  costConfigSchema,
   defaultPodPolicyConfig,
   podPolicyConfigSchema,
+  DEFAULT_DRIVER_COST_PER_HOUR_COP,
+  DEFAULT_ENERGY_TARIFF_COP,
   type PodPolicyConfig,
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
@@ -46,4 +49,36 @@ export default async function controlsRoutes(app: FastifyInstance) {
       return { scope: "TEAM_DEFAULT", config: row.config };
     },
   );
+
+  /**
+   * Parámetros de costo del tenant (D6, energía-nativo): costo del conductor por
+   * hora y tarifa de energía (COP/kWh). Alimentan el costo por entrega en
+   * analítica. En null se devuelven los valores por defecto compartidos.
+   */
+  app.get("/cost", async (request) => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: { driverCostPerHourCop: true, energyTariffCop: true },
+    });
+    return {
+      driverCostPerHourCop: tenant.driverCostPerHourCop ?? DEFAULT_DRIVER_COST_PER_HOUR_COP,
+      energyTariffCop: tenant.energyTariffCop ?? DEFAULT_ENERGY_TARIFF_COP,
+    };
+  });
+
+  app.patch("/cost", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const parsed = costConfigSchema.partial().safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Configuración de costos inválida" });
+    }
+    const updated = await prisma.tenant.update({
+      where: { id: request.user.tenantId },
+      data: parsed.data,
+      select: { driverCostPerHourCop: true, energyTariffCop: true },
+    });
+    return {
+      driverCostPerHourCop: updated.driverCostPerHourCop ?? DEFAULT_DRIVER_COST_PER_HOUR_COP,
+      energyTariffCop: updated.energyTariffCop ?? DEFAULT_ENERGY_TARIFF_COP,
+    };
+  });
 }

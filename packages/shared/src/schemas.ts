@@ -223,6 +223,20 @@ export const serviceSchema = z.object({
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
+// === Configuración de costos (D6) ===
+
+/** Costo del conductor por hora (COP) si el tenant no lo configuró. */
+export const DEFAULT_DRIVER_COST_PER_HOUR_COP = 12000;
+/** Tarifa de energía (COP por kWh) por defecto (referencia comercial Colombia). */
+export const DEFAULT_ENERGY_TARIFF_COP = 800;
+
+/** Parámetros de costo energético del tenant (costo/hora conductor + COP/kWh). */
+export const costConfigSchema = z.object({
+  driverCostPerHourCop: z.number().int().nonnegative(),
+  energyTariffCop: z.number().nonnegative(),
+});
+export type CostConfigInput = z.infer<typeof costConfigSchema>;
+
 // === Zonas de entrega (D5) ===
 
 const zonePointSchema = z.object({

@@ -41,6 +41,10 @@ model Tenant {
   // operatorType (mecánica de aprovisionamiento / propiedad de activos):
   // etiqueta + preset de módulos al aprovisionar, nunca lógica de cobro.
   businessModel String   @default("SAAS")
+  // Costos (D6, energía-nativo): costo del conductor por hora y tarifa de
+  // energía (COP/kWh). Nullable → se usan los valores por defecto compartidos.
+  driverCostPerHourCop Int?
+  energyTariffCop      Float?
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]
