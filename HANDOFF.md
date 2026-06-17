@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `6d22501`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `f15cd45`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -30,25 +30,32 @@ docs.
   reoptimize_route, resolve_addresses (mutating); optimize_load, pick_vehicle,
   optimize_charging, optimize_cold_chain, optimize_schedule, plan_capacity
   (advisory — persistence deferred by product decision).
-- **Phase C (8 stories)** — error boundaries (web/admin/driver);
+- **Phase C (initial 8 stories)** — error boundaries (web/admin/driver);
   tenant-isolation test (`isolation.test.ts`); i18n helpers
   (`apps/web/src/format.ts`, dispatcher pages only); driver PWA update toast
   (`sw.template.js`/`sw.ts`/`UpdateToast`); offline-queue hardening (driver
   `api.ts` + `OfflineQueue.tsx`); fail-evidence + POD-evidence enforcement
   (`failStopSchema`/`submitPodSchema` refines + tests); deliver geofence feedback.
+- **Phase C — Part 1 Driver (9 stories, this session)** all in
+  `apps/driver/src/{App.tsx,api.ts}`, gated by `pnpm --filter @moveos/driver build`
+  (driver app has no unit harness): continuously-live geofence (geo **ref** +
+  2s poll, freshest fix at submit); GPS battery-aware mode (Battery Status API,
+  low-power on discharging ≤20%) + accuracy filter (drop >100m/>500m fixes);
+  start-route double-guard + error feedback; SOS confirm window (idle→confirm→
+  sent, 10s auto-disarm) + re-send; POD photo upload retry-with-backoff (3x,
+  skip 4xx); connection-status pill (online/offline); auth session-expiry
+  (`SESSION_EXPIRED_EVENT` on 401-with-token → clean re-login) + network-vs-creds
+  login copy; today's route SWR cache + first-load skeleton + pull-to-refresh;
+  StopCard current-stop ring + SIGUIENTE/EN SITIO (ARRIVED) badge.
 
 **WHAT'S LEFT (Phase C, doc order):**
 1. Finish **Part 4 cross-cutting**: typed-error toasts + retry; performance
    (pagination/virtualization/memoization); a11y & responsive; i18n for
    portal + Track + admin; idempotency audit; broader observability.
-2. **Part 1 Driver** (remaining): auth/login (offline re-open, token refresh,
-   "sesión expirada", network-vs-bad-creds); today's route
-   (stale-while-revalidate, skeletons, pull-to-refresh); start-route
-   double-guard; StopCard states/ETA/re-sequencing; client-configurable POD +
-   continuously-live geofence (plumb geo ref + poll); GPS battery-aware
-   interval/accuracy filter; POD photo upload retry/storage fallback; SOS
-   confirm window/re-send; nav deeplink; connection-status indicator, dark mode,
-   tap targets.
+2. **Part 1 Driver** (remaining, smaller): **client-configurable POD**
+   (merchant configures which proofs each delivery requires — needs a `Client`
+   POD-policy field + API + driver enforcement; the continuously-live geofence
+   half is DONE); nav deeplink polish; dark mode; tap-target a11y audit.
 3. **Part 2 Web** (mostly not started): Pedidos (server pagination/virtualization,
    CSV import per-row errors); Planificación (filters/bulk/manual tweak); Rutas
    (422 handling, status transitions); MapaEnVivo (clustering/follow); Clientes
@@ -79,5 +86,8 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   importers/callers + the user's instruction, then retry the identical call). To
   quiet it: run with `ECC_GATEGUARD=off`.
 
-**Next story:** continuously-live geofence on the driver deliver sheet (plumb the
-`geo` ref into the sheet + poll), or pick another from the list above.
+**Next story:** **client-configurable POD** is the highest-value remaining
+Part-1 item but is cross-cutting (needs a `Client` POD-policy field + migration +
+API + driver enforcement) — bring up Postgres first (see env notes) and run the
+full `pnpm -r test` gate. Otherwise pick from Part 2 (Web), Part 3 (Admin), or
+Part 4 (cross-cutting). The driver PWA itself is now well-hardened.
