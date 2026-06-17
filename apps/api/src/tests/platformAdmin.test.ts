@@ -305,4 +305,43 @@ describe("series de tiempo de plataforma", () => {
     expect(platform.status).toBe(200);
     expect(Array.isArray(platform.body.days)).toBe(true);
   });
+
+  it("acepta un rango explícito from/to y devuelve esa cantidad de días con successRate", async () => {
+    const today = new Date(Date.now() - 5 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const fromD = new Date(`${today}T12:00:00Z`);
+    fromD.setUTCDate(fromD.getUTCDate() - 6); // 7 días inclusive
+    const from = fromD.toISOString().slice(0, 10);
+
+    const res = await api(
+      "GET",
+      `/platform/metrics/timeseries?from=${from}&to=${today}&tenantId=${tenantId}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.from).toBe(from);
+    expect(res.body.to).toBe(today);
+    expect(res.body.days.length).toBe(7);
+    // El drill del frontend depende de successRate por día (null o número).
+    expect(res.body.days[0]).toHaveProperty("successRate");
+  });
+
+  it("rango inválido (from > to) → 400", async () => {
+    const res = await api(
+      "GET",
+      "/platform/metrics/timeseries?from=2026-02-10&to=2026-02-01",
+      platformToken,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("drill a un tenant inexistente → 404", async () => {
+    const res = await api(
+      "GET",
+      "/platform/metrics/timeseries?tenantId=no-existe-xyz",
+      platformToken,
+    );
+    expect(res.status).toBe(404);
+  });
 });
