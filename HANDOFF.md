@@ -1,12 +1,13 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/relaxed-ramanujan-jqykyw` (pushed through `925071d`).
-Resume work at **Phase D3b** (see "What's left").
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `0dd3e15`; descends from
+`claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
+Resume work at **Phase D4 multi-depot** (see "What's left").
 
 To resume:
 
 ```bash
-cd /home/user/move-os && git checkout claude/relaxed-ramanujan-jqykyw && git pull && claude
+cd /home/user/move-os && git checkout claude/pensive-hypatia-otcrfu && git pull && claude
 ```
 
 The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
@@ -68,20 +69,20 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
   `Order.serviceId` FK (migration `20260618010000_services_sla`); `/services`
   CRUD module (GET any-staff; POST/PATCH/DELETE ADMIN; 409 on dup identifier);
   `createOrder` persists `serviceId`. Smoke-verified; **no e2e test yet** (D3b).
+- **D3b Services/SLA finish** (`b38db8b`…`0dd3e15`, 5 commits):
+  (1) `SLA_BREACH` in the Exceptions Cockpit — in-flight orders with a service
+  raise HIGH (breached) / MEDIUM (≤30 min, por vencer) via `slaDueAt`, OPEN_ROUTE
+  when on a route (+ `slaDueAt` unit test). (2) `GET /analytics/sla-report`
+  (gated ANALYTICS_PRO) + per-client SLA table on Analítica. (3) **Controles ›
+  Servicios** CRUD page (ADMIN nav) over the D3a module; shared
+  `WEEKDAY_LABELS`/`SERVICE_STOP_TYPE_LABELS`. (4) `serviceId` wired onto orders:
+  validated in `createOrder` (tenant-scoped), in the orders list, Pedidos column
+  + filter + form, portal schema + `GET /portal/services` + portal selector.
+  (5) `services.test.ts` e2e (9). Full API suite green: 34 files / 199 tests.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
-
-**D3b — finish Services/SLA (start here):**
-1. `SLA_BREACH` in the Exceptions Cockpit — `apps/api/src/services/exceptions.ts`
-   already has `order.createdAt`; join the order's `service` and raise a breach
-   (or predicted breach) exception via the existing exception machinery.
-2. Per-client SLA report in analytics.
-3. **Controles › Servicios** CRUD page (web) + a service column/filter on Pedidos
-   (`Order.serviceId`); send `serviceId` on order create (single + portal).
-4. `services` e2e test (mirror `controlsPodPolicy.test.ts`); add an `slaDueAt`
-   unit test.
 
 **D4 multi-depot · D5 delivery zones · D6 cost/failure analytics** (energy-native
 cost = routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification
