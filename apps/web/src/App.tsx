@@ -32,7 +32,15 @@ import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
 import PortalVerde from "./pages/PortalVerde";
 
-const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
+// `module` oculta tras una entitlement de pago; `roles` restringe por rol
+// (refleja la autorización real del API — p. ej. activar/desactivar módulos es
+// solo de ADMIN, así que el DISPATCHER no debe ver esa sección).
+const NAV_ITEMS: {
+  to: string;
+  label: string;
+  module?: string;
+  roles?: string[];
+}[] = [
   { to: "/excepciones", label: "Excepciones" },
   { to: "/pedidos", label: "Pedidos" },
   { to: "/direcciones", label: "Direcciones" },
@@ -48,7 +56,8 @@ const NAV_ITEMS: { to: string; label: string; module?: string }[] = [
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
-  { to: "/modulos", label: "Módulos" },
+  // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
+  { to: "/modulos", label: "Módulos", roles: ["ADMIN"] },
 ];
 
 /** Portal de clientes (rol CLIENT): navegación propia, sin plano operativo. */
@@ -72,7 +81,9 @@ function Shell() {
   const visibleNav = isClient
     ? CLIENT_NAV
     : NAV_ITEMS.filter(
-        (item) => !item.module || session.modules.includes(item.module),
+        (item) =>
+          (!item.module || session.modules.includes(item.module)) &&
+          (!item.roles || item.roles.includes(session.user.role)),
       );
 
   return (
