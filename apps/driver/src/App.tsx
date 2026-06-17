@@ -680,10 +680,19 @@ function StopActionSheet({
         else photoSkipped = true;
       }
 
+      // El POD solo declara las pruebas que REALMENTE tiene (el servidor
+      // valida la evidencia). Sin foto subida ni GPS no hay prueba verificable:
+      // se bloquea en lugar de fingir una foto (B2B: defensa ante disputas).
       const types: string[] = [];
       if (photoUrl) types.push("PHOTO");
-      if (lat !== undefined) types.push("GEOFENCE");
-      if (types.length === 0) types.push("PHOTO");
+      if (lat !== undefined && lng !== undefined) types.push("GEOFENCE");
+      if (types.length === 0) {
+        setError(
+          "Sin foto ni señal GPS no se puede confirmar la entrega. Toma una foto o espera la ubicación.",
+        );
+        setBusy(false);
+        return;
+      }
 
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
         types,

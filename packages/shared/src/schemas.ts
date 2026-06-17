@@ -157,16 +157,30 @@ export const trackingPingSchema = z.object({
   routeId: z.string().optional(),
 });
 
-export const submitPodSchema = z.object({
-  types: z.array(z.enum(POD_TYPES)).min(1),
-  photoUrl: z.string().url().optional(),
-  signatureUrl: z.string().url().optional(),
-  otpCode: z.string().optional(),
-  receivedBy: z.string().optional(),
-  notes: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-});
+export const submitPodSchema = z
+  .object({
+    types: z.array(z.enum(POD_TYPES)).min(1),
+    photoUrl: z.string().url().optional(),
+    signatureUrl: z.string().url().optional(),
+    otpCode: z.string().optional(),
+    receivedBy: z.string().optional(),
+    notes: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+  })
+  // Integridad del POD (fuente de verdad = servidor): una prueba declarada debe
+  // venir con su evidencia. Evita registrar una entrega como "con foto/firma/
+  // OTP/geocerca" sin la evidencia correspondiente (también desde la cola offline).
+  .superRefine((p, ctx) => {
+    if (p.types.includes("PHOTO") && !p.photoUrl)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba PHOTO requiere photoUrl", path: ["photoUrl"] });
+    if (p.types.includes("SIGNATURE") && !p.signatureUrl)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba SIGNATURE requiere signatureUrl", path: ["signatureUrl"] });
+    if (p.types.includes("OTP") && !p.otpCode)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba OTP requiere otpCode", path: ["otpCode"] });
+    if (p.types.includes("GEOFENCE") && (p.lat === undefined || p.lng === undefined))
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La prueba GEOFENCE requiere lat y lng", path: ["lat"] });
+  });
 
 /**
  * Ping de telemetría desde un dispositivo, el smartphone del conductor o el
