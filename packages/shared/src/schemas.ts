@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DRIVER_STATUSES,
   POD_REQUIREMENTS,
   POD_TYPES,
   TELEMETRY_SOURCES,
@@ -129,7 +130,19 @@ export const createDriverSchema = z.object({
   documentId: z.string().min(5),
   email: z.string().email().optional(),
   password: z.string().min(8).optional(),
+  licenseExpiresAt: z.string().datetime().optional(),
 });
+
+/** Actualización de conductor: disponibilidad y/o vencimiento de licencia. */
+export const updateDriverSchema = z
+  .object({
+    status: z.enum(DRIVER_STATUSES).optional(),
+    // null limpia la fecha; ausente la deja igual.
+    licenseExpiresAt: z.string().datetime().nullable().optional(),
+  })
+  .refine((d) => d.status !== undefined || d.licenseExpiresAt !== undefined, {
+    message: "Nada que actualizar",
+  });
 
 export const createVehicleSchema = z.object({
   plate: z.string().min(5).max(8),
@@ -263,6 +276,7 @@ export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateClientInput = z.infer<typeof createClientSchema>;
 export type CreateDriverInput = z.infer<typeof createDriverSchema>;
+export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type PlanRoutesInput = z.infer<typeof planRoutesSchema>;
 export type TrackingPingInput = z.infer<typeof trackingPingSchema>;
