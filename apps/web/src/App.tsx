@@ -149,7 +149,7 @@ function Shell() {
         {getImpersonatedBy() && (
           <div
             role="status"
-            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-bg px-4 py-2 text-sm text-warning"
           >
             <span>
               🛟 Sesión de soporte: actuando como <b>{session.user.email}</b>{" "}
