@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `13466ec`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `eb38dc2`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -16,7 +16,7 @@ cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && c
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `13466ec`). Read `CLAUDE.md` AND this file's
+checked out, pushed through commit `eb38dc2`). Read `CLAUDE.md` AND this file's
 ledger below first (EV-only, B2B-only, tenant isolation, Spanish/America-Bogotá).
 I've re-attached the 4 spec docs.
 
@@ -121,9 +121,16 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
 - Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
   all use the shared toast; Login/Track stay inline by design.
 - Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`,
-  react-leaflet-cluster@^2.1.0). NOTE: admin Flota is a TABLE (no leaflet in the
-  admin app) — clustering there needs a leaflet map built in Flota first
-  (add leaflet/react-leaflet to apps/admin), a separate larger task.
+  react-leaflet-cluster@^2.1.0). **Admin Flota clustered map = top open task but
+  BLOCKED on a decision:** Flota is a table and the admin app has NO leaflet; the
+  `/tenants/fleet/owned` response has NO lat/lng (Vehicle denormalizes
+  socPercent/lastSpeedKmh/lastSeenAt but NOT position — coords live only in
+  `TelemetryPing`). To build it: (1) surface position — EITHER denormalize
+  `lastLat`/`lastLng` on Vehicle updated by the telemetry-ingest path (recommended;
+  matches lastSpeedKmh, trivial query, needs a migration) OR join latest
+  TelemetryPing per vehicle in the owned-fleet query (no schema change, heavier);
+  (2) add leaflet/react-leaflet/react-leaflet-cluster to apps/admin; (3) build the
+  clustered map + handle vehicles with no recent fix. Decide (1) before starting.
 - Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
   Modulos + TenantDetail.
 - Any **newly-specified** page feature. The remaining Part 2/3 "polish"
