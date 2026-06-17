@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `eb38dc2`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `7f1f817`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -120,17 +120,12 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
 **Next story (pick one — all are now either low-value or need a spec):**
 - Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
   all use the shared toast; Login/Track stay inline by design.
-- Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`,
-  react-leaflet-cluster@^2.1.0). **Admin Flota clustered map = top open task but
-  BLOCKED on a decision:** Flota is a table and the admin app has NO leaflet; the
-  `/tenants/fleet/owned` response has NO lat/lng (Vehicle denormalizes
-  socPercent/lastSpeedKmh/lastSeenAt but NOT position — coords live only in
-  `TelemetryPing`). To build it: (1) surface position — EITHER denormalize
-  `lastLat`/`lastLng` on Vehicle updated by the telemetry-ingest path (recommended;
-  matches lastSpeedKmh, trivial query, needs a migration) OR join latest
-  TelemetryPing per vehicle in the owned-fleet query (no schema change, heavier);
-  (2) add leaflet/react-leaflet/react-leaflet-cluster to apps/admin; (3) build the
-  clustered map + handle vehicles with no recent fix. Decide (1) before starting.
+- Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`) AND admin Flota
+  fleet map (`b74e989` backend + `7f1f817` frontend, option A): Vehicle now
+  denormalizes `lastLat`/`lastLng` (fed by telemetry ingest, surfaced in
+  `/tenants/fleet/owned`); admin got the leaflet stack + a clustered map above the
+  Flota table. Located vehicles plot green/red by engine state; no-fix vehicles
+  stay table-only.
 - Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
   Modulos + TenantDetail.
 - Any **newly-specified** page feature. The remaining Part 2/3 "polish"
