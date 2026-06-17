@@ -36,6 +36,33 @@ export type VehicleType = (typeof VEHICLE_TYPES)[number];
 export const TEMP_PROFILES = ["AMBIENT", "CHILLED", "FROZEN"] as const;
 export type TempProfile = (typeof TEMP_PROFILES)[number];
 
+/**
+ * Estrategias de optimización de rutas (selector tipo Spoke). Define la política
+ * de asignación del VRP. `BALANCE` es el valor por defecto.
+ *  - ASSIGN_TO_SELECTED: usa todos los vehículos seleccionados (los abre primero), luego optimiza.
+ *  - EQUALIZE_WORKLOAD:   ~igual número de paradas por conductor.
+ *  - BALANCE:             ~igual tiempo de ruta por conductor (por defecto).
+ *  - MAXIMIZE_EFFICIENCY: minimiza el tiempo total; las rutas pueden quedar desparejas.
+ *  - FEWEST_DRIVERS:      usa la menor cantidad de vehículos posible.
+ */
+export const OPTIMIZATION_OBJECTIVES = [
+  "ASSIGN_TO_SELECTED",
+  "EQUALIZE_WORKLOAD",
+  "BALANCE",
+  "MAXIMIZE_EFFICIENCY",
+  "FEWEST_DRIVERS",
+] as const;
+export type OptimizationObjective = (typeof OPTIMIZATION_OBJECTIVES)[number];
+
+/** Etiquetas en español para el selector de estrategia. */
+export const OPTIMIZATION_OBJECTIVE_LABELS: Record<OptimizationObjective, string> = {
+  ASSIGN_TO_SELECTED: "Usar todos los seleccionados",
+  EQUALIZE_WORKLOAD: "Igualar carga (paradas)",
+  BALANCE: "Equilibrar tiempo de ruta",
+  MAXIMIZE_EFFICIENCY: "Máxima eficiencia",
+  FEWEST_DRIVERS: "Menos conductores",
+};
+
 export const ROUTE_STATUSES = [
   "PLANNED",
   "DISPATCHED",

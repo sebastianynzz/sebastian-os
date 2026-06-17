@@ -129,6 +129,7 @@ export async function runPlan(
     depot: input.depot,
     orders,
     vehicles,
+    objective: input.objective,
     travel,
   });
 

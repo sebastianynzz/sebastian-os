@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
+import {
+  OPTIMIZATION_OBJECTIVES,
+  OPTIMIZATION_OBJECTIVE_LABELS,
+  type OptimizationObjective,
+} from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
 import { Button, Card, PageHeader, formatEta } from "../components/ui";
@@ -54,6 +59,7 @@ export default function Planificacion() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [objective, setObjective] = useState<OptimizationObjective>("BALANCE");
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState("");
@@ -126,6 +132,7 @@ export default function Planificacion() {
         depot: DEPOT,
         orderIds: [...selectedOrders],
         vehicleIds: [...selectedVehicles],
+        objective,
       });
       setOrderArchive((prev) => {
         const next = new Map(prev);
@@ -198,6 +205,22 @@ export default function Planificacion() {
           ventanas horarias y autonomía de vehículos eléctricos."
         actions={
           <>
+            <label className="sr-only" htmlFor="plan-objective">
+              Estrategia de optimización
+            </label>
+            <select
+              id="plan-objective"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value as OptimizationObjective)}
+              title="Estrategia de optimización (aplica solo a rutas nuevas)"
+              className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25"
+            >
+              {OPTIMIZATION_OBJECTIVES.map((o) => (
+                <option key={o} value={o}>
+                  {OPTIMIZATION_OBJECTIVE_LABELS[o]}
+                </option>
+              ))}
+            </select>
             <label className="sr-only" htmlFor="plan-date">
               Fecha del plan
             </label>
@@ -214,6 +237,11 @@ export default function Planificacion() {
           </>
         }
       />
+
+      <p className="text-xs text-text-tertiary">
+        La estrategia de optimización aplica solo a las rutas nuevas que generes
+        ahora; no reorganiza rutas ya creadas.
+      </p>
 
       {/* Optimización con IA: el LLM dispara y explica; el solver hace la
           matemática. optimize_routes muta (confirmar antes de crear rutas);

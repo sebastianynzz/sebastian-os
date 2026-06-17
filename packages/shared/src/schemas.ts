@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   DRIVER_STATUSES,
+  OPTIMIZATION_OBJECTIVES,
   POD_REQUIREMENTS,
   POD_TYPES,
   TELEMETRY_SOURCES,
@@ -182,6 +183,8 @@ export const planRoutesSchema = z.object({
   vehicleIds: z.array(z.string()).min(1),
   /** SoC inicial por vehículo eléctrico (0-100), opcional. */
   socByVehicleId: z.record(z.number().min(0).max(100)).optional(),
+  /** Estrategia de asignación del VRP. Por defecto BALANCE. */
+  objective: z.enum(OPTIMIZATION_OBJECTIVES).optional(),
 });
 
 export const trackingPingSchema = z.object({
