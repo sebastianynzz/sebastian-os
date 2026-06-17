@@ -345,3 +345,55 @@ describe("series de tiempo de plataforma", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("filtros y exportación de auditoría", () => {
+  it("filtra por acción y solo devuelve esa acción", async () => {
+    const res = await api(
+      "GET",
+      "/platform/audit?action=TENANT_UPDATE",
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries.length).toBeGreaterThan(0);
+    expect(
+      res.body.entries.every((e: { action: string }) => e.action === "TENANT_UPDATE"),
+    ).toBe(true);
+  });
+
+  it("busca por operador (q) sobre el email del admin", async () => {
+    const res = await api(
+      "GET",
+      `/platform/audit?q=${encodeURIComponent(opsEmail)}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries.length).toBeGreaterThan(0);
+    expect(
+      res.body.entries.every((e: { adminEmail: string }) => e.adminEmail === opsEmail),
+    ).toBe(true);
+  });
+
+  it("rango de fechas futuro → sin resultados", async () => {
+    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const res = await api(
+      "GET",
+      `/platform/audit?from=${tomorrow}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(0);
+  });
+
+  it("exporta CSV con encabezado y tipo text/csv", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/platform/audit/export?action=TENANT_UPDATE",
+      headers: { authorization: `Bearer ${platformToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.body).toContain("fecha,accion,operador,tenant,usuario,detalle");
+  });
+});
