@@ -64,6 +64,23 @@ interface FailureReport {
   byReason: { reason: FailReason; count: number; pct: number }[];
   byDay: { day: string; count: number }[];
 }
+interface CostReport {
+  routes: number;
+  stops: number;
+  totalKm: number;
+  totalKwh: number;
+  routeHours: number;
+  laborCostCop: number;
+  energyCostCop: number;
+  totalCostCop: number;
+  costPerDeliveryCop: number | null;
+}
+
+const COP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
 
 // --- Fechas en Bogotá (UTC-5 fijo) ---
 function todayBogota(): string {
@@ -174,6 +191,7 @@ export default function Analitica() {
   const [prev, setPrev] = useState<DayPoint[] | null>(null);
   const [sla, setSla] = useState<SlaReport | null>(null);
   const [failures, setFailures] = useState<FailureReport | null>(null);
+  const [cost, setCost] = useState<CostReport | null>(null);
   const [from, setFrom] = useState(() => addDays(todayBogota(), -29));
   const [to, setTo] = useState(() => todayBogota());
   const [moduleOff, setModuleOff] = useState(false);
@@ -207,7 +225,7 @@ export default function Analitica() {
     const prevTo = addDays(from, -1);
     const prevFrom = addDays(from, -len);
     try {
-      const [c, p, s, f] = await Promise.all([
+      const [c, p, s, f, cst] = await Promise.all([
         api<Timeseries>("GET", `/analytics/timeseries?from=${from}&to=${to}`),
         api<Timeseries>(
           "GET",
@@ -215,11 +233,13 @@ export default function Analitica() {
         ),
         api<SlaReport>("GET", `/analytics/sla-report?from=${from}&to=${to}`),
         api<FailureReport>("GET", `/analytics/failures?from=${from}&to=${to}`),
+        api<CostReport>("GET", `/analytics/cost?from=${from}&to=${to}`),
       ]);
       setCur(c.days);
       setPrev(p.days);
       setSla(s);
       setFailures(f);
+      setCost(cst);
     } catch (err) {
       if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
         setModuleOff(true);
@@ -433,6 +453,8 @@ export default function Analitica() {
 
       {failures && failures.total > 0 && <FailureCard report={failures} />}
 
+      {cost && cost.stops > 0 && <CostCard report={cost} />}
+
       <Card title="Indicadores acumulados (histórico)">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {kpis.map((k) => (
@@ -519,6 +541,45 @@ function SlaByClientCard({ report }: { report: SlaReport }) {
             </tr>
           </tfoot>
         </table>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Costo por entrega ENERGÍA-NATIVO: horas × costo/hora del conductor + kWh ×
+ * tarifa de energía, dividido entre las entregas. La unidad de costo es la
+ * energía, nunca el combustible (restricción dura 1.7).
+ */
+function CostCard({ report }: { report: CostReport }) {
+  return (
+    <Card title="Costo por entrega (energía-nativo)">
+      <p className="mb-3 text-xs text-navy/50">
+        Sobre las rutas del rango: mano de obra (horas × costo/hora) + energía
+        (kWh × tarifa), entre {report.stops} entrega(s). Configúralo en Controles ›
+        Costos.
+      </p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Costo por entrega</div>
+          <div className="mt-1 text-2xl font-bold">
+            {report.costPerDeliveryCop === null ? "—" : COP.format(report.costPerDeliveryCop)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Mano de obra</div>
+          <div className="mt-1 text-2xl font-bold">{COP.format(report.laborCostCop)}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Energía</div>
+          <div className="mt-1 text-2xl font-bold">{COP.format(report.energyCostCop)}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Energía total</div>
+          <div className="mt-1 text-2xl font-bold">
+            {report.totalKwh} <span className="text-sm font-medium text-navy/50">kWh</span>
+          </div>
+        </div>
       </div>
     </Card>
   );
