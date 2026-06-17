@@ -1,15 +1,16 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `ec45e60`; descends from
-`claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
+Branch: `claude/charming-ritchie-d51s46` (pushed through `fafd685`; the prior
+`claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
+carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notifications) + §8 (developer platform
-core) COMPLETE.** Resume at **Tier-2 §9 (custom stop properties)**; see "What's
-left". §8 connectors + fast-follows noted there.
+core) + §9 (custom stop properties) COMPLETE.** Resume at **Tier-2 §10 (driver
+permissions layer)**; see "What's left". §8 connectors + fast-follows noted there.
 
 To resume:
 
 ```bash
-cd /home/user/move-os && git checkout claude/pensive-hypatia-otcrfu && git pull && claude
+cd /home/user/move-os && git checkout claude/charming-ritchie-d51s46 && git pull && claude
 ```
 
 The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
@@ -19,8 +20,8 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 
 ## Kickoff prompt (paste as the first message of a fresh session)
 
-> Continue the MoveOS go-live build on branch `claude/pensive-hypatia-otcrfu`
-> (already checked out, pushed through `ec45e60`). First read, in order:
+> Continue the MoveOS go-live build on branch `claude/charming-ritchie-d51s46`
+> (already checked out, pushed through `fafd685`). First read, in order:
 > `CLAUDE.md`, `HANDOFF.md` (this file — esp. "What's left", "Environment notes",
 > "Protocol"), and the specs `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
 > (uploads don't carry across sessions — read them from the repo).
@@ -33,16 +34,17 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 > only (no hardcoded hex).
 >
 > State of play: Phases A/B/C done; **Phase D Tier-1 (D1–D6) COMPLETE**; **Tier-2
-> §7 (notification engine: tracking-privacy tiers + per-event B2B templates) and
-> §8 (developer platform core: signed webhooks + API keys + order ingestion + UI)
-> COMPLETE.** Full API suite green (43 files / 244 tests).
+> §7 (notification engine: tracking-privacy tiers + per-event B2B templates),
+> §8 (developer platform core: signed webhooks + API keys + order ingestion + UI),
+> and §9 (custom stop properties) COMPLETE.** Full API suite green (44 files /
+> 253 tests).
 >
-> **START AT Tier-2 §9 — custom stop properties** (docs/04 §9): `CustomProperty`
-> model + `Order.customFields Json`; per-field visible-to-driver / visible-to-
-> recipient; plan-capped with upsell; surfaced in Pedidos (import + manual form),
-> the client portal, the driver app, and the public tracking page where
-> visible-to-recipient. Then §10 driver permissions, §11 barcode; then §8
-> connectors / Tier 3 / Phase E hardening (see "What's left").
+> **START AT Tier-2 §10 — driver permissions layer** (docs/04 §10):
+> `DriverPermissionPolicy` (navApp INTERNAL_GMAPS|WAZE|GOOGLE,
+> allowEditDispatcherRoutes, allowCreateRoutes, allowEditStartedRoutes, granular
+> Json); Controles › Permisos de conductor (ADMIN); the driver app reads the
+> policy (unlocks driver-created routes for ad-hoc work). Then §11 barcode; then
+> §8 connectors / Tier 3 / Phase E hardening (see "What's left").
 >
 > Working agreement (per chunk): bring Postgres up first (commands under
 > "Environment notes"); before coding list the files you'll touch + a 3–5 line
@@ -50,7 +52,7 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 > `pnpm --filter @moveos/optimizer test`, and the relevant API e2e (needs
 > Postgres); confirm CLAUDE.md compliance + design tokens; keep Prisma migrations
 > additive (`migrate deploy`-safe); one feature per commit; then commit + push to
-> `claude/pensive-hypatia-otcrfu` and STOP to summarize. Do not reintroduce COD.
+> `claude/charming-ritchie-d51s46` and STOP to summarize. Do not reintroduce COD.
 > (GateGuard fact-gates the first edit per file — state importers/affected
 > API/data/instruction then retry; or `ECC_GATEGUARD=off` to silence it.)
 
@@ -155,16 +157,35 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
     (the order-ingestion scale unlock). e2e (5).
   - **Integraciones page** (Controles, ADMIN) for both.
 
+**Tier-2 §9 custom stop properties COMPLETE** (`5e07206`, `fafd685`, 2 commits):
+- `CustomProperty` model (name + `visibleToDriver`/`visibleToRecipient`;
+  migration `20260626000000`) + `Order.customFields Json`; shared
+  `customPropertySchema`, `customFields` on createOrder/portalCreateOrder, and
+  `CUSTOM_PROPERTY_CAPS` per plan (FREE 3 / PRO 10 / ENTERPRISE 50) +
+  `customPropertyCap()`.
+- `/custom-properties` CRUD (GET returns items + cap context for upsell;
+  POST/PATCH/DELETE ADMIN). POST enforces the per-plan cap → 409
+  `CUSTOM_PROPERTY_LIMIT` (the Tier-3 upsell hook). `createOrder` persists only
+  keys that are existing tenant properties (tenant-safe; unknown keys ignored so
+  imports/API stay resilient).
+- Surfacing: `selectVisibleFields`/`loadVisibleProperties` enforce per-field,
+  per-audience exposure — driver `GET /routes/driver/today` embeds
+  visible-to-driver fields labeled per stop and **never** ships the raw JSON;
+  public `/track/:token` embeds visible-to-recipient fields (all privacy tiers);
+  portal `GET /portal/custom-properties` + portal createOrder carry the values.
+  Frontends: Controles › Campos personalizados (CRUD + cap/upsell banner),
+  Pedidos (manual form + CSV column-by-name mapping + per-field template column +
+  expanded-row display), client portal form, driver StopCard, Track page.
+- e2e `customProperties.test.ts` (9). Full API suite green: 44 files / 253 tests.
+
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**Tier 2 (docs/04 §9–11), build in order:**
-1. **Custom stop properties** (§9) — `CustomProperty` + `Order.customFields Json`;
-   visible-to-driver/recipient; plan-capped with upsell.
-2. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
+**Tier 2 (docs/04 §10–11), build in order:**
+1. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
    create-routes); driver app reads it.
-3. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
+2. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
    modeled: SCANNED/SCAN_MISMATCH order events already exist).
 
 **§8 connectors (deferred):** Shopify/Zapier + VTEX/Mercado Libre adapters build
