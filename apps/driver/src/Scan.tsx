@@ -137,7 +137,7 @@ export default function ScanSheet({
           </button>
         </div>
         {expected && (
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="mb-2 text-xs text-text-tertiary">
             Guía esperada: <span className="font-mono font-bold">{expected}</span>
           </p>
         )}
@@ -149,7 +149,7 @@ export default function ScanSheet({
             className="h-56 w-full rounded-xl bg-black object-cover"
           />
         ) : (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
             Este dispositivo no soporta escaneo con cámara — ingresa la guía
             del paquete manualmente.
           </p>

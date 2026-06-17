@@ -66,7 +66,7 @@ export function OfflineQueue() {
       <button
         onClick={() => setOpen((o) => !o)}
         className={`w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-white shadow-lg ${
-          errors > 0 ? "bg-red-600" : "bg-slate-800"
+          errors > 0 ? "bg-danger" : "bg-navy"
         }`}
       >
         {errors > 0 ? `⚠️ ${errors} acción(es) con error` : `↻ ${pending} acción(es) en cola`}
@@ -79,11 +79,11 @@ export function OfflineQueue() {
           {items.map((i) => (
             <li
               key={i.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-2 py-1.5 text-xs"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-2 py-1.5 text-xs"
             >
               <div className="min-w-0">
-                <div className="font-medium text-slate-800">{displayLabel(i)}</div>
-                <div className={i.status === "ERROR" ? "text-red-600" : "text-slate-500"}>
+                <div className="font-medium text-text-secondary">{displayLabel(i)}</div>
+                <div className={i.status === "ERROR" ? "text-danger" : "text-text-tertiary"}>
                   {i.status === "ERROR"
                     ? `Error: ${i.lastError ?? "rechazada por el servidor"}`
                     : i.attempts > 0
@@ -98,7 +98,7 @@ export function OfflineQueue() {
                       retryAction(i.id);
                       void flushQueue().then(refresh);
                     }}
-                    className="rounded-md bg-slate-900 px-2 py-1 font-semibold text-white"
+                    className="rounded-md bg-navy-900 px-2 py-1 font-semibold text-white"
                   >
                     Reintentar
                   </button>
@@ -107,7 +107,7 @@ export function OfflineQueue() {
                       discardAction(i.id);
                       refresh();
                     }}
-                    className="rounded-md border border-slate-300 px-2 py-1 font-semibold text-slate-600"
+                    className="rounded-md border border-border px-2 py-1 font-semibold text-text-secondary"
                   >
                     Descartar
                   </button>

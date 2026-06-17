@@ -20,12 +20,12 @@ export function UpdateToast() {
   return (
     <div
       role="status"
-      className="fixed inset-x-0 bottom-0 z-50 m-3 flex items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"
+      className="fixed inset-x-0 bottom-0 z-50 m-3 flex items-center justify-between gap-3 rounded-xl bg-navy-900 px-4 py-3 text-sm text-white shadow-lg"
     >
       <span>Nueva versión disponible.</span>
       <button
         onClick={() => applyUpdate()}
-        className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 font-semibold text-white"
+        className="shrink-0 rounded-lg bg-success px-3 py-1.5 font-semibold text-white"
       >
         Recargar
       </button>

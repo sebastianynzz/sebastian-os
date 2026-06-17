@@ -540,24 +540,24 @@ export default function App() {
             role="status"
             aria-label={online ? "En línea" : "Sin conexión"}
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
-              online ? "bg-emerald-500/20 text-emerald-100" : "bg-slate-200 text-slate-700"
+              online ? "bg-success-bg text-success" : "bg-niebla text-text-secondary"
             }`}
           >
             <span
               aria-hidden
-              className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+              className={`h-2 w-2 rounded-full ${online ? "bg-success" : "bg-text-tertiary"}`}
             />
             {online ? "En línea" : "Sin conexión"}
           </span>
           {pending > 0 && (
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold">
+            <span className="rounded-full bg-warning px-2 py-0.5 text-xs font-bold">
               {pending} sin sync
             </span>
           )}
           <button
             onClick={() => setSos("confirm")}
             aria-label="Abrir confirmación de alerta de pánico"
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
+            className="rounded-lg bg-danger px-3 py-1.5 text-sm font-bold active:bg-danger"
           >
             SOS
           </button>
@@ -576,7 +576,7 @@ export default function App() {
       {message && (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 bg-emerald-100 px-4 py-2 text-sm text-emerald-800"
+          className="flex items-center justify-between gap-3 bg-success-bg px-4 py-2 text-sm text-success"
         >
           <span>{message}</span>
           <button
@@ -629,9 +629,9 @@ export default function App() {
         )}
 
         {loaded && !route && (
-          <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
+          <div className="rounded-xl bg-white p-6 text-center text-text-tertiary shadow-sm">
             No tiene ruta asignada hoy.
-            <button onClick={load} className="mt-3 block w-full rounded-lg bg-slate-100 py-2 text-sm font-medium">
+            <button onClick={load} className="mt-3 block w-full rounded-lg bg-niebla py-2 text-sm font-medium">
               Actualizar
             </button>
           </div>
@@ -717,10 +717,10 @@ export default function App() {
           >
             {sos === "confirm" ? (
               <>
-                <div className="text-lg font-bold text-red-700">
+                <div className="text-lg font-bold text-danger">
                   🚨 ¿Enviar alerta de pánico?
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-text-secondary">
                   Se notificará a la central con tu ubicación. Úsalo solo ante
                   una emergencia real.
                 </p>
@@ -733,7 +733,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={sendPanic}
-                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                    className="flex-1 rounded-xl bg-danger py-4 text-base font-bold text-white active:bg-danger"
                   >
                     Confirmar SOS
                   </button>
@@ -741,10 +741,10 @@ export default function App() {
               </>
             ) : (
               <>
-                <div className="text-lg font-bold text-red-700">
+                <div className="text-lg font-bold text-danger">
                   🚨 Alerta enviada
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-text-secondary">
                   La central fue notificada. Si sigues en peligro, puedes
                   reenviarla.
                 </p>
@@ -757,7 +757,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={sendPanic}
-                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                    className="flex-1 rounded-xl bg-danger py-4 text-base font-bold text-white active:bg-danger"
                   >
                     Reenviar
                   </button>
@@ -816,7 +816,7 @@ function Login({
         {notice && (
           <p
             role="status"
-            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning"
           >
             {notice}
           </p>
@@ -842,7 +842,7 @@ function Login({
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         )}
@@ -907,16 +907,16 @@ function StopCard({
             )}
           </div>
           <div className="mt-1 font-semibold">{stop.order.customerName}</div>
-          <div className="text-sm text-slate-600">{address}</div>
+          <div className="text-sm text-text-secondary">{address}</div>
           {notes && (
-            <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+            <div className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
               📍 {notes}
             </div>
           )}
         </div>
         <a
           href={`tel:${stop.order.customerPhone}`}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-sm"
+          className="rounded-lg bg-niebla px-3 py-2 text-sm"
         >
           📞
         </a>
@@ -929,7 +929,7 @@ function StopCard({
             href={nav.waze}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-sky-100 py-2 text-center text-xs font-bold text-sky-800"
+            className="flex-1 rounded-lg bg-sky-50 py-2 text-center text-xs font-bold text-info"
           >
             🧭 Waze
           </a>
@@ -937,7 +937,7 @@ function StopCard({
             href={nav.gmaps}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-emerald-100 py-2 text-center text-xs font-bold text-emerald-800"
+            className="flex-1 rounded-lg bg-success-bg py-2 text-center text-xs font-bold text-success"
           >
             🗺️ Maps
           </a>
@@ -1191,7 +1191,7 @@ function StopActionSheet({
               Parada {stop.sequence}
             </div>
             <div className="truncate font-semibold">{stop.order.customerName}</div>
-            <div className="truncate text-sm text-slate-600">{sheetAddress}</div>
+            <div className="truncate text-sm text-text-secondary">{sheetAddress}</div>
           </div>
           <button
             onClick={onClose}
@@ -1210,7 +1210,7 @@ function StopActionSheet({
           </button>
           <button
             onClick={() => setMode("fail")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-red-600 text-white" : "bg-niebla"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-danger text-white" : "bg-niebla"}`}
           >
             No se pudo
           </button>
@@ -1220,7 +1220,7 @@ function StopActionSheet({
           <div className="space-y-3">
             {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
             {podRequired.length > 0 && (
-              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-info">
                 Este cliente exige:{" "}
                 {[
                   requiresPhoto ? "foto de evidencia" : null,
@@ -1240,11 +1240,11 @@ function StopActionSheet({
                 📷 Escanear paquete {stop.order.trackingNumber ?? ""}
               </button>
             ) : scan.match ? (
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              <div className="rounded-lg bg-success-bg px-3 py-2 text-sm font-medium text-success">
                 ✅ Paquete verificado ({scan.code})
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">
                 <span>
                   ❌ Este paquete es de otra guía ({scan.code}) — esperada{" "}
                   {stop.order.trackingNumber}
@@ -1307,7 +1307,7 @@ function StopActionSheet({
               </button>
             )}
             {photoWarning && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
                 <span>{photoWarning}</span>
                 <button
                   onClick={() => photoRef.current?.click()}
@@ -1325,10 +1325,10 @@ function StopActionSheet({
                 role="status"
                 className={`rounded-lg px-3 py-2 text-xs font-medium ${
                   pinDriftM <= GEOFENCE_RADIUS_M
-                    ? "bg-emerald-50 text-emerald-800"
+                    ? "bg-success-bg text-success"
                     : pinDriftM <= ADDRESS_FIX_THRESHOLD_M
-                      ? "bg-amber-50 text-amber-800"
-                      : "bg-red-50 text-red-700"
+                      ? "bg-warning-bg text-warning"
+                      : "bg-danger-bg text-danger"
                 }`}
               >
                 {pinDriftM <= GEOFENCE_RADIUS_M
@@ -1339,7 +1339,7 @@ function StopActionSheet({
 
             {/* Pin-drop: el tap que alimenta el grafo de direcciones. */}
             {offerPinFix && (
-              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-info">
                 <input
                   type="checkbox"
                   checked={fixPin}
@@ -1354,7 +1354,7 @@ function StopActionSheet({
             )}
 
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
@@ -1377,7 +1377,7 @@ function StopActionSheet({
                 <button
                   key={value}
                   onClick={() => setFailReason(value)}
-                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-red-600 bg-red-50 text-red-700" : "border-slate-200"}`}
+                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-danger/30 bg-danger-bg text-danger" : "border-border"}`}
                 >
                   {label}
                 </button>
@@ -1404,7 +1404,7 @@ function StopActionSheet({
                 onClick={() => photoRef.current?.click()}
                 className={`w-full rounded-lg border border-dashed py-3 text-sm font-medium ${
                   EVIDENCE_REQUIRED_REASONS.includes(failReason)
-                    ? "border-red-400 text-red-700"
+                    ? "border-danger/30 text-danger"
                     : "border-navy/40 text-navy/70"
                 }`}
               >
@@ -1413,20 +1413,20 @@ function StopActionSheet({
               </button>
             )}
             {photoWarning && (
-              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
                 {photoWarning}
               </div>
             )}
 
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
             <button
               onClick={fail}
               disabled={busy}
-              className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white active:bg-red-700 disabled:opacity-60"
+              className="w-full rounded-xl bg-danger py-4 text-lg font-bold text-white active:bg-danger disabled:opacity-60"
             >
               {busy ? "Registrando…" : "Registrar fallo"}
             </button>
