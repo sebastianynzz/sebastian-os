@@ -39,7 +39,7 @@ export function setToken(token: string | null) {
 }
 
 export async function api<T = unknown>(
-  method: "GET" | "POST" | "PATCH",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T> {

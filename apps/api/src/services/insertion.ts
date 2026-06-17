@@ -1,6 +1,7 @@
 import type { LatLng } from "@moveos/shared";
 import {
   estimateUsableRangeKm,
+  evaluateSequence,
   insertOrderIntoRoute,
   resolveNominalRangeKm,
 } from "@moveos/optimizer";
@@ -263,4 +264,154 @@ export async function persistInsertion(
       stops: { orderBy: { sequence: "asc" }, include: { order: true } },
     },
   });
+}
+
+export type ResequenceResult =
+  | { ok: false; statusCode: number; error: string; code?: string }
+  | { ok: true; route: unknown; distanceModel: string };
+
+/**
+ * Ajuste manual del orden de visita ANTES de despachar: reordena los pedidos de
+ * una ruta PLANNED según `orderIds` (el despachador fija la secuencia) y
+ * recalcula ETAs/distancia/duración con el mismo modelo del planificador, sin
+ * reoptimizar. Solo rutas PLANNED (sin paradas atendidas). 422 si la secuencia
+ * es infactible (ventanas horarias, autonomía o jornada).
+ */
+export async function resequencePlannedRoute(
+  tenantId: string,
+  routeId: string,
+  orderIds: string[],
+): Promise<ResequenceResult> {
+  const route = await prisma.route.findFirst({
+    where: { id: routeId, tenantId, status: "PLANNED" },
+    include: {
+      vehicle: true,
+      stops: { orderBy: { sequence: "asc" }, include: { order: true } },
+    },
+  });
+  if (!route) {
+    return { ok: false, statusCode: 404, error: "Ruta no encontrada o ya despachada" };
+  }
+
+  // La secuencia debe ser una permutación exacta de los pedidos de la ruta.
+  const distinct = [...new Set(route.stops.map((s) => s.orderId))];
+  const want = new Set(orderIds);
+  if (
+    orderIds.length !== distinct.length ||
+    want.size !== orderIds.length ||
+    !distinct.every((id) => want.has(id))
+  ) {
+    return {
+      ok: false,
+      statusCode: 400,
+      error: "La secuencia debe contener exactamente los pedidos de la ruta, sin repetir",
+      code: "BAD_SEQUENCE",
+    };
+  }
+
+  const orderById = new Map(route.stops.map((s) => [s.orderId, s.order]));
+  const ordered: OptimizableOrder[] = [];
+  for (const id of orderIds) {
+    const o = orderById.get(id)!;
+    if (o.lat === null || o.lng === null) {
+      return {
+        ok: false,
+        statusCode: 422,
+        error: "La ruta tiene un pedido sin geocodificar",
+        code: "SEQUENCE_INFEASIBLE",
+      };
+    }
+    const hasPickup = route.stops.some((s) => s.orderId === id && s.kind === "PICKUP");
+    ordered.push({
+      id: o.id,
+      location: { lat: o.lat, lng: o.lng },
+      pickupLocation:
+        hasPickup && o.pickupLat !== null && o.pickupLng !== null
+          ? { lat: o.pickupLat, lng: o.pickupLng }
+          : undefined,
+      weightKg: o.weightKg,
+      volumeM3: o.volumeM3 ?? undefined,
+      tempProfile: o.tempProfile as OptimizableOrder["tempProfile"],
+      priority: o.priority,
+      timeWindow:
+        o.timeWindowStart && o.timeWindowEnd
+          ? {
+              startMin: toMinOfDay(o.timeWindowStart),
+              endMin: toMinOfDay(o.timeWindowEnd),
+            }
+          : undefined,
+    });
+  }
+
+  const rangeBudgetKm = route.vehicle.isElectric
+    ? estimateUsableRangeKm({
+        nominalRangeKm: resolveNominalRangeKm({
+          type: route.vehicle.type as OptimizableVehicle["type"],
+          batteryKwh: route.vehicle.batteryKwh,
+          nominalRangeKm: route.vehicle.nominalRangeKm,
+        }),
+        socPercent: route.vehicle.socPercent ?? 100,
+      })
+    : Number.POSITIVE_INFINITY;
+
+  const depot: LatLng = { lat: route.depotLat, lng: route.depotLng };
+  const points: LatLng[] = [depot];
+  for (const o of ordered) {
+    points.push(o.location);
+    if (o.pickupLocation) points.push(o.pickupLocation);
+  }
+  const { model: travel, source: distanceModel } = await buildTravelModel(points);
+
+  const result = evaluateSequence({
+    orders: ordered,
+    vehicle: {
+      id: route.vehicle.id,
+      plate: route.vehicle.plate,
+      type: route.vehicle.type as OptimizableVehicle["type"],
+      capacityKg: route.vehicle.capacityKg,
+      capacityM3: route.vehicle.capacityM3 ?? undefined,
+      isElectric: route.vehicle.isElectric,
+      nominalRangeKm: route.vehicle.nominalRangeKm ?? undefined,
+      socPercent: route.vehicle.socPercent ?? undefined,
+    },
+    depot,
+    departureMin: route.departureMin,
+    rangeBudgetKm,
+    travel,
+  });
+  if (!result) {
+    return {
+      ok: false,
+      statusCode: 422,
+      error:
+        "Esa secuencia no es factible (ventanas horarias, autonomía o jornada). Ajústala o usa la optimización.",
+      code: "SEQUENCE_INFEASIBLE",
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.routeStop.deleteMany({ where: { routeId: route.id } });
+    await tx.routeStop.createMany({
+      data: result.stops.map((s, i) => ({
+        routeId: route.id,
+        orderId: s.orderId,
+        kind: s.kind,
+        sequence: i + 1,
+        etaMin: s.etaMin,
+      })),
+    });
+    await tx.route.update({
+      where: { id: route.id },
+      data: {
+        totalDistanceKm: result.totalDistanceKm,
+        totalDurationMin: result.totalDurationMin,
+      },
+    });
+  });
+
+  const updated = await prisma.route.findUnique({
+    where: { id: route.id },
+    include: { stops: { orderBy: { sequence: "asc" } } },
+  });
+  return { ok: true, route: updated, distanceModel };
 }

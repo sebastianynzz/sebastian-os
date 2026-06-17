@@ -134,6 +134,54 @@ describe("inserción express en ruta existente", () => {
     expect(res.body.code).toBe("INSERTION_INFEASIBLE");
   });
 
+  it("reordena manualmente una ruta PLANNED y recalcula la secuencia", async () => {
+    const before = await api("GET", `/routes/${routeId}`, adminToken);
+    const seq: string[] = [];
+    for (const s of before.body.stops) {
+      if (!seq.includes(s.orderId)) seq.push(s.orderId);
+    }
+    expect(seq.length).toBeGreaterThanOrEqual(2);
+    const reversed = [...seq].reverse();
+
+    const res = await api(
+      "PATCH",
+      `/optimization/routes/${routeId}/sequence`,
+      adminToken,
+      { orderIds: reversed },
+    );
+    expect(res.status).toBe(200);
+    const newSeq: string[] = [];
+    for (const s of res.body.route.stops) {
+      if (!newSeq.includes(s.orderId)) newSeq.push(s.orderId);
+    }
+    expect(newSeq).toEqual(reversed);
+    // Secuencia re-densificada 1..n.
+    expect(res.body.route.stops.map((s: { sequence: number }) => s.sequence)).toEqual(
+      res.body.route.stops.map((_: unknown, i: number) => i + 1),
+    );
+  });
+
+  it("rechaza una secuencia que no es permutación exacta (400)", async () => {
+    const res = await api(
+      "PATCH",
+      `/optimization/routes/${routeId}/sequence`,
+      adminToken,
+      { orderIds: ["no-existe"] },
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe("BAD_SEQUENCE");
+  });
+
+  it("404 al reordenar una ruta inexistente", async () => {
+    const res = await api(
+      "PATCH",
+      "/optimization/routes/ruta-fantasma/sequence",
+      adminToken,
+      { orderIds: ["x"] },
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("inserta en ruta EN CURSO sin tocar paradas ya atendidas", async () => {
     // Despachar e iniciar; completar la primera parada.
     await api("POST", `/routes/${routeId}/dispatch`, adminToken, { driverId });

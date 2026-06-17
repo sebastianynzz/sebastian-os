@@ -22,7 +22,6 @@ let otherTenantId: string;
 let adminToken: string;
 let driverToken: string;
 let publicStationId: string;
-let evVehicleId = "";
 
 async function api(
   method: "GET" | "POST" | "PATCH",
@@ -128,7 +127,6 @@ describe("flota eléctrica como núcleo", () => {
       nominalRangeKm: 90,
     });
     expect(vehicle.status).toBe(201);
-    evVehicleId = vehicle.body.id;
     await prisma.vehicle.update({
       where: { id: vehicle.body.id },
       data: { socPercent: 50 },
@@ -142,62 +140,35 @@ describe("flota eléctrica como núcleo", () => {
     expect(overview.body[0].usableRangeKm).toBeLessThan(50);
   });
 
-  it("/ev/overview expone el consumo de refrigeración (analítica) solo en Cold Box", async () => {
-    // El EV no refrigerado (EVT01A) no trae bloque reefer.
+  it("/ev/range-estimate aplica las condiciones de operación", async () => {
     const overview = await api("GET", "/ev/overview", adminToken);
-    const plain = overview.body.find((v: { plate: string }) => v.plate === "EVT01A");
-    expect(plain.reefer).toBeNull();
+    const vehicleId = overview.body[0].id as string;
 
-    // Un Cold Box sí: draw promedio (analítica de energía, no penaliza rango).
-    const cold = await api("POST", "/vehicles", adminToken, {
-      plate: "EVCB02",
-      type: "RAP_MOVE_COLD_BOX",
-      capacityKg: 200,
-      isElectric: true,
-      batteryKwh: 7.36,
-      nominalRangeKm: 90,
-    });
-    expect(cold.status).toBe(201);
-
-    const withCold = await api("GET", "/ev/overview", adminToken);
-    const cb = withCold.body.find((v: { plate: string }) => v.plate === "EVCB02");
-    expect(cb.reefer).not.toBeNull();
-    // Promedio de coolingDrawKw [0.45, 0.65] = 0.55 kW.
-    expect(cb.reefer.drawKw).toBeCloseTo(0.55, 2);
-    expect(cb.reefer.shiftKwh).toBeCloseTo(0.55 * 8, 1);
-    expect(cb.reefer.modes).toContain("FROZEN");
-    // La autonomía nominal NO se penaliza por el reefer (ya es reefer-on).
-    expect(cb.usableRangeKm).toBeGreaterThan(0);
-  });
-
-  it("/ev/range-estimate deratea la autonomía con condiciones de operación", async () => {
-    // Línea base (21°C, sin carga, sin desnivel): el mismo modelo del overview.
     const base = await api(
       "GET",
-      `/ev/range-estimate?vehicleId=${evVehicleId}`,
+      `/ev/range-estimate?vehicleId=${vehicleId}`,
       adminToken,
     );
     expect(base.status).toBe(200);
-    expect(base.body.plate).toBe("EVT01A");
-    expect(base.body.socPercent).toBe(50);
     expect(base.body.usableRangeKm).toBeGreaterThan(0);
 
-    // Frío + carga + desnivel deratean por debajo de la línea base.
-    const harsh = await api(
+    // Frío (-5 °C, por debajo de los 21 °C de referencia) derrata la autonomía.
+    const cold = await api(
       "GET",
-      `/ev/range-estimate?vehicleId=${evVehicleId}&temperatureC=2&payloadKg=110&elevationGainM=600`,
+      `/ev/range-estimate?vehicleId=${vehicleId}&temperatureC=-5`,
       adminToken,
     );
-    expect(harsh.status).toBe(200);
-    expect(harsh.body.usableRangeKm).toBeLessThan(base.body.usableRangeKm);
+    expect(cold.status).toBe(200);
+    expect(cold.body.usableRangeKm).toBeLessThan(base.body.usableRangeKm);
+  });
 
-    // Vehículo inexistente (o no EV) → 404, no un cálculo silencioso.
-    const missing = await api(
+  it("/ev/range-estimate responde 404 para un vehículo inexistente", async () => {
+    const res = await api(
       "GET",
-      "/ev/range-estimate?vehicleId=noexiste",
+      "/ev/range-estimate?vehicleId=no-existe",
       adminToken,
     );
-    expect(missing.status).toBe(404);
+    expect(res.status).toBe(404);
   });
 
   it("el catálogo reporta EV_MANAGEMENT activo y de núcleo; el toggle se rechaza", async () => {

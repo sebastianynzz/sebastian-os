@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatStampBogota } from "@moveos/shared";
-import { api } from "../api";
+import { api, BASE_URL, getToken } from "../api";
 import { Button, Card, inputClass } from "../components/ui";
 
 /**
  * Bitácora del plano de plataforma: quién cambió qué y sobre qué tenant.
- * Todas las mutaciones del panel quedan registradas en PlatformAuditLog.
+ * Todas las mutaciones del panel quedan en PlatformAuditLog. Filtrable por
+ * acción / operador (búsqueda) / tenant / rango de fechas (Bogotá), con
+ * exportación CSV de lo filtrado y paginación por cursor.
  */
 
 interface AuditEntry {
@@ -34,23 +36,63 @@ const ACTION_LABEL: Record<string, string> = {
   USER_DELETE: "Usuario eliminado",
 };
 
+function todayBogota(): string {
+  return new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 export default function Auditoria() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
-  const [tenantId, setTenantId] = useState<string>("");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  async function load(cursor?: string) {
-    const params = new URLSearchParams({ take: "50" });
-    if (tenantId) params.set("tenantId", tenantId);
-    if (cursor) params.set("cursor", cursor);
-    const res = await api<{ entries: AuditEntry[]; nextCursor: string | null }>(
-      "GET",
-      `/audit?${params.toString()}`,
-    );
-    setEntries((prev) => (cursor ? [...prev, ...res.entries] : res.entries));
-    setNextCursor(res.nextCursor);
-  }
+  const [tenantId, setTenantId] = useState("");
+  const [action, setAction] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
+
+  // Búsqueda con debounce: no dispara una consulta por tecla.
+  useEffect(() => {
+    const t = setTimeout(() => setQ(qInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [qInput]);
+
+  const params = useCallback(() => {
+    const p = new URLSearchParams();
+    if (tenantId) p.set("tenantId", tenantId);
+    if (action) p.set("action", action);
+    if (q) p.set("q", q);
+    if (from) p.set("from", from);
+    if (to) p.set("to", to);
+    return p;
+  }, [tenantId, action, q, from, to]);
+
+  const load = useCallback(
+    async (cursor?: string) => {
+      if (!cursor) setLoading(true);
+      setError(false);
+      const p = params();
+      p.set("take", "50");
+      if (cursor) p.set("cursor", cursor);
+      try {
+        const res = await api<{ entries: AuditEntry[]; nextCursor: string | null }>(
+          "GET",
+          `/audit?${p.toString()}`,
+        );
+        setEntries((prev) => (cursor ? [...prev, ...res.entries] : res.entries));
+        setNextCursor(res.nextCursor);
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [params],
+  );
 
   useEffect(() => {
     void api<TenantOption[]>("GET", "/tenants").then((list) =>
@@ -59,28 +101,131 @@ export default function Auditoria() {
   }, []);
   useEffect(() => {
     void load();
-  }, [tenantId]);
+  }, [load]);
 
+  async function exportCsv() {
+    setExporting(true);
+    setError(false);
+    try {
+      const res = await fetch(`${BASE_URL}/platform/audit/export?${params().toString()}`, {
+        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+      });
+      if (!res.ok) throw new Error("export");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `auditoria-${todayBogota()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(true);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function clearFilters() {
+    setTenantId("");
+    setAction("");
+    setFrom("");
+    setTo("");
+    setQInput("");
+    setQ("");
+  }
+
+  const hasFilters = !!(tenantId || action || from || to || q);
   const tenantName = new Map(tenants.map((t) => [t.id, t.name]));
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Auditoría</h1>
-        <select
-          className={`${inputClass} max-w-xs`}
-          value={tenantId}
-          onChange={(e) => setTenantId(e.target.value)}
-          aria-label="Filtrar por tenant"
+        <Button
+          variant="secondary"
+          onClick={() => void exportCsv()}
+          disabled={exporting || entries.length === 0}
         >
-          <option value="">Todos los tenants</option>
-          {tenants.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+          {exporting ? "Exportando…" : "⬇ Exportar CSV"}
+        </Button>
       </div>
+
+      <Card>
+        <div className="flex flex-wrap items-end gap-2">
+          <input
+            type="search"
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Buscar operador, acción o id…"
+            className={`${inputClass} w-60`}
+            aria-label="Buscar"
+          />
+          <select
+            className={`${inputClass} w-auto`}
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            aria-label="Filtrar por acción"
+          >
+            <option value="">Todas las acciones</option>
+            {Object.entries(ACTION_LABEL).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            className={`${inputClass} w-auto`}
+            value={tenantId}
+            onChange={(e) => setTenantId(e.target.value)}
+            aria-label="Filtrar por tenant"
+          >
+            <option value="">Todos los tenants</option>
+            {tenants.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={from}
+            max={to || todayBogota()}
+            onChange={(e) => setFrom(e.target.value)}
+            className={`${inputClass} w-auto [color-scheme:dark]`}
+            aria-label="Desde"
+          />
+          <input
+            type="date"
+            value={to}
+            min={from}
+            max={todayBogota()}
+            onChange={(e) => setTo(e.target.value)}
+            className={`${inputClass} w-auto [color-scheme:dark]`}
+            aria-label="Hasta"
+          />
+          {hasFilters && (
+            <button onClick={clearFilters} className="text-xs font-medium text-cielo underline">
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </Card>
+
+      {error && (
+        <Card>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-red-300">No se pudo cargar la bitácora.</span>
+            <button
+              onClick={() => void load()}
+              className="rounded-lg bg-lima px-3 py-1.5 font-semibold text-navy"
+            >
+              Reintentar
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <table className="w-full text-sm">
@@ -111,10 +256,19 @@ export default function Auditoria() {
                 </td>
               </tr>
             ))}
-            {entries.length === 0 && (
+            {!loading && entries.length === 0 && (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-white/30">
-                  Sin actividad registrada.
+                  {hasFilters
+                    ? "Sin resultados para estos filtros."
+                    : "Sin actividad registrada."}
+                </td>
+              </tr>
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-cielo">
+                  Cargando…
                 </td>
               </tr>
             )}

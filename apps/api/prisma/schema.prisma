@@ -59,6 +59,7 @@ model Tenant {
   chargingStations ChargingStation[]
   pushSubscriptions PushSubscription[]
   aiProposals   AiProposal[]
+  snoozedExceptions SnoozedException[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -83,6 +84,23 @@ model DailyTenantMetric {
 
   @@unique([tenantId, date])
   @@index([date])
+}
+
+/// Excepción del cockpit pospuesta por el despachador: oculta una excepción
+/// derivada (por su `key` estable: alert-…, late-…, soc-…, triage-pending)
+/// de la cola hasta `until`. No persiste la excepción en sí — solo el aplazo,
+/// reevaluado contra el cálculo en vivo. Scoping por tenant.
+model SnoozedException {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key             String // id estable de la excepción derivada
+  until           DateTime
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, until])
 }
 
 /// Bitácora del plano de plataforma: toda mutación del operador MOVE queda

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { checkPicoYPlaca } from "./picoYPlaca.js";
 import { estimateUsableRangeKm } from "./evRange.js";
-import { planRoutes } from "./vrp.js";
+import { evaluateSequence, planRoutes } from "./vrp.js";
 import type { OptimizableOrder, OptimizableVehicle } from "./types.js";
 
 // Martes 10 de junio de 2026 — día par.
@@ -36,6 +36,59 @@ function lightEv(id: string, plate = "ABC12D"): OptimizableVehicle {
     isElectric: false,
   };
 }
+
+describe("evaluateSequence (ajuste manual de paradas)", () => {
+  const v = lightEv("v1");
+  const a = order("a", 4.66, -74.07);
+  const b = order("b", 4.7, -74.05);
+
+  it("respeta el orden dado y recalcula ETAs crecientes", () => {
+    const r1 = evaluateSequence({
+      orders: [a, b],
+      vehicle: v,
+      depot: DEPOT,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r1).not.toBeNull();
+    expect(r1!.stops.map((s) => s.orderId)).toEqual(["a", "b"]);
+    expect(r1!.stops[1]!.etaMin).toBeGreaterThan(r1!.stops[0]!.etaMin);
+    expect(r1!.totalDistanceKm).toBeGreaterThan(0);
+
+    // El orden inverso se respeta tal cual (sin reoptimizar).
+    const r2 = evaluateSequence({
+      orders: [b, a],
+      vehicle: v,
+      depot: DEPOT,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r2!.stops.map((s) => s.orderId)).toEqual(["b", "a"]);
+  });
+
+  it("devuelve null si la ventana horaria es imposible", () => {
+    const tight = order("c", 4.8, -74.02, {
+      timeWindow: { startMin: 0, endMin: 1 },
+    });
+    const r = evaluateSequence({
+      orders: [tight],
+      vehicle: v,
+      depot: DEPOT,
+      departureMin: 8 * 60,
+      rangeBudgetKm: Infinity,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("devuelve null si excede el presupuesto de autonomía", () => {
+    const far = order("d", 5.5, -73.0);
+    const r = evaluateSequence({
+      orders: [far],
+      vehicle: { ...v, isElectric: true },
+      depot: DEPOT,
+      rangeBudgetKm: 1,
+    });
+    expect(r).toBeNull();
+  });
+});
 
 describe("pico y placa (Bogotá)", () => {
   it("restringe carro con placa par en día par dentro del horario", () => {
