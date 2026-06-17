@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { useToast } from "../toast";
 import { Banner, Card, Loading, PageHeader } from "../components/ui";
 
 interface ModuleInfo {
@@ -19,7 +20,7 @@ interface ModuleInfo {
 export default function Modulos() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const { refresh, session } = useAuth();
   const isAdmin = session?.user.role === "ADMIN";
 
@@ -35,13 +36,14 @@ export default function Modulos() {
   }, []);
 
   async function toggle(key: string, enabled: boolean) {
-    setError(null);
     try {
       await api("PATCH", `/modules/${key}`, { enabled });
       await load();
       await refresh(); // el menú lateral se actualiza
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      // El fallo típico es el bloqueo por dependencia (409): el toast lo
+      // explica. No reintentamos — reactivar el switch es trivial.
+      toast.error(err);
     }
   }
 
@@ -55,11 +57,6 @@ export default function Modulos() {
       />
       {!isAdmin && (
         <Banner kind="info">Solo el rol ADMIN puede cambiar módulos.</Banner>
-      )}
-      {error && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
       )}
       {loading && <Loading label="Cargando módulos…" />}
 
