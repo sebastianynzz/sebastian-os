@@ -364,7 +364,10 @@ export default function Pedidos() {
             {orders.map((o) => (
               <Fragment key={o.id}>
                 <tr
-                  className={`cursor-pointer hover:bg-niebla/60 ${tableRowClass}`}
+                  /* Virtualización ligera: el navegador omite el render de las
+                     filas fuera de pantalla (sin dependencias ni refactor de la
+                     tabla); no-op donde no haya soporte. */
+                  className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
                   role="button"
                   tabIndex={0}
                   aria-expanded={expanded === o.id}
