@@ -111,6 +111,9 @@ const GPS_ACCURACY_MAX_LOW_POWER_M = 500;
 /** Descargando y por debajo de esta carga, bajamos el GPS a modo ahorro. */
 const GPS_LOW_BATTERY_LEVEL = 0.2;
 
+/** Ventana para confirmar el SOS antes de auto-desarmarse (toque accidental). */
+const SOS_CONFIRM_WINDOW_MS = 10_000;
+
 /** Motivos de fallo disputables: exigen foto de evidencia. */
 const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
 
@@ -254,6 +257,8 @@ export default function App() {
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
   const [starting, setStarting] = useState(false);
+  // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
+  const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
@@ -345,6 +350,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [route, geo]);
 
+  // SOS armado: si no se confirma dentro de la ventana, se auto-desarma para
+  // que un toque accidental no quede pendiente. El estado "sent" sí persiste
+  // (el conductor puede querer reenviar).
+  useEffect(() => {
+    if (sos !== "confirm") return;
+    const t = setTimeout(() => setSos("idle"), SOS_CONFIRM_WINDOW_MS);
+    return () => clearTimeout(t);
+  }, [sos]);
+
   if (!authed) {
     return <Login onLogin={() => setAuthed(true)} />;
   }
@@ -372,14 +386,19 @@ export default function App() {
     }
   }
 
-  async function panic() {
+  async function sendPanic() {
     if (!route) return;
-    await apiOrQueue("/safety/panic", {
+    const { queued } = await apiOrQueue("/safety/panic", {
       routeId: route.id,
       lat: geo.current?.lat,
       lng: geo.current?.lng,
     });
-    setMessage("🚨 Alerta de pánico enviada a la central");
+    setSos("sent");
+    setMessage(
+      queued
+        ? "🚨 Sin señal: la alerta se enviará apenas vuelva la conexión"
+        : "🚨 Alerta de pánico enviada a la central",
+    );
   }
 
   return (
@@ -402,8 +421,8 @@ export default function App() {
             </span>
           )}
           <button
-            onClick={panic}
-            aria-label="Enviar alerta de pánico a la central"
+            onClick={() => setSos("confirm")}
+            aria-label="Abrir confirmación de alerta de pánico"
             className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
           >
             SOS
@@ -524,6 +543,74 @@ export default function App() {
       {/* D8: cargador más cercano con deeplink (directorio de carga). */}
       {showChargers && (
         <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
+      )}
+
+      {/* SOS: confirmar antes de enviar (evita falsas alarmas) y reenviar si
+          el conductor sigue en peligro. La alerta va a la central, no al
+          consumidor (B2B). */}
+      {sos !== "idle" && (
+        <div
+          className="fixed inset-0 z-30 flex items-end bg-black/50"
+          onClick={() => sos === "confirm" && setSos("idle")}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Alerta de pánico"
+            className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {sos === "confirm" ? (
+              <>
+                <div className="text-lg font-bold text-red-700">
+                  🚨 ¿Enviar alerta de pánico?
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Se notificará a la central con tu ubicación. Úsalo solo ante
+                  una emergencia real.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setSos("idle")}
+                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={sendPanic}
+                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                  >
+                    Confirmar SOS
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-lg font-bold text-red-700">
+                  🚨 Alerta enviada
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  La central fue notificada. Si sigues en peligro, puedes
+                  reenviarla.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setSos("idle")}
+                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    onClick={sendPanic}
+                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                  >
+                    Reenviar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
