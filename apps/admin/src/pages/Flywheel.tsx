@@ -11,16 +11,21 @@ import { TrendChart } from "../components/charts";
  */
 
 interface FlywheelData {
+  costPerGeocodeUsd: number;
   graph: {
     totalPins: number;
     newPins7d: number;
     newPins30d: number;
+    lifetimeReuses: number;
+    lifetimeSavingsUsd: number;
     byCity: { city: string; pins: number }[];
     byTenant: { tenantId: string; name: string; pins: number; uses: number }[];
   };
   geocoding30d: {
     total: number;
     graphHits: number;
+    paidCallsAvoided: number;
+    estimatedSavingsUsd: number;
     paidProviderCalls: number;
     mockCalls: number;
     hitRate: number | null;
@@ -39,13 +44,27 @@ function pct(v: number | null): string {
   return v === null ? "—" : `${Math.round(v * 100)}%`;
 }
 
+function usd(v: number): string {
+  return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
 export default function Flywheel() {
   const [data, setData] = useState<FlywheelData | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    void api<FlywheelData>("GET", "/flywheel").then(setData);
+    void api<FlywheelData>("GET", "/flywheel")
+      .then(setData)
+      .catch(() => setError(true));
   }, []);
 
+  if (error) {
+    return (
+      <div className="py-10 text-center text-cielo">
+        No se pudo cargar el monitor del flywheel. Reintenta en unos segundos.
+      </div>
+    );
+  }
   if (!data) return <div className="py-10 text-center text-cielo">Cargando flywheel…</div>;
 
   const days = data.daily.map((d) => d.day);
@@ -74,12 +93,42 @@ export default function Flywheel() {
           <div className="text-xs text-cielo">graph hit rate · 30 días</div>
         </Card>
         <Card>
-          <div className="text-3xl font-bold text-white">
-            {data.geocoding30d.paidProviderCalls}
+          <div className="text-3xl font-bold text-lima">
+            {data.geocoding30d.paidCallsAvoided}
           </div>
-          <div className="text-xs text-cielo">llamadas pagas a proveedor · 30 días</div>
+          <div className="text-xs text-cielo">llamadas pagas evitadas · 30 días</div>
         </Card>
       </div>
+
+      {/* Unit economics: el argumento de inversión — cada acierto del grafo es
+          una llamada paga que no se hizo; el ahorro compone con el reuso. */}
+      <Card title="Unit economics del grafo">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <div className="text-3xl font-bold text-lima">
+              {usd(data.geocoding30d.estimatedSavingsUsd)}
+            </div>
+            <div className="text-xs text-cielo">ahorro estimado · 30 días</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-white">
+              {usd(data.graph.lifetimeSavingsUsd)}
+            </div>
+            <div className="text-xs text-cielo">ahorro acumulado (vida del grafo)</div>
+          </div>
+          <div>
+            <div className="text-3xl font-bold text-white">
+              {data.graph.lifetimeReuses.toLocaleString("es-CO")}
+            </div>
+            <div className="text-xs text-cielo">reusos del grafo (llamadas evitadas, total)</div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-cielo/60">
+          Estimado a {usd(data.costPerGeocodeUsd)} por geocodificación (tarifa de
+          referencia de Google Geocoding). Cada acierto del grafo es una llamada
+          paga a Google/Lupap que no se realizó.
+        </p>
+      </Card>
 
       {days.length > 0 && (
         <Card title="Geocodificaciones vs aciertos del grafo (30 días)">
