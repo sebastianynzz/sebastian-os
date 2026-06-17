@@ -29,6 +29,7 @@ export default async function vehiclesRoutes(app: FastifyInstance) {
           isElectric: input.isElectric,
           batteryKwh: input.batteryKwh,
           nominalRangeKm: input.nominalRangeKm,
+          status: input.status ?? undefined,
           soatExpiresAt: input.soatExpiresAt ? new Date(input.soatExpiresAt) : undefined,
           tecnoExpiresAt: input.tecnoExpiresAt ? new Date(input.tecnoExpiresAt) : undefined,
         },

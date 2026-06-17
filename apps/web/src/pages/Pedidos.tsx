@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ORDER_STATUSES } from "@moveos/shared";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
 import {
@@ -50,6 +51,25 @@ const EVENT_LABELS: Record<string, string> = {
   DELIVERED: "Entregado",
   FAILED: "Entrega fallida",
   NOTIFIED: "Negocio notificado",
+};
+
+interface SavedView {
+  id: string;
+  name: string;
+  filters: Record<string, string>;
+}
+
+const STATUS_ES: Record<string, string> = {
+  PENDING: "Pendiente",
+  GEOCODED: "Geocodificado",
+  ASSIGNED: "Asignado",
+  DISPATCHED: "Despachado",
+  IN_TRANSIT: "En camino",
+  ARRIVED: "En sitio",
+  DELIVERED: "Entregado",
+  FAILED: "Fallido",
+  REJECTED: "Rechazado",
+  CANCELLED: "Cancelado",
 };
 
 const CSV_TEMPLATE =
@@ -110,6 +130,64 @@ export default function Pedidos() {
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
+  const [fStatus, setFStatus] = useState("");
+  const [fClientId, setFClientId] = useState("");
+  const [fQ, setFQ] = useState("");
+  const [views, setViews] = useState<SavedView[]>([]);
+
+  const shown = useMemo(() => {
+    const q = fQ.trim().toLowerCase();
+    return orders.filter(
+      (o) =>
+        (!fStatus || o.status === fStatus) &&
+        (!fClientId || o.client?.id === fClientId) &&
+        (!q ||
+          (o.trackingNumber ?? "").toLowerCase().includes(q) ||
+          o.customerName.toLowerCase().includes(q) ||
+          o.addressRaw.toLowerCase().includes(q)),
+    );
+  }, [orders, fStatus, fClientId, fQ]);
+
+  const activeFilters = Boolean(fStatus || fClientId || fQ.trim());
+
+  function clearFilters() {
+    setFStatus("");
+    setFClientId("");
+    setFQ("");
+  }
+
+  async function loadViews() {
+    setViews(await api<SavedView[]>("GET", "/saved-views?page=pedidos"));
+  }
+  function applyView(v: SavedView) {
+    setFStatus(v.filters.status ?? "");
+    setFClientId(v.filters.clientId ?? "");
+    setFQ(v.filters.q ?? "");
+  }
+  async function saveCurrentView() {
+    const name = window.prompt("Nombre de la vista (p. ej. 'Pendientes hoy')")?.trim();
+    if (!name) return;
+    const filters: Record<string, string> = {};
+    if (fStatus) filters.status = fStatus;
+    if (fClientId) filters.clientId = fClientId;
+    if (fQ.trim()) filters.q = fQ.trim();
+    try {
+      await api("POST", "/saved-views", { page: "pedidos", name, filters });
+      await loadViews();
+      setNotice(`Vista "${name}" guardada`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar la vista");
+    }
+  }
+  async function deleteView(id: string) {
+    try {
+      await api("DELETE", `/saved-views/${id}`);
+      await loadViews();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar la vista");
+    }
+  }
 
   async function load(count: number) {
     try {
@@ -133,6 +211,7 @@ export default function Pedidos() {
   });
   useEffect(() => {
     void api<ClientOption[]>("GET", "/clients").then(setClients);
+    void loadViews();
   }, []);
 
   async function toggleBitacora(orderId: string) {
@@ -344,6 +423,72 @@ export default function Pedidos() {
       )}
 
       <Card>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Estado</span>
+            <select className={inputClass} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              <option value="">Todos</option>
+              {ORDER_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_ES[s] ?? s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Negocio</span>
+            <select className={inputClass} value={fClientId} onChange={(e) => setFClientId(e.target.value)}>
+              <option value="">Todos</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-[12rem] flex-1 text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Buscar</span>
+            <input
+              type="search"
+              className={inputClass}
+              placeholder="Guía, destinatario o dirección…"
+              value={fQ}
+              onChange={(e) => setFQ(e.target.value)}
+            />
+          </label>
+          {activeFilters && (
+            <Button variant="secondary" onClick={clearFilters}>
+              Limpiar
+            </Button>
+          )}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-niebla pt-3">
+          <span className="text-xs font-semibold uppercase text-navy/50">Vistas guardadas</span>
+          {views.length === 0 && <span className="text-xs text-navy/40">ninguna aún</span>}
+          {views.map((v) => (
+            <span
+              key={v.id}
+              className="inline-flex items-center gap-1 rounded-full border border-cielo bg-white px-2 py-0.5 text-xs"
+            >
+              <button onClick={() => applyView(v)} className="font-medium text-navy hover:underline">
+                {v.name}
+              </button>
+              <button
+                onClick={() => void deleteView(v.id)}
+                aria-label={`Borrar vista ${v.name}`}
+                className="text-navy/40 hover:text-red-600"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <Button variant="secondary" onClick={() => void saveCurrentView()} disabled={!activeFilters}>
+            Guardar vista actual
+          </Button>
+        </div>
+      </Card>
+
+      <Card>
         {loading ? (
           <Loading label="Cargando pedidos…" />
         ) : (
@@ -361,10 +506,13 @@ export default function Pedidos() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
+            {shown.map((o) => (
               <Fragment key={o.id}>
                 <tr
-                  className={`cursor-pointer hover:bg-niebla/60 ${tableRowClass}`}
+                  /* Virtualización ligera: el navegador omite el render de las
+                     filas fuera de pantalla (sin dependencias ni refactor de la
+                     tabla); no-op donde no haya soporte. */
+                  className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
                   role="button"
                   tabIndex={0}
                   aria-expanded={expanded === o.id}
@@ -445,12 +593,22 @@ export default function Pedidos() {
                 </td>
               </tr>
             )}
+            {orders.length > 0 && shown.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-navy/40">
+                  Ningún pedido coincide con los filtros.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         </div>
         {(hasMore || orders.length > PAGE_SIZE) && (
           <div className="mt-3 flex items-center justify-between gap-3 text-sm text-navy/60">
-            <span>Mostrando {orders.length} pedidos</span>
+            <span>
+              Mostrando {shown.length}
+              {activeFilters ? ` de ${orders.length}` : ""} pedidos
+            </span>
             {hasMore && (
               <Button variant="secondary" onClick={loadMore}>
                 Ver más

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DRIVER_STATUSES,
   POD_REQUIREMENTS,
   POD_TYPES,
   TELEMETRY_SOURCES,
@@ -9,6 +10,7 @@ import {
   TENANT_PLANS,
   TENANT_STATUSES,
   VEHICLE_COMMAND_TYPES,
+  VEHICLE_STATUSES,
   VEHICLE_TYPES,
 } from "./enums.js";
 
@@ -129,7 +131,27 @@ export const createDriverSchema = z.object({
   documentId: z.string().min(5),
   email: z.string().email().optional(),
   password: z.string().min(8).optional(),
+  licenseExpiresAt: z.string().datetime().optional(),
 });
+
+/** Actualización de conductor: disponibilidad y/o vencimiento de licencia. */
+export const updateDriverSchema = z
+  .object({
+    status: z.enum(DRIVER_STATUSES).optional(),
+    // null limpia la fecha; ausente la deja igual.
+    licenseExpiresAt: z.string().datetime().nullable().optional(),
+  })
+  .refine((d) => d.status !== undefined || d.licenseExpiresAt !== undefined, {
+    message: "Nada que actualizar",
+  });
+
+/** Vista guardada del panel: filtros (mapa string→string) con nombre por página. */
+export const createSavedViewSchema = z.object({
+  page: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  filters: z.record(z.string(), z.string()),
+});
+export type CreateSavedViewInput = z.infer<typeof createSavedViewSchema>;
 
 export const createVehicleSchema = z.object({
   plate: z.string().min(5).max(8),
@@ -150,6 +172,7 @@ export const createVehicleSchema = z.object({
   nominalRangeKm: z.number().positive().optional(),
   soatExpiresAt: z.string().datetime().optional(),
   tecnoExpiresAt: z.string().datetime().optional(),
+  status: z.enum(VEHICLE_STATUSES).optional(),
 });
 
 export const planRoutesSchema = z.object({
@@ -263,6 +286,7 @@ export type RegisterTenantInput = z.infer<typeof registerTenantSchema>;
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CreateClientInput = z.infer<typeof createClientSchema>;
 export type CreateDriverInput = z.infer<typeof createDriverSchema>;
+export type UpdateDriverInput = z.infer<typeof updateDriverSchema>;
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type PlanRoutesInput = z.infer<typeof planRoutesSchema>;
 export type TrackingPingInput = z.infer<typeof trackingPingSchema>;

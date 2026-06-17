@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { useToast } from "../toast";
 import {
@@ -41,6 +41,9 @@ const CHANNEL_LABELS: Record<string, string> = {
   WEBHOOK: "Webhook (API)",
 };
 
+// Tamaño de página del feed de avisos (paginación por ventana).
+const FEED_PAGE = 20;
+
 const TEMPLATE_LABELS: Record<string, string> = {
   envio_en_reparto: "Envío en reparto",
   envio_entregado: "Envío entregado",
@@ -61,6 +64,8 @@ export default function Clientes() {
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
   const [portalFor, setPortalFor] = useState<string | null>(null);
   const [portalMsg, setPortalMsg] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [feedExhausted, setFeedExhausted] = useState<Set<string>>(new Set());
 
   async function load() {
     try {
@@ -73,15 +78,44 @@ export default function Clientes() {
     void load();
   }, []);
 
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.contactName ?? "").toLowerCase().includes(q) ||
+        (c.email ?? "").toLowerCase().includes(q),
+    );
+  }, [clients, query]);
+
+  function markExhausted(id: string) {
+    setFeedExhausted((s) => new Set(s).add(id));
+  }
+
   async function toggleFeed(id: string) {
     if (openClient === id) {
       setOpenClient(null);
       return;
     }
-    setFeed((f) => ({ ...f, [id]: f[id] ?? [] }));
-    const n = await api<Notification[]>("GET", `/clients/${id}/notifications`);
-    setFeed((f) => ({ ...f, [id]: n }));
     setOpenClient(id);
+    if (feed[id]) return; // ya cargado: conservar la página ya vista
+    const n = await api<Notification[]>(
+      "GET",
+      `/clients/${id}/notifications?skip=0&take=${FEED_PAGE}`,
+    );
+    setFeed((f) => ({ ...f, [id]: n }));
+    if (n.length < FEED_PAGE) markExhausted(id);
+  }
+
+  async function loadMoreFeed(id: string) {
+    const current = feed[id] ?? [];
+    const more = await api<Notification[]>(
+      "GET",
+      `/clients/${id}/notifications?skip=${current.length}&take=${FEED_PAGE}`,
+    );
+    setFeed((f) => ({ ...f, [id]: [...(f[id] ?? []), ...more] }));
+    if (more.length < FEED_PAGE) markExhausted(id);
   }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
@@ -264,7 +298,18 @@ export default function Clientes() {
         </Banner>
       )}
 
-      <Card>
+      <Card
+        actions={
+          <input
+            type="search"
+            className={`${inputClass} sm:w-64`}
+            placeholder="Buscar negocio, contacto o correo…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Buscar negocios cliente"
+          />
+        }
+      >
         {loading ? (
           <Loading label="Cargando negocios cliente…" />
         ) : (
@@ -283,7 +328,7 @@ export default function Clientes() {
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
+            {shown.map((c) => (
               <Fragment key={c.id}>
                 <tr className={tableRowClass}>
                   <td className="py-2 font-medium">{c.name}</td>
@@ -387,6 +432,14 @@ export default function Clientes() {
                           ))}
                         </ul>
                       )}
+                      {(feed[c.id]?.length ?? 0) > 0 && !feedExhausted.has(c.id) && (
+                        <button
+                          onClick={() => void loadMoreFeed(c.id)}
+                          className="mt-2 text-xs font-medium text-navy underline hover:text-navy/70"
+                        >
+                          Ver más avisos
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -404,6 +457,13 @@ export default function Clientes() {
                   >
                     Sin negocios cliente aún. Cree el primero.
                   </EmptyState>
+                </td>
+              </tr>
+            )}
+            {clients.length > 0 && shown.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-6 text-center text-navy/40">
+                  Ningún negocio coincide con «{query}».
                 </td>
               </tr>
             )}

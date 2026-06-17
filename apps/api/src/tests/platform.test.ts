@@ -93,6 +93,24 @@ describe("panel de plataforma + seguridad de planos", () => {
     expect(res.status).toBe(403);
   });
 
+  it("/platform/flywheel reporta unit economics coherentes (llamadas evitadas + ahorro)", async () => {
+    const res = await api("GET", "/platform/flywheel", platformToken);
+    expect(res.status).toBe(200);
+    const fw = res.body;
+    expect(typeof fw.costPerGeocodeUsd).toBe("number");
+    // Llamadas evitadas == aciertos del grafo (cada acierto es una llamada paga
+    // a Google/Lupap que no se realizó).
+    expect(fw.geocoding30d.paidCallsAvoided).toBe(fw.geocoding30d.graphHits);
+    // Ahorro = llamadas evitadas × tarifa (redondeado a 2 decimales).
+    const expected30 =
+      Math.round(fw.geocoding30d.paidCallsAvoided * fw.costPerGeocodeUsd * 100) / 100;
+    expect(fw.geocoding30d.estimatedSavingsUsd).toBeCloseTo(expected30, 2);
+    const expectedLife =
+      Math.round(fw.graph.lifetimeReuses * fw.costPerGeocodeUsd * 100) / 100;
+    expect(fw.graph.lifetimeSavingsUsd).toBeCloseTo(expectedLife, 2);
+    expect(fw.graph.lifetimeReuses).toBeGreaterThanOrEqual(0);
+  });
+
   it("sin token, /platform exige autenticación (401)", async () => {
     const res = await api("GET", "/platform/tenants");
     expect(res.status).toBe(401);

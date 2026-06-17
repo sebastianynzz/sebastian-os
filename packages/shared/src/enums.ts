@@ -54,6 +54,14 @@ export const STOP_STATUSES = [
 ] as const;
 export type StopStatus = (typeof STOP_STATUSES)[number];
 
+// Disponibilidad del conductor (ACTIVE puede recibir rutas; INACTIVE no).
+export const DRIVER_STATUSES = ["ACTIVE", "INACTIVE"] as const;
+export type DriverStatus = (typeof DRIVER_STATUSES)[number];
+
+// Disponibilidad operativa del vehículo (solo ACTIVE es despachable).
+export const VEHICLE_STATUSES = ["ACTIVE", "MAINTENANCE", "CHARGING"] as const;
+export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
+
 export const STOP_KINDS = ["PICKUP", "DELIVERY"] as const;
 export type StopKind = (typeof STOP_KINDS)[number];
 

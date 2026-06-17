@@ -33,6 +33,7 @@ import platformRoutes from "./modules/platform/routes.js";
 import portalRoutes from "./modules/portal/routes.js";
 import pushRoutes from "./modules/push/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
+import savedViewsRoutes from "./modules/savedViews/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -144,6 +145,8 @@ export async function buildApp() {
   await app.register(telematicsRoutes, { prefix: "/telematics" });
   await app.register(safetyRoutes, { prefix: "/safety" });
   await app.register(analyticsRoutes, { prefix: "/analytics" });
+  // Vistas guardadas del panel (filtros con nombre, privadas por usuario).
+  await app.register(savedViewsRoutes, { prefix: "/saved-views" });
   // Copiloto IA (módulo AI_ADDONS): narra y propone sobre sistemas existentes.
   await app.register(copilotRoutes, { prefix: "/copilot" });
   // Capa de optimización con IA (módulo AI_ADDONS): registro de acciones,

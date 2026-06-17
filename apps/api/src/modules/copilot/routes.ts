@@ -613,6 +613,149 @@ export default async function copilotRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Igual que /chat pero con respuesta en STREAMING (NDJSON sobre fetch): el
+   * Copiloto escribe la narración token a token mientras el bucle de
+   * herramientas corre en el servidor. Mismas invariantes: las mutaciones solo
+   * se PROPONEN (las acciones llegan en el evento `done`, jamás se ejecutan),
+   * todo acotado por tenant y en español.
+   *
+   * Una línea JSON por evento:
+   *   {type:"delta", text}     fragmento de texto del asistente
+   *   {type:"tools"}           el modelo está usando herramientas (estado)
+   *   {type:"done", actions}   fin: propuestas por confirmar
+   *   {type:"error", code, message}
+   */
+  app.post(
+    "/chat/stream",
+    {
+      preHandler: [requireRole("ADMIN", "DISPATCHER")],
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const client = getClient();
+      if (!client) {
+        return reply.code(503).send({
+          error: "El Copiloto no está configurado (falta ANTHROPIC_API_KEY)",
+          code: "COPILOT_NOT_CONFIGURED",
+        });
+      }
+
+      const { messages } = chatSchema.parse(request.body);
+      const tenantId = request.user.tenantId;
+      const tenant = await prisma.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+        select: { name: true, city: true },
+      });
+
+      const history: Anthropic.MessageParam[] = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+      const actions: CopilotAction[] = [];
+
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      const writeLine = (obj: unknown) => {
+        if (!reply.raw.writableEnded) reply.raw.write(JSON.stringify(obj) + "\n");
+      };
+
+      // Cada turno del modelo se transmite; el texto sale por deltas y al final
+      // recuperamos el mensaje completo para seguir el bucle de herramientas.
+      const streamTurn = async (): Promise<Anthropic.Message> => {
+        const stream = client.messages.stream({
+          model: MODEL,
+          max_tokens: 4096,
+          ...THINKING_PARAMS,
+          system: systemBlocks(tenant),
+          tools: TOOLS,
+          messages: history,
+        });
+        stream.on("text", (delta: string) => writeLine({ type: "delta", text: delta }));
+        return stream.finalMessage();
+      };
+
+      try {
+        let response = await streamTurn();
+
+        for (let i = 0; i < MAX_LOOP && response.stop_reason === "tool_use"; i++) {
+          const toolUses = response.content.filter(
+            (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+          );
+          history.push({ role: "assistant", content: response.content });
+          writeLine({ type: "tools" });
+
+          const results: Anthropic.ToolResultBlockParam[] = [];
+          for (const tool of toolUses) {
+            const input = (tool.input ?? {}) as Record<string, unknown>;
+            let payload: unknown;
+            try {
+              if (tool.name.startsWith("proponer_")) {
+                const actionCtx: ActionContext = {
+                  tenantId,
+                  userId: request.user.sub,
+                  role: request.user.role as ActionRole,
+                };
+                const { action, result } = await buildProposal(actionCtx, tool.name, input);
+                if (action) actions.push(action);
+                payload = result;
+              } else {
+                payload = await runReadTool(tenantId, tool.name, input);
+              }
+            } catch (err) {
+              payload = {
+                error: err instanceof Error ? err.message : "Error ejecutando la herramienta",
+              };
+            }
+            results.push({
+              type: "tool_result",
+              tool_use_id: tool.id,
+              content: JSON.stringify(payload),
+            });
+          }
+          history.push({ role: "user", content: results });
+
+          response = await streamTurn();
+        }
+
+        if (response.stop_reason === "refusal") {
+          writeLine({
+            type: "delta",
+            text: "No puedo ayudar con esa solicitud. ¿Hay algo más de la operación en lo que te apoye?",
+          });
+          writeLine({ type: "done", actions: [] });
+          reply.raw.end();
+          return;
+        }
+
+        writeLine({ type: "done", actions });
+        reply.raw.end();
+      } catch (err) {
+        if (err instanceof Anthropic.APIError) {
+          request.log.error({ status: err.status, message: err.message }, "Copilot stream API error");
+          writeLine({
+            type: "error",
+            code: "COPILOT_UPSTREAM_ERROR",
+            message: "El Copiloto no pudo responder (error del proveedor de IA)",
+          });
+        } else {
+          request.log.error(err, "Copilot stream error");
+          writeLine({
+            type: "error",
+            code: "COPILOT_ERROR",
+            message: "Error interno del Copiloto",
+          });
+        }
+        reply.raw.end();
+      }
+    },
+  );
+
+  /**
    * Confirmación de una propuesta de optimización generada por el chat. Llama
    * EXACTAMENTE el mismo ejecutor que `/ai/actions/:id/apply` — una sola ruta
    * de aplicación, una sola bitácora de auditoría. Solo aplica propuestas de

@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  VEHICLE_STATUSES,
   VEHICLE_TYPES,
   VEHICLE_TYPE_PROFILES,
+  type VehicleStatus,
   type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
@@ -29,8 +31,21 @@ interface Vehicle {
   batteryKwh: number | null;
   nominalRangeKm: number | null;
   socPercent: number | null;
+  status: string;
   soatExpiresAt: string | null;
   tecnoExpiresAt: string | null;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "Activo",
+  MAINTENANCE: "Mantenimiento",
+  CHARGING: "Cargando",
+};
+
+/** Documento vencido o por vencer (≤30 días): alimenta el recordatorio. */
+function docFlagged(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  return (new Date(dateStr).getTime() - Date.now()) / 86400000 < 30;
 }
 
 /** Etiquetas en español derivadas del catálogo (fuente única de verdad). */
@@ -64,6 +79,8 @@ export default function Vehiculos() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [filter, setFilter] = useState<"ALL" | VehicleStatus>("ALL");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
 
   // Estado del formulario, dirigido por la configuración seleccionada.
@@ -110,6 +127,28 @@ export default function Vehiculos() {
   useEffect(() => {
     void load();
   }, []);
+
+  async function patchVehicle(id: string, body: Record<string, unknown>) {
+    setBusyId(id);
+    try {
+      await api("PATCH", `/vehicles/${id}`, body);
+      await load();
+    } catch (err) {
+      toast.error(err, { fallback: "No se pudo actualizar el vehículo" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const shown = useMemo(
+    () => vehicles.filter((v) => filter === "ALL" || v.status === filter),
+    [vehicles, filter],
+  );
+  // Recordatorio de cumplimiento: SOAT o técnico-mecánica vencidos/por vencer.
+  const docAlerts = useMemo(
+    () => vehicles.filter((v) => docFlagged(v.soatExpiresAt) || docFlagged(v.tecnoExpiresAt)),
+    [vehicles],
+  );
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -255,7 +294,30 @@ export default function Vehiculos() {
         </Card>
       )}
 
-      <Card>
+      {docAlerts.length > 0 && (
+        <Banner kind="error">
+          {docAlerts.length} vehículo(s) con SOAT o técnico-mecánica vencido o por
+          vencer (≤30 días). Renueva antes de despacharlos.
+        </Banner>
+      )}
+
+      <Card
+        actions={
+          <div className="flex flex-wrap gap-1 text-xs">
+            {(["ALL", ...VEHICLE_STATUSES] as ("ALL" | VehicleStatus)[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded-full px-3 py-1 ${
+                  filter === f ? "bg-navy text-white" : "border border-cielo text-navy/70"
+                }`}
+              >
+                {f === "ALL" ? "Todos" : STATUS_LABEL[f]}
+              </button>
+            ))}
+          </div>
+        }
+      >
         {loading ? (
           <Loading label="Cargando vehículos…" />
         ) : loadError ? (
@@ -277,6 +339,7 @@ export default function Vehiculos() {
                 <tr className={theadRowClass}>
                   <th className="py-2">Placa</th>
                   <th>Configuración</th>
+                  <th>Estado</th>
                   <th>Capacidad</th>
                   <th>EV</th>
                   <th>Cadena de frío</th>
@@ -285,12 +348,27 @@ export default function Vehiculos() {
                 </tr>
               </thead>
               <tbody>
-                {vehicles.map((v) => {
+                {shown.map((v) => {
                   const p = VEHICLE_TYPE_PROFILES[v.type as VehicleType];
                   return (
                     <tr key={v.id} className={tableRowClass}>
                       <td className="py-2 font-mono font-medium">{v.plate}</td>
                       <td>{typeLabel(v.type)}</td>
+                      <td>
+                        <select
+                          aria-label={`Estado de ${v.plate}`}
+                          className="rounded border border-cielo bg-white px-1.5 py-0.5 text-xs text-navy disabled:opacity-50"
+                          value={v.status}
+                          disabled={busyId === v.id}
+                          onChange={(e) => void patchVehicle(v.id, { status: e.target.value })}
+                        >
+                          {VEHICLE_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {STATUS_LABEL[s]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td>
                         {v.capacityKg} kg
                         {v.capacityM3 != null ? ` · ${v.capacityM3} m³` : ""}
@@ -319,6 +397,13 @@ export default function Vehiculos() {
                     </tr>
                   );
                 })}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-6 text-center text-navy/40">
+                      Ningún vehículo en estado «{filter === "ALL" ? "—" : STATUS_LABEL[filter]}».
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

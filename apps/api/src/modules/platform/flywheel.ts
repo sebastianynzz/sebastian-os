@@ -3,6 +3,14 @@ import { prisma } from "../../lib/prisma.js";
 import { addDays, todayBogota } from "../../services/dailyMetrics.js";
 
 /**
+ * Costo evitado por acierto del grafo. Tarifa de referencia de Google Geocoding
+ * API (~USD 5 por 1000 solicitudes = USD 0.005 c/u, nivel estándar 2025);
+ * conservadora (Lupap y los SKU rooftop cuestan más). Cada acierto del grafo es
+ * una de estas llamadas que NO se pagó — la unit-economic central del moat.
+ */
+const COST_PER_GEOCODE_USD = 0.005;
+
+/**
  * Monitor del data flywheel (operador de plataforma): el cuarto de máquinas
  * del moat. Mide si el grafo de direcciones está compounding:
  *
@@ -17,7 +25,7 @@ export default async function platformFlywheelRoutes(app: FastifyInstance) {
     const from30 = addDays(to, -29);
     const from7 = addDays(to, -6);
 
-    const [totalPins, pins30d, pins7d, byCity, byTenant, statRows, growthRows] =
+    const [totalPins, pins30d, pins7d, byCity, byTenant, statRows, growthRows, lifetimeAgg] =
       await Promise.all([
         prisma.addressPin.count(),
         prisma.addressPin.count({
@@ -49,6 +57,9 @@ export default async function platformFlywheelRoutes(app: FastifyInstance) {
           WHERE "createdAt" >= now() - interval '30 days'
           GROUP BY 1 ORDER BY 1
         `,
+        // Reusos de por vida: cada incremento de useCount es un acierto del
+        // grafo (una llamada paga evitada) acumulado en la vida del grafo.
+        prisma.addressPin.aggregate({ _sum: { useCount: true } }),
       ]);
 
     // Graph hit rate de los últimos 30 días, agregado y por día.
@@ -66,19 +77,29 @@ export default async function platformFlywheelRoutes(app: FastifyInstance) {
     const paidCalls = (bySource.get("GOOGLE") ?? 0) + (bySource.get("LUPAP") ?? 0);
 
     const growthMap = new Map(growthRows.map((r) => [r.day, r.count]));
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    // Reusos acumulados = aciertos del grafo de por vida = llamadas pagas
+    // evitadas a lo largo de la vida del grafo (compounding del moat).
+    const lifetimeReuses = lifetimeAgg._sum.useCount ?? 0;
 
     return {
       generatedAt: new Date().toISOString(),
+      costPerGeocodeUsd: COST_PER_GEOCODE_USD,
       graph: {
         totalPins,
         newPins7d: pins7d,
         newPins30d: pins30d,
+        lifetimeReuses,
+        lifetimeSavingsUsd: round2(lifetimeReuses * COST_PER_GEOCODE_USD),
         byCity: byCity.map((c) => ({ city: c.city ?? "sin ciudad", pins: c._count._all })),
         byTenant,
       },
       geocoding30d: {
         total: totalGeocodes,
         graphHits,
+        // Cada acierto del grafo es una llamada paga (Google/Lupap) evitada.
+        paidCallsAvoided: graphHits,
+        estimatedSavingsUsd: round2(graphHits * COST_PER_GEOCODE_USD),
         paidProviderCalls: paidCalls,
         mockCalls: bySource.get("MOCK") ?? 0,
         hitRate: totalGeocodes === 0 ? null : graphHits / totalGeocodes,

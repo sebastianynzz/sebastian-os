@@ -67,10 +67,14 @@ export default function Direcciones() {
   const [draft, setDraft] = useState<{ lat: number; lng: number } | null>(null);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Selección para confirmación en lote (triage rápido).
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [batchBusy, setBatchBusy] = useState(false);
 
   const load = useCallback(async () => {
     const res = await api<{ orders: TriageOrder[] }>("GET", "/addresses/triage");
     setOrders(res.orders);
+    setChecked(new Set());
   }, []);
 
   useEffect(() => {
@@ -85,6 +89,59 @@ export default function Direcciones() {
   function select(order: TriageOrder) {
     setSelectedId(order.id);
     setDraft(order.lat !== null && order.lng !== null ? { lat: order.lat, lng: order.lng } : null);
+  }
+
+  // Una fila es confirmable en lote solo si ya tiene un pin real: con
+  // coordenadas y de una fuente que NO sea el geocodificador de prueba (MOCK).
+  // Confirmar en lote un pin MOCK/ausente envenenaría el grafo — esos van al
+  // mapa para fijar el pin a mano.
+  const confirmable = (o: TriageOrder) =>
+    o.lat !== null && o.lng !== null && o.geocodeSource !== "MOCK";
+
+  const confirmableIds = useMemo(
+    () => (orders ?? []).filter(confirmable).map((o) => o.id),
+    [orders],
+  );
+  const allConfirmableSelected =
+    confirmableIds.length > 0 && confirmableIds.every((id) => checked.has(id));
+
+  function toggleCheck(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleAllConfirmable() {
+    setChecked(allConfirmableSelected ? new Set() : new Set(confirmableIds));
+  }
+
+  async function confirmBatch() {
+    if (checked.size === 0) return;
+    setBatchBusy(true);
+    setBanner(null);
+    try {
+      const res = await api<{ confirmed: number; skipped: { id: string; reason: string }[] }>(
+        "POST",
+        "/addresses/triage/confirm",
+        { orderIds: [...checked] },
+      );
+      const parts = [`${res.confirmed} confirmada(s) y aprendida(s) por el grafo`];
+      if (res.skipped.length > 0) {
+        parts.push(`${res.skipped.length} omitida(s): requieren pin manual`);
+      }
+      setBanner({ kind: res.confirmed > 0 ? "success" : "error", text: parts.join(" · ") });
+      if (selectedId && checked.has(selectedId)) {
+        setSelectedId(null);
+        setDraft(null);
+      }
+      await load();
+    } catch (err) {
+      setBanner({ kind: "error", text: err instanceof Error ? err.message : "Error" });
+    } finally {
+      setBatchBusy(false);
+    }
   }
 
   async function confirmPin() {
@@ -146,11 +203,36 @@ export default function Direcciones() {
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card title={`Por revisar (${orders.length})`}>
+          <Card
+            title={`Por revisar (${orders.length})`}
+            actions={
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" onClick={toggleAllConfirmable} disabled={confirmableIds.length === 0}>
+                  {allConfirmableSelected ? "Quitar selección" : "Seleccionar confirmables"}
+                </Button>
+                <Button onClick={confirmBatch} disabled={checked.size === 0 || batchBusy}>
+                  {batchBusy ? "Confirmando…" : `Confirmar ${checked.size} sel.`}
+                </Button>
+              </div>
+            }
+          >
+            <p className="mb-2 text-xs text-navy/50">
+              Confirma en lote las que ya tienen un pin razonable; las de
+              geocodificador de prueba o sin coordenadas requieren pin manual en el mapa.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className={theadRowClass}>
+                    <th className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todas las confirmables"
+                        checked={allConfirmableSelected}
+                        onChange={toggleAllConfirmable}
+                        disabled={confirmableIds.length === 0}
+                      />
+                    </th>
                     <th className="py-2 pr-3">Guía</th>
                     <th className="py-2 pr-3">Dirección</th>
                     <th className="py-2 pr-3">Fuente</th>
@@ -164,6 +246,20 @@ export default function Direcciones() {
                       key={o.id}
                       className={`${tableRowClass} ${o.id === selectedId ? "bg-cielo/20" : ""}`}
                     >
+                      <td className="py-2 pr-2">
+                        {confirmable(o) ? (
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar ${o.trackingNumber ?? o.customerName}`}
+                            checked={checked.has(o.id)}
+                            onChange={() => toggleCheck(o.id)}
+                          />
+                        ) : (
+                          <span title="Requiere pin manual en el mapa" className="text-xs text-navy/30">
+                            ✎
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2 pr-3 font-mono text-xs">{o.trackingNumber}</td>
                       <td className="py-2 pr-3">
                         <div className="font-medium">{o.customerName}</div>

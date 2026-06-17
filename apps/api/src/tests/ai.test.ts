@@ -536,4 +536,20 @@ describe("Copiloto — confirma por la MISMA ruta de aplicación (executor compa
     });
     expect(again.status).toBe(409);
   });
+
+  it("/copilot/chat/stream responde 503 JSON cuando falta la API key (nunca un stream a medias)", async () => {
+    // El guardia corre ANTES de abrir el stream: sin ANTHROPIC_API_KEY devuelve
+    // un 503 NOT_CONFIGURED limpio que el panel web sabe explicar.
+    const saved = process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    try {
+      const res = await api("POST", "/copilot/chat/stream", adminToken, {
+        messages: [{ role: "user", content: "hola" }],
+      });
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe("COPILOT_NOT_CONFIGURED");
+    } finally {
+      if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
+    }
+  });
 });

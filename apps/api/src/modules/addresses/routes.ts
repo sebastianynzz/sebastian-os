@@ -133,6 +133,82 @@ export default async function addressesRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Confirmación en lote (triage rápido): el despachador da por buenos los
+   * pines EXISTENTES de varios pedidos de una sola vez — fija confianza 1,
+   * marca verificado y los enseña al grafo (DISPATCHER_CONFIRMED), conservando
+   * la fuente original (Google/Lupap/grafo) como procedencia.
+   *
+   * NUNCA confirma en lote un pin de prueba (MOCK) ni uno sin coordenadas: esas
+   * coordenadas son falsas/ausentes y envenenarían el grafo — esos van al mapa
+   * para fijar el pin a mano.
+   */
+  app.post(
+    "/triage/confirm",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request) => {
+      const body = z
+        .object({ orderIds: z.array(z.string()).min(1).max(200) })
+        .parse(request.body);
+
+      const orders = await prisma.order.findMany({
+        where: { id: { in: body.orderIds }, tenantId: request.user.tenantId },
+        include: { tenant: { select: { city: true } } },
+      });
+      const byId = new Map(orders.map((o) => [o.id, o]));
+
+      const skipped: { id: string; reason: string }[] = [];
+      let confirmed = 0;
+
+      for (const id of body.orderIds) {
+        const order = byId.get(id);
+        if (!order) {
+          skipped.push({ id, reason: "Pedido no encontrado" });
+          continue;
+        }
+        if (["DELIVERED", "CANCELLED"].includes(order.status)) {
+          skipped.push({ id, reason: "El pedido ya fue cerrado" });
+          continue;
+        }
+        if (order.lat === null || order.lng === null) {
+          skipped.push({ id, reason: "Sin coordenadas; requiere pin manual" });
+          continue;
+        }
+        if (order.geocodeSource === "MOCK") {
+          skipped.push({
+            id,
+            reason: "Geocodificador de prueba; requiere pin manual",
+          });
+          continue;
+        }
+
+        const updated = await prisma.order.update({
+          where: { id: order.id },
+          // Confirmar-tal-cual: no movemos el pin (conservamos la fuente), solo
+          // lo damos por verificado por un humano.
+          data: { geoConfidence: 1, addressVerifiedAt: new Date() },
+        });
+        await learnAddressPin(
+          order.tenantId,
+          order.addressRaw,
+          order.lat,
+          order.lng,
+          order.addressNotes ?? undefined,
+          { source: "DISPATCHER_CONFIRMED", city: order.tenant.city },
+        );
+        await logOrderEvent(
+          order.id,
+          "ADDRESS_CONFIRMED",
+          "Pin confirmado en lote por despacho (triage rápido)",
+        );
+        emitOrderUpdate(order.tenantId, updated);
+        confirmed += 1;
+      }
+
+      return { confirmed, skipped };
+    },
+  );
+
+  /**
    * Corrección del conductor en campo: el tap más valioso del producto.
    * Cuando el conductor llega y el pin guardado está lejos de la entrega
    * real, confirma la ubicación verdadera con su GPS.

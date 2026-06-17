@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { api, ApiError } from "../api";
+import { api, BASE_URL, getToken } from "../api";
 import { useAuth } from "../auth";
 import {
   Banner,
@@ -51,42 +51,116 @@ export default function Copilot() {
   const [banner, setBanner] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [executed, setExecuted] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   if (session && !session.modules.includes("AI_ADDONS")) {
     return <ModuleDisabled title="Copiloto IA" moduleName="IA Addons" />;
   }
 
+  /**
+   * Envía el turno y consume la respuesta en streaming (NDJSON sobre fetch):
+   * la narración del Copiloto se va escribiendo token a token. Las propuestas
+   * (acciones a confirmar) llegan al final, en el evento `done` — el modelo
+   * sigue sin ejecutar nada por sí mismo.
+   */
   async function send(text: string) {
     const content = text.trim();
     if (!content || busy) return;
     setBanner(null);
     setInput("");
-    const next: ChatEntry[] = [...transcript, { role: "user", content }];
-    setTranscript(next);
+    const base: ChatEntry[] = [...transcript, { role: "user", content }];
+    setTranscript(base);
     setBusy(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let acc = "";
+    let started = false;
+    const ensureBubble = () => {
+      if (started) return;
+      started = true;
+      setTranscript((prev) => [...prev, { role: "assistant", content: "" }]);
+    };
+    const paintAssistant = (textVal: string, actions?: CopilotAction[]) => {
+      setTranscript((prev) => {
+        const next = [...prev];
+        const last = next.length - 1;
+        if (last >= 0 && next[last]?.role === "assistant") {
+          next[last] = { role: "assistant", content: textVal, actions };
+        }
+        return next;
+      });
+    };
+
     try {
-      const res = await api<{ reply: string; actions: CopilotAction[] }>(
-        "POST",
-        "/copilot/chat",
-        { messages: next.map(({ role, content: c }) => ({ role, content: c })) },
-      );
-      setTranscript([
-        ...next,
-        { role: "assistant", content: res.reply, actions: res.actions },
-      ]);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      const res = await fetch(`${BASE_URL}/copilot/chat/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: base.map(({ role, content: c }) => ({ role, content: c })),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const data = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+        setBanner({
+          kind: "error",
+          text:
+            data.code === "COPILOT_NOT_CONFIGURED"
+              ? "El Copiloto no está configurado en este entorno (falta la clave del proveedor de IA)."
+              : data.error ?? "El Copiloto no pudo responder.",
+        });
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          const evt = JSON.parse(line) as {
+            type: string;
+            text?: string;
+            actions?: CopilotAction[];
+            message?: string;
+          };
+          if (evt.type === "delta") {
+            ensureBubble();
+            acc += evt.text ?? "";
+            paintAssistant(acc);
+          } else if (evt.type === "done") {
+            ensureBubble();
+            paintAssistant(acc || "Listo.", evt.actions ?? []);
+          } else if (evt.type === "error") {
+            setBanner({ kind: "error", text: evt.message ?? "El Copiloto no pudo responder." });
+          }
+        }
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
     } catch (err) {
-      const text2 =
-        err instanceof ApiError && err.code === "COPILOT_NOT_CONFIGURED"
-          ? "El Copiloto no está configurado en este entorno (falta la clave del proveedor de IA)."
-          : err instanceof Error
-            ? err.message
-            : "Error";
-      setBanner({ kind: "error", text: text2 });
-      setTranscript(next);
+      // Aborto del usuario (botón Detener): conservamos lo recibido sin error.
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setBanner({ kind: "error", text: err instanceof Error ? err.message : "Error" });
+      }
     } finally {
       setBusy(false);
+      abortRef.current = null;
     }
+  }
+
+  function stop() {
+    abortRef.current?.abort();
   }
 
   /** Ejecuta una propuesta confirmada. Las de optimización van por la ruta de
@@ -217,9 +291,15 @@ export default function Copilot() {
               onChange={(e) => setInput(e.target.value)}
               disabled={busy}
             />
-            <Button type="submit" disabled={busy || !input.trim()}>
-              Enviar
-            </Button>
+            {busy ? (
+              <Button type="button" variant="secondary" onClick={stop}>
+                Detener
+              </Button>
+            ) : (
+              <Button type="submit" disabled={!input.trim()}>
+                Enviar
+              </Button>
+            )}
           </form>
         </div>
       </Card>
