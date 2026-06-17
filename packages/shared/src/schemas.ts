@@ -145,6 +145,14 @@ export const updateDriverSchema = z
     message: "Nada que actualizar",
   });
 
+/** Vista guardada del panel: filtros (mapa string→string) con nombre por página. */
+export const createSavedViewSchema = z.object({
+  page: z.string().min(1).max(40),
+  name: z.string().min(1).max(60),
+  filters: z.record(z.string(), z.string()),
+});
+export type CreateSavedViewInput = z.infer<typeof createSavedViewSchema>;
+
 export const createVehicleSchema = z.object({
   plate: z.string().min(5).max(8),
   type: z.enum(VEHICLE_TYPES),

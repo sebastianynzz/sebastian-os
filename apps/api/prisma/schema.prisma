@@ -60,6 +60,7 @@ model Tenant {
   pushSubscriptions PushSubscription[]
   aiProposals   AiProposal[]
   snoozedExceptions SnoozedException[]
+  savedViews    SavedView[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -147,8 +148,27 @@ model User {
   clientId     String?
   createdAt    DateTime @default(now())
   pushSubscriptions PushSubscription[]
+  savedViews   SavedView[]
 
   @@index([clientId])
+}
+
+/// Vista guardada de un usuario del panel: un conjunto de filtros con nombre
+/// para una página (p. ej. Pedidos). Privada por usuario y tenant.
+model SavedView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page      String // "pedidos" | ...
+  name      String
+  filters   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId, page, name])
+  @@index([tenantId, userId, page])
 }
 
 /// Suscripción Web Push (VAPID) de un usuario del tenant: el canal gratuito
