@@ -27,7 +27,15 @@ interface Order {
   geocodeSource: string | null;
   client: { id: string; name: string } | null;
   service: { id: string; name: string; identifier: string } | null;
+  customFields: Record<string, string> | null;
   createdAt: string;
+}
+
+interface CustomPropDef {
+  id: string;
+  name: string;
+  visibleToDriver: boolean;
+  visibleToRecipient: boolean;
 }
 
 interface ClientOption {
@@ -80,10 +88,17 @@ const STATUS_ES: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
-const CSV_TEMPLATE =
-  "customerName,customerPhone,addressRaw,addressNotes,weightKg\n" +
-  'Laura Martínez,+573101000001,"Cra 13 # 54-20, Chapinero",Portón verde,2\n' +
-  'Pedro Sánchez,+573101000002,"Cl 72 # 10-34",,1.2\n';
+/** Plantilla CSV — incluye una columna por cada campo personalizado del tenant. */
+function buildCsvTemplate(props: CustomPropDef[]): string {
+  const extra = props.map((p) => p.name);
+  const header = ["customerName", "customerPhone", "addressRaw", "addressNotes", "weightKg", ...extra];
+  const blanks = extra.map(() => "");
+  const rows = [
+    ["Laura Martínez", "+573101000001", '"Cra 13 # 54-20, Chapinero"', "Portón verde", "2", ...blanks],
+    ["Pedro Sánchez", "+573101000002", '"Cl 72 # 10-34"', "", "1.2", ...blanks],
+  ];
+  return [header, ...rows].map((r) => r.join(",")).join("\n") + "\n";
+}
 
 /** Parser CSV mínimo con soporte de comillas (suficiente para la plantilla). */
 function parseCsv(text: string): Record<string, string>[] {
@@ -138,6 +153,9 @@ export default function Pedidos() {
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
+  // Campos personalizados del tenant (Tier 2 §9): se rellenan en el alta manual
+  // y se mapean por nombre de columna en el import CSV.
+  const [customProps, setCustomProps] = useState<CustomPropDef[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
   const [fStatus, setFStatus] = useState("");
@@ -229,6 +247,9 @@ export default function Pedidos() {
   useEffect(() => {
     void api<ClientOption[]>("GET", "/clients").then(setClients);
     void api<ServiceOption[]>("GET", "/services").then(setServices).catch(() => {});
+    void api<{ items: CustomPropDef[] }>("GET", "/custom-properties")
+      .then((r) => setCustomProps(r.items))
+      .catch(() => {});
     void loadViews();
   }, []);
 
@@ -243,7 +264,9 @@ export default function Pedidos() {
   }
 
   function downloadTemplate() {
-    const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([buildCsvTemplate(customProps)], {
+      type: "text/csv;charset=utf-8",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "plantilla_pedidos_move.csv";
@@ -258,13 +281,27 @@ export default function Pedidos() {
     try {
       const rows = parseCsv(await file.text());
       if (rows.length === 0) throw new Error("El archivo no tiene filas de datos");
-      const payload = rows.map((r) => ({
-        customerName: r.customerName,
-        customerPhone: r.customerPhone,
-        addressRaw: r.addressRaw,
-        addressNotes: r.addressNotes || undefined,
-        weightKg: r.weightKg ? Number(r.weightKg) : undefined,
-      }));
+      const payload = rows.map((r) => {
+        // Campos personalizados (Tier 2 §9): cada columna del CSV cuyo encabezado
+        // coincide (sin distinguir mayúsculas) con un campo del tenant se mapea a
+        // su id; el API ignora las claves desconocidas.
+        const customFields: Record<string, string> = {};
+        for (const p of customProps) {
+          const col = Object.keys(r).find(
+            (h) => h.trim().toLowerCase() === p.name.trim().toLowerCase(),
+          );
+          const val = col ? r[col] : undefined;
+          if (val && val.trim() !== "") customFields[p.id] = val.trim();
+        }
+        return {
+          customerName: r.customerName,
+          customerPhone: r.customerPhone,
+          addressRaw: r.addressRaw,
+          addressNotes: r.addressNotes || undefined,
+          weightKg: r.weightKg ? Number(r.weightKg) : undefined,
+          ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
+        };
+      });
       const res = await api<{
         created: number;
         failed: number;
@@ -297,6 +334,12 @@ export default function Pedidos() {
     e.preventDefault();
     setError(null);
     const data = new FormData(e.currentTarget);
+    // Campos personalizados (Tier 2 §9): inputs nombrados cf:<id>.
+    const customFields: Record<string, string> = {};
+    for (const p of customProps) {
+      const v = data.get(`cf:${p.id}`);
+      if (typeof v === "string" && v.trim() !== "") customFields[p.id] = v.trim();
+    }
     try {
       await api("POST", "/orders", {
         clientId: data.get("clientId") || undefined,
@@ -308,6 +351,7 @@ export default function Pedidos() {
         weightKg: Number(data.get("weightKg") || 1),
         pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
         pickupNotes: data.get("pickupNotes") || undefined,
+        ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
       });
       setShowForm(false);
       await load(visibleCount);
@@ -429,6 +473,27 @@ export default function Pedidos() {
                 ))}
               </select>
             </Field>
+            {customProps.length > 0 && (
+              <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
+                <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
+                  Datos personalizados
+                </div>
+                {customProps.map((p) => (
+                  <Field
+                    key={p.id}
+                    label={`${p.name}${
+                      p.visibleToRecipient
+                        ? " (visible al destinatario)"
+                        : p.visibleToDriver
+                          ? " (visible al conductor)"
+                          : ""
+                    }`}
+                  >
+                    <input name={`cf:${p.id}`} className={inputClass} />
+                  </Field>
+                ))}
+              </div>
+            )}
             <div className="sm:col-span-2">
               <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
                 <input
@@ -598,6 +663,27 @@ export default function Pedidos() {
                 {expanded === o.id && (
                   <tr className={`bg-niebla/40 ${tableRowClass}`}>
                     <td colSpan={7} className="px-4 py-3">
+                      {customProps.length > 0 &&
+                        o.customFields &&
+                        customProps.some((p) => o.customFields?.[p.id]) && (
+                          <div className="mb-3">
+                            <div className="text-xs font-semibold uppercase text-navy/50">
+                              Datos personalizados
+                            </div>
+                            <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                              {customProps
+                                .filter((p) => o.customFields?.[p.id])
+                                .map((p) => (
+                                  <div key={p.id} className="flex gap-1">
+                                    <dt className="text-navy/50">{p.name}:</dt>
+                                    <dd className="font-medium">
+                                      {o.customFields?.[p.id]}
+                                    </dd>
+                                  </div>
+                                ))}
+                            </dl>
+                          </div>
+                        )}
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
                       </div>

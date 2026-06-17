@@ -35,6 +35,7 @@ import ControlesCostos from "./pages/ControlesCostos";
 import ControlesSeguimiento from "./pages/ControlesSeguimiento";
 import ControlesNotificaciones from "./pages/ControlesNotificaciones";
 import ControlesIntegraciones from "./pages/ControlesIntegraciones";
+import ControlesCampos from "./pages/ControlesCampos";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -78,6 +79,8 @@ const NAV_ITEMS: {
   { to: "/controles/notificaciones", label: "Notificaciones", roles: ["ADMIN"] },
   // Integraciones (webhooks + API keys, plataforma de desarrolladores), solo ADMIN.
   { to: "/controles/integraciones", label: "Integraciones", roles: ["ADMIN"] },
+  // Campos personalizados de parada (Tier 2 §9): datos extra por pedido, solo ADMIN.
+  { to: "/controles/campos", label: "Campos personalizados", roles: ["ADMIN"] },
   // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
   { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
@@ -243,6 +246,7 @@ export default function App() {
           <Route path="/controles/seguimiento" element={<ControlesSeguimiento />} />
           <Route path="/controles/notificaciones" element={<ControlesNotificaciones />} />
           <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
+          <Route path="/controles/campos" element={<ControlesCampos />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />

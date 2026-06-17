@@ -50,6 +50,9 @@ interface Stop {
     pickupLng: number | null;
     // Política POD del comercio cliente (pruebas exigidas para la entrega).
     client: { podRequired: string[] } | null;
+    // Campos personalizados visibles para el conductor (Tier 2 §9), ya
+    // etiquetados por el API (el JSON crudo nunca llega a la app).
+    customProperties?: { id: string; name: string; value: string }[];
   };
   pod: unknown | null;
 }
@@ -946,6 +949,17 @@ function StopCard({
             <div className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
               📍 {notes}
             </div>
+          )}
+          {/* Campos personalizados visibles para el conductor (Tier 2 §9). */}
+          {stop.order.customProperties && stop.order.customProperties.length > 0 && (
+            <dl className="mt-2 space-y-0.5 text-xs">
+              {stop.order.customProperties.map((cp) => (
+                <div key={cp.id} className="flex gap-1">
+                  <dt className="text-navy/50 dark:text-niebla/50">{cp.name}:</dt>
+                  <dd className="font-semibold">{cp.value}</dd>
+                </div>
+              ))}
+            </dl>
           )}
         </div>
         <a

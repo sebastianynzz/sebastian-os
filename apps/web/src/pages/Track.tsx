@@ -24,6 +24,7 @@ interface Tracking {
   etaMin: number | null;
   trackingTier: string;
   queuePosition: { position: number; totalPending: number } | null;
+  customProperties: { id: string; name: string; value: string }[];
   timeline: TimelineEntry[];
   driverPosition: { lat: number; lng: number; at: string } | null;
 }
@@ -119,6 +120,17 @@ export default function Track() {
                 <div className="font-semibold">{data.recipient}</div>
                 <div className="text-navy/70">{data.address}</div>
               </div>
+              {/* Datos del envío que el negocio decidió mostrar (Tier 2 §9). */}
+              {data.customProperties && data.customProperties.length > 0 && (
+                <dl className="mt-3 space-y-1 border-t border-cielo/40 pt-3 text-sm">
+                  {data.customProperties.map((cp) => (
+                    <div key={cp.id} className="flex justify-between gap-3">
+                      <dt className="text-navy/50">{cp.name}</dt>
+                      <dd className="font-medium text-navy">{cp.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
               {data.status === "IN_TRANSIT" && data.etaMin !== null && (
                 <div className="mt-3 rounded-lg bg-cielo/30 px-3 py-2 text-sm font-medium text-navy">
                   🛵 En camino · ETA aprox. {formatEta(data.etaMin)}

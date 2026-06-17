@@ -30,6 +30,11 @@ interface ServiceOption {
   completionDeadlineMin: number;
 }
 
+interface CustomPropOption {
+  id: string;
+  name: string;
+}
+
 interface CreatedOrder {
   trackingNumber: string | null;
   trackingUrl: string | null;
@@ -48,6 +53,8 @@ interface AddressCheck {
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
   const [services, setServices] = useState<ServiceOption[]>([]);
+  // Campos personalizados del operador (Tier 2 §9) que el negocio rellena.
+  const [customProps, setCustomProps] = useState<CustomPropOption[]>([]);
   const [pickupMode, setPickupMode] = useState<"REGISTERED" | "CUSTOM" | "NONE">("REGISTERED");
   const toast = useToast();
   const [created, setCreated] = useState<CreatedOrder | null>(null);
@@ -84,6 +91,9 @@ export default function PortalNuevoEnvio() {
     void api<ServiceOption[]>("GET", "/portal/services")
       .then(setServices)
       .catch(() => {});
+    void api<CustomPropOption[]>("GET", "/portal/custom-properties")
+      .then(setCustomProps)
+      .catch(() => {});
   }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -92,6 +102,12 @@ export default function PortalNuevoEnvio() {
     setBusy(true);
     const form = e.currentTarget;
     const data = new FormData(form);
+    // Campos personalizados (Tier 2 §9): inputs nombrados cf:<id>.
+    const customFields: Record<string, string> = {};
+    for (const p of customProps) {
+      const v = data.get(`cf:${p.id}`);
+      if (typeof v === "string" && v.trim() !== "") customFields[p.id] = v.trim();
+    }
     try {
       const order = await api<CreatedOrder>("POST", "/portal/orders", {
         customerName: data.get("customerName"),
@@ -101,6 +117,7 @@ export default function PortalNuevoEnvio() {
         externalRef: data.get("externalRef") || undefined,
         serviceId: data.get("serviceId") || undefined,
         weightKg: data.get("weightKg") ? Number(data.get("weightKg")) : undefined,
+        ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
         pickupMode,
         pickupAddressRaw:
           pickupMode === "CUSTOM" ? data.get("pickupAddressRaw") : undefined,
@@ -228,6 +245,19 @@ export default function PortalNuevoEnvio() {
                   ))}
                 </select>
               </Field>
+            </div>
+          )}
+
+          {customProps.length > 0 && (
+            <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
+                Datos adicionales
+              </div>
+              {customProps.map((p) => (
+                <Field key={p.id} label={p.name}>
+                  <input name={`cf:${p.id}`} className={inputClass} />
+                </Field>
+              ))}
             </div>
           )}
 
