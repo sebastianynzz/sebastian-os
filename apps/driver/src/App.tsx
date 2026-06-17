@@ -259,6 +259,7 @@ export default function App() {
   const [starting, setStarting] = useState(false);
   // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
   const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
+  const [online, setOnline] = useState(navigator.onLine);
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
@@ -350,6 +351,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [route, geo]);
 
+  // Indicador de conexión: el conductor debe distinguir "sin señal" de
+  // "tengo cola pendiente" — en zona muerta lo ve de inmediato.
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
   // SOS armado: si no se confirma dentro de la ventana, se auto-desarma para
   // que un toque accidental no quede pendiente. El estado "sent" sí persiste
   // (el conductor puede querer reenviar).
@@ -415,6 +429,19 @@ export default function App() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <span
+            role="status"
+            aria-label={online ? "En línea" : "Sin conexión"}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+              online ? "bg-emerald-500/20 text-emerald-100" : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+            />
+            {online ? "En línea" : "Sin conexión"}
+          </span>
           {pending > 0 && (
             <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold">
               {pending} sin sync
