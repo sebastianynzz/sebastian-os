@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
 import { useRealtimeReload } from "../realtime";
@@ -200,24 +203,29 @@ export default function MapaEnVivo() {
               <Marker position={[DEPOT.lat, DEPOT.lng]} icon={stationIcon}>
                 <Popup>Depósito</Popup>
               </Marker>
-              {entries
-                .filter((e) => e.ping)
-                .map((e) => (
-                  <Marker
-                    key={e.vehicle.id}
-                    position={[e.ping!.lat, e.ping!.lng]}
-                    icon={dotIcon(e.vehicle.engineOn ? "#16a34a" : "#dc2626")}
-                    eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
-                  >
-                    <Popup>
-                      <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
-                      <br />
-                      {e.vehicle.engineOn ? "Encendido" : "Apagado"}
-                      <br />
-                      {(e.ping!.speedKmh ?? 0).toFixed(0)} km/h
-                    </Popup>
-                  </Marker>
-                ))}
+              {/* Agrupar vehículos cercanos en burbujas con conteo; se separan
+                  al hacer zoom o clic. chunkedLoading evita trabar el hilo con
+                  flotas grandes. El depósito queda fuera (marcador único). */}
+              <MarkerClusterGroup chunkedLoading>
+                {entries
+                  .filter((e) => e.ping)
+                  .map((e) => (
+                    <Marker
+                      key={e.vehicle.id}
+                      position={[e.ping!.lat, e.ping!.lng]}
+                      icon={dotIcon(e.vehicle.engineOn ? "#16a34a" : "#dc2626")}
+                      eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
+                    >
+                      <Popup>
+                        <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
+                        <br />
+                        {e.vehicle.engineOn ? "Encendido" : "Apagado"}
+                        <br />
+                        {(e.ping!.speedKmh ?? 0).toFixed(0)} km/h
+                      </Popup>
+                    </Marker>
+                  ))}
+              </MarkerClusterGroup>
             </MapContainer>
           </Card>
         </div>
