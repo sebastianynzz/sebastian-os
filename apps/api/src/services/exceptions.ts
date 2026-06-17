@@ -1,3 +1,4 @@
+import { slaDueAt } from "@moveos/shared";
 import { prisma } from "../lib/prisma.js";
 import { LOW_CONFIDENCE_THRESHOLD } from "./geocoding.js";
 import { todayBogota } from "./dailyMetrics.js";
@@ -12,6 +13,11 @@ import { toMinOfDayBogota } from "./routing.js";
 const LATE_THRESHOLD_MIN = 20;
 const STALE_PING_MIN = 15;
 const LOW_BATTERY_PCT = 25;
+// Anticipación con la que avisamos un SLA "por vencer" (incumplimiento previsto)
+// antes de que la hora límite del servicio se cumpla.
+const SLA_PREDICT_LEAD_MIN = 30;
+// Estados aún "en vuelo": un pedido entregado/fallido/cancelado ya no incumple.
+const ACTIVE_ORDER_STATUSES = ["PENDING", "GEOCODED", "ASSIGNED", "IN_TRANSIT"] as const;
 
 export type ExceptionSeverity = "CRITICAL" | "HIGH" | "MEDIUM";
 
@@ -24,6 +30,7 @@ export interface ExceptionItem {
     | "VEHICLE_STALE"
     | "LOW_BATTERY"
     | "FAILED_DELIVERY"
+    | "SLA_BREACH"
     | "ADDRESS_UNCONFIRMED";
   severity: ExceptionSeverity;
   title: string;
@@ -171,7 +178,64 @@ export async function computeExceptions(tenantId: string): Promise<ExceptionItem
     });
   }
 
-  // 4. Direcciones sin confirmar en pedidos por planificar (resumen).
+  // 4. SLA en riesgo o incumplido: pedidos aún en vuelo que tienen un servicio
+  //    con plazo (promesa de entrega). La hora límite es determinista
+  //    (createdAt + plazo del servicio); el cálculo lo hace `slaDueAt` en
+  //    @moveos/shared, aquí solo se decide si ya venció o está por vencer.
+  const slaCandidates = await prisma.order.findMany({
+    where: {
+      tenantId,
+      serviceId: { not: null },
+      status: { in: [...ACTIVE_ORDER_STATUSES] },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    select: {
+      id: true,
+      trackingNumber: true,
+      customerName: true,
+      createdAt: true,
+      service: { select: { name: true, identifier: true, completionDeadlineMin: true } },
+      client: { select: { name: true } },
+      // Si el pedido ya está en una ruta, ofrecemos abrirla con un clic.
+      stops: { select: { routeId: true }, orderBy: { sequence: "asc" }, take: 1 },
+    },
+  });
+  const nowDate = new Date();
+  for (const order of slaCandidates) {
+    if (!order.service) continue;
+    const dueAt = slaDueAt(order.createdAt, order.service.completionDeadlineMin);
+    const minsToDue = (dueAt.getTime() - nowDate.getTime()) / 60000;
+    const breached = minsToDue < 0;
+    const predicted = !breached && minsToDue <= SLA_PREDICT_LEAD_MIN;
+    if (!breached && !predicted) continue;
+
+    const routeId = order.stops[0]?.routeId;
+    const guia = order.trackingNumber ?? "";
+    const servicio = `servicio ${order.service.identifier}`;
+    const comercio = order.client?.name ? ` · ${order.client.name}` : "";
+    items.push({
+      id: `sla-${order.id}`,
+      type: "SLA_BREACH",
+      severity: breached ? "HIGH" : "MEDIUM",
+      title: breached
+        ? `SLA incumplido · ${order.service.name}`
+        : `SLA por vencer · ${order.service.name}`,
+      detail: breached
+        ? `Guía ${guia} (${order.customerName}) venció hace ${Math.round(-minsToDue)} min — ${servicio}${comercio}`
+        : `Guía ${guia} (${order.customerName}) vence en ${Math.round(minsToDue)} min — ${servicio}${comercio}`,
+      ...(routeId ? { action: { kind: "OPEN_ROUTE", routeId } } : {}),
+      refs: {
+        orderId: order.id,
+        trackingNumber: order.trackingNumber,
+        dueAt: dueAt.toISOString(),
+        minsToDue: Math.round(minsToDue),
+      },
+      createdAt: order.createdAt.toISOString(),
+    });
+  }
+
+  // 5. Direcciones sin confirmar en pedidos por planificar (resumen).
   const unconfirmed = await prisma.order.count({
     where: {
       tenantId,
