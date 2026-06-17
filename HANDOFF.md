@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `eb38dc2`).
+Branch: `claude/dazzling-rubin-ri547l` (pushed through `1696532`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -8,15 +8,15 @@ vehicleTypeProfiles) — uploads don't carry across sessions.
 To resume:
 
 ```bash
-cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && claude
+cd /home/user/move-os && git checkout claude/dazzling-rubin-ri547l && git pull && claude
 ```
 
 ---
 
 ## Kickoff prompt
 
-Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `eb38dc2`). Read `CLAUDE.md` AND this file's
+Continue the MoveOS go-live build on branch `claude/dazzling-rubin-ri547l` (already
+checked out, pushed through commit `1696532`). Read `CLAUDE.md` AND this file's
 ledger below first (EV-only, B2B-only, tenant isolation, Spanish/America-Bogotá).
 I've re-attached the 4 spec docs.
 
@@ -82,11 +82,15 @@ decision, or are underspecified polish. Don't auto-grind; recommend and confirm.
    (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always); TenantDetail
    plan-change confirm + health badge (`d8199e7`); module dependency graph
    (`333ddd2`, `requires` in MODULE_CATALOG, enable-cascade + 409 disable-block on
-   both toggle endpoints, `moduleDeps.test.ts`). last-admin guard already enforced
-   backend (`platform/users.ts`). STILL LEFT (all underspecified polish on
-   already-working pages — spec before touching): Tenants list; Flota SSE +
-   clustering; Métricas; Auditoría; **data flywheel** investor screen;
-   integration-health view.
+   both toggle endpoints, `moduleDeps.test.ts`); **admin Flota clustered fleet
+   map** (`1696532`, leaflet/react-leaflet-cluster mirroring dispatcher MapaEnVivo;
+   stale-signal color + no-fix handling + plate→fly-to). Backed by position
+   denormalization (`aea3092`: additive `Vehicle.lastLat`/`lastLng` migration +
+   telemetry-ingest write + `/fleet/owned` projection; `telematics`/`platform`
+   tests). last-admin guard already enforced backend (`platform/users.ts`).
+   STILL LEFT (all underspecified polish on already-working pages — spec before
+   touching): Tenants list; Métricas; Auditoría; **data flywheel** investor
+   screen; integration-health view.
 5. **EV-only compliance (cross-cutting, done):** API now rejects ICE vehicle
    creation (`bdef27e`, `createVehicleSchema.isElectric` default true + reject
    false, `evOnlyVehicle.test.ts`); MapaEnVivo no longer shows ICE telemetry.
@@ -121,16 +125,12 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
 - Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
   all use the shared toast; Login/Track stay inline by design.
 - Marker clustering DONE on dispatcher MapaEnVivo (`13466ec`,
-  react-leaflet-cluster@^2.1.0). **Admin Flota clustered map = top open task but
-  BLOCKED on a decision:** Flota is a table and the admin app has NO leaflet; the
-  `/tenants/fleet/owned` response has NO lat/lng (Vehicle denormalizes
-  socPercent/lastSpeedKmh/lastSeenAt but NOT position — coords live only in
-  `TelemetryPing`). To build it: (1) surface position — EITHER denormalize
-  `lastLat`/`lastLng` on Vehicle updated by the telemetry-ingest path (recommended;
-  matches lastSpeedKmh, trivial query, needs a migration) OR join latest
-  TelemetryPing per vehicle in the owned-fleet query (no schema change, heavier);
-  (2) add leaflet/react-leaflet/react-leaflet-cluster to apps/admin; (3) build the
-  clustered map + handle vehicles with no recent fix. Decide (1) before starting.
+  react-leaflet-cluster@^2.1.0). **Admin Flota clustered map DONE** (decision A
+  taken): position denormalized onto `Vehicle.lastLat`/`lastLng` (`aea3092`,
+  additive migration + telemetry-ingest write + `/fleet/owned` projection), then
+  the clustered map built in `apps/admin` (`1696532`, leaflet + react-leaflet +
+  react-leaflet-cluster; stale-signal gray >5min; no-fix vehicles stay in the
+  table; plate click flies the map to the vehicle).
 - Module-deps UI hint DONE (`933cb9e`): "Requiere: …" shown on gated toggles in
   Modulos + TenantDetail.
 - Any **newly-specified** page feature. The remaining Part 2/3 "polish"
