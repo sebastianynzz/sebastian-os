@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `933cb9e`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `f267778`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -100,8 +100,8 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   ```
   Then `export DATABASE_URL=postgresql://moveos:moveos@localhost:5432/moveos`,
   `pnpm --filter @moveos/api exec prisma migrate deploy`, then `pnpm -r test`.
-- Last green: **optimizer 73 + API 139**; all frontends build; migrations apply
-  clean to a fresh DB.
+- Last green: **optimizer 73 + API 140**; all frontends build; migrations apply
+  clean to a fresh DB. (API 140 incl. platform module-dep cascade/block test.)
 - Prioritized batch DONE: (1) global typed-error toast+retry (`3aab72e`,
   `apps/web/src/toast.tsx`, adopted by Rutas + Modulos `34ae136`; rest optional);
   (2) i18n single-source Bogotá formatting in `@moveos/shared` (`c32b98e`, fixed
