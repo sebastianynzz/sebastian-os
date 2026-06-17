@@ -206,6 +206,8 @@ model Vehicle {
   batteryKwh     Float?
   nominalRangeKm Float?
   socPercent     Float? // último estado de carga conocido (EV)
+  // Disponibilidad operativa fijada por despacho: ACTIVE | MAINTENANCE | CHARGING.
+  status         String    @default("ACTIVE")
   soatExpiresAt  DateTime?
   tecnoExpiresAt DateTime?
   // Telemática: último estado conocido (alimentado por TelemetryPing).

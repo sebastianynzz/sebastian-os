@@ -10,6 +10,7 @@ import {
   TENANT_PLANS,
   TENANT_STATUSES,
   VEHICLE_COMMAND_TYPES,
+  VEHICLE_STATUSES,
   VEHICLE_TYPES,
 } from "./enums.js";
 
@@ -163,6 +164,7 @@ export const createVehicleSchema = z.object({
   nominalRangeKm: z.number().positive().optional(),
   soatExpiresAt: z.string().datetime().optional(),
   tecnoExpiresAt: z.string().datetime().optional(),
+  status: z.enum(VEHICLE_STATUSES).optional(),
 });
 
 export const planRoutesSchema = z.object({
