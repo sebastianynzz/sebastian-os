@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import {
   Banner,
   Button,
@@ -80,6 +80,17 @@ export default function Rutas() {
     void load();
   }, []);
 
+  // Mensaje claro por tipo de error del servidor; 409 = la ruta cambió de
+  // estado bajo nuestros pies (otro despachador la tomó), así que refrescamos.
+  function describeError(err: unknown): string {
+    if (err instanceof ApiError) {
+      if (err.status === 409)
+        return "La ruta cambió de estado (otro despachador la tomó). Actualizamos la vista.";
+      return err.message; // 422 y otros: el servidor ya da un mensaje útil
+    }
+    return err instanceof Error ? err.message : "Error";
+  }
+
   async function dispatch(routeId: string) {
     const driverId = assigning[routeId];
     if (!driverId) return;
@@ -88,7 +99,9 @@ export default function Rutas() {
       await api("POST", `/routes/${routeId}/dispatch`, { driverId });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(describeError(err));
+      // Conflicto de transición: la vista estaba obsoleta — recargar la corrige.
+      if (err instanceof ApiError && err.status === 409) await load();
     }
   }
 
@@ -108,7 +121,9 @@ export default function Rutas() {
       setInserting((s) => ({ ...s, [routeId]: "" }));
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      setError(describeError(err));
+      // La ruta pudo cerrarse mientras tanto: refrescar para reflejarlo.
+      if (err instanceof ApiError && err.status === 409) await load();
     }
   }
 
@@ -156,7 +171,7 @@ export default function Rutas() {
                 <span className="text-sm text-navy/70">
                   Conductor: <strong>{r.driver.name}</strong>
                 </span>
-              ) : (
+              ) : r.status === "PLANNED" ? (
                 <>
                   <select
                     aria-label="Asignar conductor a la ruta"
@@ -177,6 +192,8 @@ export default function Rutas() {
                     Despachar
                   </Button>
                 </>
+              ) : (
+                <span className="text-sm text-navy/50">Sin conductor</span>
               )}
               <StatusBadge status={r.status} />
             </div>

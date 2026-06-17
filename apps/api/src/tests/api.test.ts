@@ -188,6 +188,13 @@ describe("flujo completo MoveOS", () => {
     expect(start.status).toBe(200);
   });
 
+  it("rechaza re-despachar una ruta que ya no está PLANNED con 409 (conflicto de transición)", async () => {
+    const res = await api("POST", `/routes/${routeId}/dispatch`, adminToken, {
+      driverId,
+    });
+    expect(res.status).toBe(409);
+  });
+
   it("escanea el paquete y registra la cadena de custodia (D3)", async () => {
     const order = await api("GET", `/orders/${firstStopOrderId}`, adminToken);
     const guia = order.body.trackingNumber as string;
