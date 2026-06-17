@@ -88,6 +88,13 @@ function Shell() {
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
+      {/* a11y: saltar el nav e ir directo al contenido (visible al enfocar con teclado). */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Saltar al contenido
+      </a>
       {/* En pantallas pequeñas la barra lateral se vuelve barra superior. */}
       <aside className="flex shrink-0 flex-col bg-navy md:w-56">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
@@ -136,7 +143,7 @@ function Shell() {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">
+      <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
         {/* Sesión de soporte: visible siempre, para que nadie opere "como
             tenant" sin que se note. La emisión quedó en PlatformAuditLog. */}
         {getImpersonatedBy() && (
