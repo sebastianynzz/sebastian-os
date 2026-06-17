@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `34ae136`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `080e51e`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -16,7 +16,7 @@ cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && c
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `34ae136`). Read `CLAUDE.md` first (EV-only,
+checked out, pushed through commit `080e51e`). Read `CLAUDE.md` first (EV-only,
 B2B-only, tenant isolation, Spanish/America-Bogotá). I've re-attached the 4 spec
 docs.
 
@@ -114,9 +114,8 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   quiet it: run with `ECC_GATEGUARD=off`.
 
 **Next story (pick one — all are now either low-value or need a spec):**
-- Finish the toast rollout onto Conductores/Vehículos/Clientes/Planificación/
-  PortalNuevoEnvio. MECHANICAL, low value (their `setError`+Banner already work);
-  leave Login/Track inline. Only do if you want full visual consistency.
+- Toast rollout is COMPLETE (`080e51e`): dispatcher + portal CRUD/action pages
+  all use the shared toast; Login/Track stay inline by design.
 - Marker clustering on the live maps (admin Flota first) — needs the
   `leaflet.markercluster` dependency added (deferred earlier, your call).
 - Module-deps UI hint: show "requiere TELEMATICS" next to each toggle in
