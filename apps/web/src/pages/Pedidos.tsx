@@ -91,6 +91,10 @@ export default function Pedidos() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Detalle por fila del último import CSV (filas que el servidor rechazó).
+  const [importFailures, setImportFailures] = useState<
+    { row: number; error: string }[]
+  >([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -131,6 +135,7 @@ export default function Pedidos() {
   async function importCsv(file: File) {
     setError(null);
     setNotice(null);
+    setImportFailures([]);
     try {
       const rows = parseCsv(await file.text());
       if (rows.length === 0) throw new Error("El archivo no tiene filas de datos");
@@ -141,8 +146,28 @@ export default function Pedidos() {
         addressNotes: r.addressNotes || undefined,
         weightKg: r.weightKg ? Number(r.weightKg) : undefined,
       }));
-      const res = await api<{ created: number }>("POST", "/orders/bulk", payload);
-      setNotice(`${res.created} pedidos importados correctamente`);
+      const res = await api<{
+        created: number;
+        failed: number;
+        results: { row: number; ok: boolean; error?: string }[];
+      }>("POST", "/orders/bulk", payload);
+      // Las filas buenas entran aunque otras fallen: mostramos ambas caras.
+      setImportFailures(
+        res.results
+          .filter((r) => !r.ok)
+          .map((r) => ({ row: r.row, error: r.error ?? "Error" })),
+      );
+      if (res.created > 0) {
+        setNotice(
+          res.failed > 0
+            ? `${res.created} pedidos importados · ${res.failed} con error (revisa el detalle abajo)`
+            : `${res.created} pedidos importados correctamente`,
+        );
+      } else {
+        setError(
+          `Ninguna fila se importó: ${res.failed} con error. Revisa el detalle abajo.`,
+        );
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error importando CSV");
@@ -209,6 +234,30 @@ export default function Pedidos() {
         <Banner kind="error" onDismiss={() => setError(null)}>
           {error}
         </Banner>
+      )}
+
+      {importFailures.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">
+              Filas con error en el import ({importFailures.length})
+            </span>
+            <button
+              onClick={() => setImportFailures([])}
+              className="text-xs font-bold opacity-60"
+              aria-label="Cerrar detalle de errores del import"
+            >
+              ✕
+            </button>
+          </div>
+          <ul className="max-h-40 list-disc space-y-0.5 overflow-auto pl-5">
+            {importFailures.map((f) => (
+              <li key={f.row}>
+                Fila {f.row}: {f.error}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {showForm && (
