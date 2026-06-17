@@ -52,9 +52,23 @@ export type TempProfile = (typeof TEMP_PROFILES)[number];
  */
 export const SERVICE_STOP_TYPES = ["DELIVERY", "PICKUP", "BOTH"] as const;
 export type ServiceStopType = (typeof SERVICE_STOP_TYPES)[number];
+export const SERVICE_STOP_TYPE_LABELS: Record<ServiceStopType, string> = {
+  DELIVERY: "Entrega",
+  PICKUP: "Recogida",
+  BOTH: "Entrega y recogida",
+};
 
 export const WEEKDAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
+export const WEEKDAY_LABELS: Record<Weekday, string> = {
+  MON: "Lun",
+  TUE: "Mar",
+  WED: "Mié",
+  THU: "Jue",
+  FRI: "Vie",
+  SAT: "Sáb",
+  SUN: "Dom",
+};
 
 export const OPTIMIZATION_OBJECTIVES = [
   "ASSIGN_TO_SELECTED",
