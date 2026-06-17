@@ -309,6 +309,12 @@ export default function App() {
   // array para que RouteMap no redibuje/re-encuadre en cada render.
   const mapStops = useMemo(() => (route ? toMapStops(route) : []), [route]);
 
+  // Parada actual: la primera que no esté terminada — se resalta para que el
+  // conductor sepa cuál sigue tras una re-secuenciación del despachador.
+  const currentStopId = route?.stops.find(
+    (s) => s.status !== "COMPLETED" && s.status !== "FAILED",
+  )?.id;
+
   // Firma de la secuencia de paradas para detectar re-secuenciación en vivo
   // (inserciones exprés del despachador) sin perder el lugar del conductor.
   const stopsSignature = useRef<string | null>(null);
@@ -662,6 +668,7 @@ export default function App() {
             key={stop.id}
             stop={stop}
             routeActive={route.status === "IN_PROGRESS"}
+            isCurrent={stop.id === currentStopId}
             onAction={() => setActiveStop(stop)}
             onArrive={async () => {
               await apiOrQueue(`/routes/stops/${stop.id}/arrive`);
@@ -851,15 +858,18 @@ function Login({
 function StopCard({
   stop,
   routeActive,
+  isCurrent,
   onAction,
   onArrive,
 }: {
   stop: Stop;
   routeActive: boolean;
+  isCurrent: boolean;
   onAction: () => void;
   onArrive: () => void;
 }) {
   const done = stop.status === "COMPLETED" || stop.status === "FAILED";
+  const arrived = stop.status === "ARRIVED";
   const isPickup = stop.kind === "PICKUP";
   // En recogida se muestra la dirección de origen; en entrega, la del destino.
   const address = isPickup
@@ -873,11 +883,11 @@ function StopCard({
     <div
       className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
         isPickup && !done ? "border-l-4 border-cielo" : ""
-      }`}
+      } ${isCurrent && !done ? "ring-2 ring-lima" : ""}`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
             <span
               className={`rounded px-1.5 py-0.5 ${
                 isPickup ? "bg-cielo/40 text-navy" : "bg-lima/50 text-navy"
@@ -888,6 +898,11 @@ function StopCard({
             <span className="text-navy/60">
               Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
             </span>
+            {isCurrent && !done && (
+              <span className="rounded bg-navy px-1.5 py-0.5 text-white">
+                {arrived ? "EN SITIO" : "SIGUIENTE"}
+              </span>
+            )}
           </div>
           <div className="mt-1 font-semibold">{stop.order.customerName}</div>
           <div className="text-sm text-slate-600">{address}</div>
