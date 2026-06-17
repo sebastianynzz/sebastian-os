@@ -136,7 +136,16 @@ export const createVehicleSchema = z.object({
   type: z.enum(VEHICLE_TYPES),
   capacityKg: z.number().positive(),
   capacityM3: z.number().positive().optional(),
-  isElectric: z.boolean().default(false),
+  // EV-only (restricción dura 1): toda la flota MoveOS es eléctrica. Por
+  // defecto eléctrico y se rechaza explícitamente un vehículo de combustión —
+  // el API es la fuente de verdad, no solo la UI.
+  isElectric: z
+    .boolean()
+    .default(true)
+    .refine((v) => v === true, {
+      message:
+        "La flota MoveOS es 100% eléctrica: no se permiten vehículos de combustión (ICE).",
+    }),
   batteryKwh: z.number().positive().optional(),
   nominalRangeKm: z.number().positive().optional(),
   soatExpiresAt: z.string().datetime().optional(),

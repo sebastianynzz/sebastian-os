@@ -88,10 +88,14 @@ describe("flujo completo MoveOS", () => {
   });
 
   it("crea vehículos, conductor con cuenta y pedidos (geocodificando los que no traen coordenadas)", async () => {
+    // EV-only: la moto también es eléctrica (RAP_MOVE_LIGHT) con su pack.
     const moto = await api("POST", "/vehicles", adminToken, {
       plate: "TST12A",
       type: "RAP_MOVE_LIGHT",
       capacityKg: 20,
+      isElectric: true,
+      batteryKwh: 4,
+      nominalRangeKm: 90,
     });
     expect(moto.status).toBe(201);
 
@@ -276,9 +280,12 @@ describe("flujo completo MoveOS", () => {
   it("el módulo EV reporta autonomía útil estimada", async () => {
     const overview = await api("GET", "/ev/overview", adminToken);
     expect(overview.status).toBe(200);
-    expect(overview.body).toHaveLength(1);
-    expect(overview.body[0].usableRangeKm).toBeGreaterThan(0);
-    expect(overview.body[0].usableRangeKm).toBeLessThan(200);
+    // EV-only: ambos vehículos (moto + van) son eléctricos.
+    expect(overview.body).toHaveLength(2);
+    for (const v of overview.body) {
+      expect(v.usableRangeKm).toBeGreaterThan(0);
+      expect(v.usableRangeKm).toBeLessThan(220);
+    }
   });
 
   it("registra alerta de pánico (módulo seguridad)", async () => {
