@@ -12,6 +12,7 @@ import {
   tenantGreenReport,
 } from "../../services/greenReport.js";
 import { tenantSlaReport } from "../../services/slaReport.js";
+import { tenantFailureReport } from "../../services/failureReport.js";
 
 /** Módulo Analítica Pro: KPIs operativos y financieros. */
 export default async function analyticsRoutes(app: FastifyInstance) {
@@ -112,6 +113,20 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     const range = parseRange(query.from, query.to);
     if ("error" in range) return reply.code(400).send({ error: range.error });
     return tenantSlaReport(request.user.tenantId, range.from, range.to);
+  });
+
+  /**
+   * Análisis de fallos: pedidos fallidos/rechazados del rango agregados por
+   * motivo estandarizado y por día. DIRECCION_ERRADA enlaza con el grafo de
+   * direcciones (moat). Por defecto 30 días Bogotá.
+   */
+  app.get("/failures", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+    return tenantFailureReport(request.user.tenantId, range.from, range.to);
   });
 
   app.get("/notifications", async (request) => {

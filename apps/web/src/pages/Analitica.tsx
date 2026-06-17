@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FAIL_REASON_LABELS, type FailReason } from "@moveos/shared";
 import { api, ApiError } from "../api";
 import { TrendChart } from "../components/charts";
 import {
@@ -55,6 +56,13 @@ interface SlaReport {
   to: string;
   totals: Omit<ClientSlaRow, "clientId" | "clientName">;
   byClient: ClientSlaRow[];
+}
+interface FailureReport {
+  from: string;
+  to: string;
+  total: number;
+  byReason: { reason: FailReason; count: number; pct: number }[];
+  byDay: { day: string; count: number }[];
 }
 
 // --- Fechas en Bogotá (UTC-5 fijo) ---
@@ -165,6 +173,7 @@ export default function Analitica() {
   const [cur, setCur] = useState<DayPoint[] | null>(null);
   const [prev, setPrev] = useState<DayPoint[] | null>(null);
   const [sla, setSla] = useState<SlaReport | null>(null);
+  const [failures, setFailures] = useState<FailureReport | null>(null);
   const [from, setFrom] = useState(() => addDays(todayBogota(), -29));
   const [to, setTo] = useState(() => todayBogota());
   const [moduleOff, setModuleOff] = useState(false);
@@ -198,17 +207,19 @@ export default function Analitica() {
     const prevTo = addDays(from, -1);
     const prevFrom = addDays(from, -len);
     try {
-      const [c, p, s] = await Promise.all([
+      const [c, p, s, f] = await Promise.all([
         api<Timeseries>("GET", `/analytics/timeseries?from=${from}&to=${to}`),
         api<Timeseries>(
           "GET",
           `/analytics/timeseries?from=${prevFrom}&to=${prevTo}`,
         ),
         api<SlaReport>("GET", `/analytics/sla-report?from=${from}&to=${to}`),
+        api<FailureReport>("GET", `/analytics/failures?from=${from}&to=${to}`),
       ]);
       setCur(c.days);
       setPrev(p.days);
       setSla(s);
+      setFailures(f);
     } catch (err) {
       if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
         setModuleOff(true);
@@ -420,6 +431,8 @@ export default function Analitica() {
 
       {sla && sla.totals.total > 0 && <SlaByClientCard report={sla} />}
 
+      {failures && failures.total > 0 && <FailureCard report={failures} />}
+
       <Card title="Indicadores acumulados (histórico)">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {kpis.map((k) => (
@@ -506,6 +519,39 @@ function SlaByClientCard({ report }: { report: SlaReport }) {
             </tr>
           </tfoot>
         </table>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Análisis de fallos: distribución de entregas fallidas por motivo. Insumo
+ * directo de mejora operativa; DIRECCION_ERRADA refuerza el grafo de direcciones.
+ */
+function FailureCard({ report }: { report: FailureReport }) {
+  const max = Math.max(...report.byReason.map((r) => r.count), 1);
+  return (
+    <Card title={`Análisis de fallos (${report.total})`}>
+      <p className="mb-3 text-xs text-navy/50">
+        Entregas fallidas o rechazadas del rango, por motivo estandarizado.
+      </p>
+      <div className="space-y-2">
+        {report.byReason.map((r) => (
+          <div key={r.reason} className="flex items-center gap-3 text-sm">
+            <span className="w-40 shrink-0 text-navy">
+              {FAIL_REASON_LABELS[r.reason]}
+            </span>
+            <span className="h-3 flex-1 overflow-hidden rounded-full bg-niebla">
+              <span
+                className="block h-full rounded-full bg-danger/60"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </span>
+            <span className="w-20 shrink-0 text-right font-mono text-xs text-navy/60">
+              {r.count} · {(r.pct * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
       </div>
     </Card>
   );

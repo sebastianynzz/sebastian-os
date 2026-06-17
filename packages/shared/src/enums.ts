@@ -70,6 +70,27 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
   SUN: "Dom",
 };
 
+/**
+ * Motivos estandarizados de entrega fallida. Base del análisis de fallos (D6)
+ * y de la recuperación B2B. DIRECCION_ERRADA alimenta el relato del grafo de
+ * direcciones (moat). `OTRO` recoge lo no clasificado (incl. sin motivo).
+ */
+export const FAIL_REASONS = [
+  "CLIENTE_AUSENTE",
+  "DIRECCION_ERRADA",
+  "RECHAZO_PRODUCTO",
+  "ZONA_INSEGURA",
+  "OTRO",
+] as const;
+export type FailReason = (typeof FAIL_REASONS)[number];
+export const FAIL_REASON_LABELS: Record<FailReason, string> = {
+  CLIENTE_AUSENTE: "Cliente ausente",
+  DIRECCION_ERRADA: "Dirección errada",
+  RECHAZO_PRODUCTO: "Rechazo del producto",
+  ZONA_INSEGURA: "Zona insegura",
+  OTRO: "Otro",
+};
+
 export const OPTIMIZATION_OBJECTIVES = [
   "ASSIGN_TO_SELECTED",
   "EQUALIZE_WORKLOAD",

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   DELIVERY_TYPES,
   DRIVER_STATUSES,
+  FAIL_REASONS,
   OPTIMIZATION_OBJECTIVES,
   PICKUP_TYPES,
   POD_REQ,
@@ -408,13 +409,7 @@ export const DISPUTABLE_FAIL_REASONS = [
 
 export const failStopSchema = z
   .object({
-    reason: z.enum([
-      "CLIENTE_AUSENTE",
-      "DIRECCION_ERRADA",
-      "RECHAZO_PRODUCTO",
-      "ZONA_INSEGURA",
-      "OTRO",
-    ]),
+    reason: z.enum(FAIL_REASONS),
     notes: z.string().optional(),
     lat: z.number().optional(),
     lng: z.number().optional(),
