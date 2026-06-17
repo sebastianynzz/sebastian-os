@@ -219,6 +219,19 @@ export const serviceSchema = z.object({
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
+// === Depósitos / multi-depot (D4) ===
+
+/** Crea/edita un Depot (centro de salida y regreso de rutas). Tenant-scoped. */
+export const depotSchema = z.object({
+  name: z.string().min(1).max(80),
+  address: z.string().max(200).optional(),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  /** Marca el depósito principal del tenant (uno por tenant). */
+  isMain: z.boolean().default(false),
+});
+export type DepotInput = z.infer<typeof depotSchema>;
+
 /**
  * Hora límite del SLA: creación + plazo del servicio. Determinista (UTC); la
  * presentación en America/Bogotá la hace el formateador compartido.

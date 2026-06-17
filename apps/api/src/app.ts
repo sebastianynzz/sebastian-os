@@ -36,6 +36,7 @@ import realtimeRoutes from "./modules/realtime/routes.js";
 import savedViewsRoutes from "./modules/savedViews/routes.js";
 import controlsRoutes from "./modules/controls/routes.js";
 import servicesRoutes from "./modules/services/routes.js";
+import depotsRoutes from "./modules/depots/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -138,6 +139,8 @@ export async function buildApp() {
   await app.register(controlsRoutes, { prefix: "/controls" });
   // Catálogo de servicios / SLA (núcleo B2B): base de facturación y SLA.
   await app.register(servicesRoutes, { prefix: "/services" });
+  // Depósitos / multi-depot (núcleo): salida y regreso de rutas por depósito.
+  await app.register(depotsRoutes, { prefix: "/depots" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

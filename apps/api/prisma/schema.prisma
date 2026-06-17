@@ -61,6 +61,7 @@ model Tenant {
   aiProposals   AiProposal[]
   snoozedExceptions SnoozedException[]
   savedViews    SavedView[]
+  depots        Depot[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -201,6 +202,10 @@ model Driver {
   // Vencimiento de la licencia de conducción: alimenta los recordatorios de
   // cumplimiento del panel (vencida / por vencer). Nullable: opcional al crear.
   licenseExpiresAt DateTime?
+  // Depósito base del conductor (multi-depot, D4). Nullable; base de la
+  // asignación por cercanía (fast-follow).
+  depotId    String?
+  depot      Depot?  @relation(fields: [depotId], references: [id])
   user       User?
   routes     Route[]
   telemetry  TelemetryPing[]
@@ -240,6 +245,10 @@ model Vehicle {
   lastLat        Float?
   lastLng        Float?
   lastSeenAt     DateTime?
+  // Depósito base del vehículo (multi-depot, D4). Nullable; usado para la
+  // planificación de carga por depósito y la asignación por cercanía.
+  homeDepotId    String?
+  homeDepot      Depot?    @relation(fields: [homeDepotId], references: [id])
   routes         Route[]
   telemetry      TelemetryPing[]
   commands       VehicleCommand[]
@@ -397,6 +406,11 @@ model Route {
   driver           Driver?  @relation(fields: [driverId], references: [id])
   vehicleId        String
   vehicle          Vehicle  @relation(fields: [vehicleId], references: [id])
+  // Depósito (multi-depot, D4): a dónde regresa la ruta. Las coordenadas
+  // efectivas viven en depotLat/depotLng (fuente del optimizador); depotId
+  // las enlaza con el depósito del catálogo. Nullable = plan sin depósito fijo.
+  depotId          String?
+  depot            Depot?   @relation(fields: [depotId], references: [id])
   depotLat         Float
   depotLng         Float
   departureMin     Int
@@ -478,6 +492,30 @@ model Service {
   orders                Order[]
 
   @@unique([tenantId, identifier])
+  @@index([tenantId])
+}
+
+/// Depósito / centro de distribución (multi-depot, D4). Punto de salida y
+/// regreso de las rutas. `isMain` marca el principal del tenant (uno por
+/// tenant). `routeDefaults` guarda preajustes por depósito (hora de salida,
+/// etc.). ⚡ Habilita FaaS multi-ciudad y la planificación de carga por
+/// depósito. Tenant-scoped.
+model Depot {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  address       String?
+  lat           Float
+  lng           Float
+  isMain        Boolean  @default(false)
+  routeDefaults Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  routes        Route[]
+  drivers       Driver[]
+  vehicles      Vehicle[]
+
   @@index([tenantId])
 }
 
