@@ -75,6 +75,18 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     }
   }
 
+  // Validar que el servicio (promesa SLA, si se indica) pertenezca al tenant —
+  // evita asignar un serviceId de otro tenant (aislamiento) y rompe el FK.
+  if (input.serviceId) {
+    const service = await prisma.service.findFirst({
+      where: { id: input.serviceId, tenantId },
+      select: { id: true },
+    });
+    if (!service) {
+      throw Object.assign(new Error("Servicio no encontrado"), { statusCode: 400 });
+    }
+  }
+
   const order = await prisma.order.create({
     data: {
       tenantId,

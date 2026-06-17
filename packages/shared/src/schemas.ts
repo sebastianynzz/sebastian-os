@@ -118,6 +118,8 @@ export const portalCreateOrderSchema = z
     addressRaw: z.string().min(3),
     addressNotes: z.string().optional(),
     externalRef: z.string().optional(),
+    /** Servicio (promesa SLA) elegido por el negocio para este envío. */
+    serviceId: z.string().optional(),
     weightKg: z.number().positive().optional(),
     tempProfile: z.enum(TEMP_PROFILES).default("AMBIENT"),
     pickupMode: z.enum(["REGISTERED", "CUSTOM", "NONE"]).default("REGISTERED"),

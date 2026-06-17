@@ -26,12 +26,19 @@ interface Order {
   weightKg: number;
   geocodeSource: string | null;
   client: { id: string; name: string } | null;
+  service: { id: string; name: string; identifier: string } | null;
   createdAt: string;
 }
 
 interface ClientOption {
   id: string;
   name: string;
+}
+
+interface ServiceOption {
+  id: string;
+  name: string;
+  identifier: string;
 }
 
 interface OrderEvent {
@@ -129,10 +136,12 @@ export default function Pedidos() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
   const [fStatus, setFStatus] = useState("");
   const [fClientId, setFClientId] = useState("");
+  const [fServiceId, setFServiceId] = useState("");
   const [fQ, setFQ] = useState("");
   const [views, setViews] = useState<SavedView[]>([]);
 
@@ -142,18 +151,23 @@ export default function Pedidos() {
       (o) =>
         (!fStatus || o.status === fStatus) &&
         (!fClientId || o.client?.id === fClientId) &&
+        (!fServiceId ||
+          (fServiceId === "__none__"
+            ? !o.service
+            : o.service?.id === fServiceId)) &&
         (!q ||
           (o.trackingNumber ?? "").toLowerCase().includes(q) ||
           o.customerName.toLowerCase().includes(q) ||
           o.addressRaw.toLowerCase().includes(q)),
     );
-  }, [orders, fStatus, fClientId, fQ]);
+  }, [orders, fStatus, fClientId, fServiceId, fQ]);
 
-  const activeFilters = Boolean(fStatus || fClientId || fQ.trim());
+  const activeFilters = Boolean(fStatus || fClientId || fServiceId || fQ.trim());
 
   function clearFilters() {
     setFStatus("");
     setFClientId("");
+    setFServiceId("");
     setFQ("");
   }
 
@@ -163,6 +177,7 @@ export default function Pedidos() {
   function applyView(v: SavedView) {
     setFStatus(v.filters.status ?? "");
     setFClientId(v.filters.clientId ?? "");
+    setFServiceId(v.filters.serviceId ?? "");
     setFQ(v.filters.q ?? "");
   }
   async function saveCurrentView() {
@@ -171,6 +186,7 @@ export default function Pedidos() {
     const filters: Record<string, string> = {};
     if (fStatus) filters.status = fStatus;
     if (fClientId) filters.clientId = fClientId;
+    if (fServiceId) filters.serviceId = fServiceId;
     if (fQ.trim()) filters.q = fQ.trim();
     try {
       await api("POST", "/saved-views", { page: "pedidos", name, filters });
@@ -211,6 +227,7 @@ export default function Pedidos() {
   });
   useEffect(() => {
     void api<ClientOption[]>("GET", "/clients").then(setClients);
+    void api<ServiceOption[]>("GET", "/services").then(setServices).catch(() => {});
     void loadViews();
   }, []);
 
@@ -282,6 +299,7 @@ export default function Pedidos() {
     try {
       await api("POST", "/orders", {
         clientId: data.get("clientId") || undefined,
+        serviceId: data.get("serviceId") || undefined,
         customerName: data.get("customerName"),
         customerPhone: data.get("customerPhone"),
         addressRaw: data.get("addressRaw"),
@@ -400,7 +418,16 @@ export default function Pedidos() {
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
-            <div />
+            <Field label="Servicio (promesa de entrega · SLA)">
+              <select name="serviceId" className={inputClass} defaultValue="">
+                <option value="">— Sin servicio —</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.identifier})
+                  </option>
+                ))}
+              </select>
+            </Field>
             <div className="sm:col-span-2">
               <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
                 <input
@@ -442,6 +469,18 @@ export default function Pedidos() {
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Servicio</span>
+            <select className={inputClass} value={fServiceId} onChange={(e) => setFServiceId(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="__none__">Sin servicio</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -499,6 +538,7 @@ export default function Pedidos() {
             <tr className={theadRowClass}>
               <th className="py-2">Guía</th>
               <th>Negocio cliente</th>
+              <th>Servicio</th>
               <th>Destinatario</th>
               <th>Dirección</th>
               <th>Peso</th>
@@ -537,6 +577,13 @@ export default function Pedidos() {
                     {o.trackingNumber ?? "—"}
                   </td>
                   <td className="text-sm">{o.client?.name ?? "—"}</td>
+                  <td className="text-sm">
+                    {o.service ? (
+                      <span title={o.service.name}>{o.service.identifier}</span>
+                    ) : (
+                      <span className="text-navy/40">—</span>
+                    )}
+                  </td>
                   <td>
                     <div className="font-medium">{o.customerName}</div>
                     <div className="text-xs text-navy/50">{o.customerPhone}</div>
@@ -549,7 +596,7 @@ export default function Pedidos() {
                 </tr>
                 {expanded === o.id && (
                   <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
                       </div>
@@ -582,7 +629,7 @@ export default function Pedidos() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState
                     phrase="Entregas rápidas, operaciones inteligentes."
                     action={
@@ -596,7 +643,7 @@ export default function Pedidos() {
             )}
             {orders.length > 0 && shown.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-navy/40">
+                <td colSpan={7} className="py-6 text-center text-navy/40">
                   Ningún pedido coincide con los filtros.
                 </td>
               </tr>

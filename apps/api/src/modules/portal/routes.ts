@@ -154,6 +154,7 @@ export default async function portalRoutes(app: FastifyInstance) {
 
     const order = await createOrder(request.user.tenantId, {
       clientId: client.id,
+      serviceId: input.serviceId,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
       addressRaw: input.addressRaw,
@@ -166,6 +167,19 @@ export default async function portalRoutes(app: FastifyInstance) {
     });
     return reply.code(201).send(withTrackingUrl(order));
   });
+
+  /**
+   * Servicios activos del operador disponibles para el negocio al crear un
+   * envío (promesas de entrega con su plazo SLA). Tenant-scoped; solo lo
+   * mínimo que el portal necesita mostrar.
+   */
+  app.get("/services", async (request) =>
+    prisma.service.findMany({
+      where: { tenantId: request.user.tenantId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, identifier: true, completionDeadlineMin: true },
+    }),
+  );
 
   /**
    * Validación de dirección al crear el envío: el moat como feature del

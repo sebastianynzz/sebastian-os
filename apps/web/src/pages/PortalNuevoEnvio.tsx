@@ -23,6 +23,13 @@ interface PortalMe {
   tenant: { name: string; city: string };
 }
 
+interface ServiceOption {
+  id: string;
+  name: string;
+  identifier: string;
+  completionDeadlineMin: number;
+}
+
 interface CreatedOrder {
   trackingNumber: string | null;
   trackingUrl: string | null;
@@ -37,6 +44,7 @@ interface AddressCheck {
 
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const [pickupMode, setPickupMode] = useState<"REGISTERED" | "CUSTOM" | "NONE">("REGISTERED");
   const toast = useToast();
   const [created, setCreated] = useState<CreatedOrder | null>(null);
@@ -70,6 +78,9 @@ export default function PortalNuevoEnvio() {
       setMe(m);
       if (!m.pickupAddressRaw) setPickupMode("CUSTOM");
     });
+    void api<ServiceOption[]>("GET", "/portal/services")
+      .then(setServices)
+      .catch(() => {});
   }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -85,6 +96,7 @@ export default function PortalNuevoEnvio() {
         addressRaw: data.get("addressRaw"),
         addressNotes: data.get("addressNotes") || undefined,
         externalRef: data.get("externalRef") || undefined,
+        serviceId: data.get("serviceId") || undefined,
         weightKg: data.get("weightKg") ? Number(data.get("weightKg")) : undefined,
         pickupMode,
         pickupAddressRaw:
@@ -192,6 +204,21 @@ export default function PortalNuevoEnvio() {
               <input name="externalRef" className={inputClass} placeholder="# pedido interno" />
             </Field>
           </div>
+
+          {services.length > 0 && (
+            <div className="sm:col-span-2">
+              <Field label="Servicio (opcional)">
+                <select name="serviceId" className={inputClass} defaultValue="">
+                  <option value="">— El operador asigna —</option>
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.identifier})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          )}
 
           <div className="sm:col-span-2 space-y-2 rounded-lg border border-niebla p-3">
             <div className="text-xs font-semibold uppercase text-navy/50">
