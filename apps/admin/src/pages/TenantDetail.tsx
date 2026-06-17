@@ -62,6 +62,24 @@ const ACTION_LABEL: Record<string, string> = {
   USER_DELETE: "Usuario eliminado",
 };
 
+/** Salud del tenant de un vistazo: estado + actividad reciente (últimos 7 días
+ *  de la serie). Suspendido > sin pedidos > saludable > sin actividad reciente. */
+function tenantHealth(
+  t: TenantDetailData,
+  serie: DayPoint[] | null,
+): { label: string; cls: string } {
+  if (t.status !== "ACTIVE")
+    return { label: "⏸ Suspendido", cls: "bg-red-500/20 text-red-200" };
+  if (t.counts.orders === 0)
+    return { label: "● Sin pedidos aún", cls: "bg-white/10 text-cielo" };
+  const recent = (serie ?? [])
+    .slice(-7)
+    .reduce((s, d) => s + d.ordersCreated + d.ordersDelivered, 0);
+  return recent > 0
+    ? { label: "● Saludable", cls: "bg-emerald-500/20 text-emerald-200" }
+    : { label: "● Sin actividad reciente", cls: "bg-amber-500/20 text-amber-200" };
+}
+
 export default function TenantDetail() {
   const { id } = useParams<{ id: string }>();
   const [t, setT] = useState<TenantDetailData | null>(null);
@@ -100,6 +118,16 @@ export default function TenantDetail() {
   }
 
   async function setPlan(plan: string) {
+    // El plan es una decisión comercial: confirmar antes de cambiarlo. El
+    // <select> es controlado por t.plan, así que al cancelar vuelve solo.
+    if (!t || plan === t.plan) return;
+    if (
+      !confirm(
+        `¿Cambiar el plan de "${t.name}" de ${t.plan} a ${plan}? Es una etiqueta comercial; los módulos se controlan aparte.`,
+      )
+    ) {
+      return;
+    }
     await api("PATCH", `/tenants/${id}`, { plan });
     await load();
   }
@@ -262,6 +290,16 @@ export default function TenantDetail() {
             {t.city} {t.nit && `· NIT ${t.nit}`} ·{" "}
             {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
           </p>
+          {(() => {
+            const h = tenantHealth(t, serie);
+            return (
+              <span
+                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${h.cls}`}
+              >
+                {h.label}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={t.status} />
