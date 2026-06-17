@@ -27,7 +27,7 @@ export function Button({
   const styles = {
     primary: "bg-lima text-navy hover:brightness-95 font-semibold",
     secondary: "bg-white/10 text-niebla hover:bg-white/20",
-    danger: "bg-red-600 text-white hover:bg-red-700",
+    danger: "bg-danger text-white hover:brightness-110",
   };
   return (
     <button
