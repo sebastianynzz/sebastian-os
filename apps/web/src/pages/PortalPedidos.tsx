@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
 import { api } from "../api";
+import { formatDateBogota, formatShortBogota } from "../format";
 import { useRealtimeReload } from "../realtime";
 import {
   Banner,
@@ -202,7 +203,7 @@ export default function PortalPedidos() {
                         )}
                       </td>
                       <td className="text-xs text-navy/50">
-                        {new Date(o.createdAt).toLocaleDateString("es-CO")}
+                        {formatDateBogota(o.createdAt)}
                       </td>
                       <td className="space-x-2 whitespace-nowrap text-right text-xs">
                         {["FAILED", "REJECTED"].includes(o.status) &&
@@ -242,12 +243,7 @@ export default function PortalPedidos() {
                             {(events[o.id] ?? []).map((e, i) => (
                               <li key={i} className="flex items-baseline gap-2">
                                 <span className="font-mono text-navy/40">
-                                  {new Date(e.createdAt).toLocaleString("es-CO", {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {formatShortBogota(e.createdAt)}
                                 </span>
                                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lima" />
                                 <span className="font-medium">

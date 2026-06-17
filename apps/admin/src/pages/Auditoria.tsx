@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatStampBogota } from "@moveos/shared";
 import { api } from "../api";
 import { Button, Card, inputClass } from "../components/ui";
 
@@ -96,13 +97,7 @@ export default function Auditoria() {
             {entries.map((a) => (
               <tr key={a.id} className="border-b border-white/5 align-top">
                 <td className="whitespace-nowrap py-2 font-mono text-xs text-white/40">
-                  {new Date(a.createdAt).toLocaleString("es-CO", {
-                    year: "2-digit",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatStampBogota(a.createdAt)}
                 </td>
                 <td className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</td>
                 <td className="text-cielo">{a.adminEmail}</td>

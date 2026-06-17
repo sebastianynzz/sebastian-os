@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatDateTimeBogota } from "@moveos/shared";
 import { api, BASE_URL, getToken } from "../api";
 import { Card } from "../components/ui";
 
@@ -89,7 +90,7 @@ export default function Flota() {
                   {v.lastSpeedKmh !== null ? `${v.lastSpeedKmh.toFixed(0)} km/h` : "—"}
                 </td>
                 <td className="text-xs text-cielo">
-                  {v.lastSeenAt ? new Date(v.lastSeenAt).toLocaleString("es-CO") : "sin señal"}
+                  {v.lastSeenAt ? formatDateTimeBogota(v.lastSeenAt) : "sin señal"}
                 </td>
               </tr>
             ))}

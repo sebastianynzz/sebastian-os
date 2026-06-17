@@ -1,6 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { VEHICLE_TYPES, VEHICLE_TYPE_PROFILES, type VehicleType } from "@moveos/shared";
+import {
+  VEHICLE_TYPES,
+  VEHICLE_TYPE_PROFILES,
+  formatShortBogota,
+  type VehicleType,
+} from "@moveos/shared";
 import { api } from "../api";
 import { TrendChart } from "../components/charts";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
@@ -531,12 +536,7 @@ export default function TenantDetail() {
             {audit.map((a) => (
               <li key={a.id} className="flex items-baseline gap-2">
                 <span className="font-mono text-white/30">
-                  {new Date(a.createdAt).toLocaleString("es-CO", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatShortBogota(a.createdAt)}
                 </span>
                 <span className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</span>
                 <span className="text-cielo">{a.adminEmail}</span>

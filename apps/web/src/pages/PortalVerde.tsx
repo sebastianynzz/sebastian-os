@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { formatDateBogota } from "../format";
 import { Button, Card, EmptyState, Loading, PageHeader, inputClass } from "../components/ui";
 
 /**
@@ -135,9 +136,7 @@ export default function PortalVerde() {
                         <td className="py-2 font-mono text-xs">{o.trackingNumber}</td>
                         <td>{o.customerName}</td>
                         <td className="text-xs text-navy/50">
-                          {o.deliveredAt
-                            ? new Date(o.deliveredAt).toLocaleDateString("es-CO")
-                            : "—"}
+                          {o.deliveredAt ? formatDateBogota(o.deliveredAt) : "—"}
                         </td>
                         <td className="text-xs">{vehicleLabel(o.vehicle)}</td>
                         <td className="text-right">{o.km}</td>
