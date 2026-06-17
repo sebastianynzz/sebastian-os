@@ -553,7 +553,7 @@ export default function App() {
       <header className="sticky top-0 z-10 flex items-center justify-between bg-navy px-4 py-3 text-white">
         <div>
           <div className="font-bold">
-            move<span className="text-lima">.</span> conductor
+            <img src="/move-lime.svg" alt="move" className="inline h-5 w-auto align-[-0.2em]" /> conductor
           </div>
           {route && (
             <div className="text-xs opacity-80">
@@ -846,7 +846,7 @@ function Login({
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white dark:bg-navy-700 p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold text-navy"><img src="/move-navy.svg" alt="move" className="h-6 w-auto" /> conductor</h1>
         {notice && (
           <p
             role="status"

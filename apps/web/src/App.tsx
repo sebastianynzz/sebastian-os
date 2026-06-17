@@ -103,7 +103,7 @@ function Shell() {
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
           <div className="min-w-0">
             <div className="text-xl font-bold text-white">
-              move<span className="text-lima">.</span>
+              <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
             </div>
             <div className="mt-1 truncate text-xs text-cielo">
               {isClient ? "Portal de clientes" : session.tenant.name}
