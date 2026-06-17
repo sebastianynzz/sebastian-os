@@ -34,6 +34,7 @@ import ControlesZonas from "./pages/ControlesZonas";
 import ControlesCostos from "./pages/ControlesCostos";
 import ControlesSeguimiento from "./pages/ControlesSeguimiento";
 import ControlesNotificaciones from "./pages/ControlesNotificaciones";
+import ControlesIntegraciones from "./pages/ControlesIntegraciones";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -75,6 +76,8 @@ const NAV_ITEMS: {
   { to: "/controles/seguimiento", label: "Seguimiento", roles: ["ADMIN"] },
   // Notificaciones B2B por evento (motor de notificaciones), solo ADMIN.
   { to: "/controles/notificaciones", label: "Notificaciones", roles: ["ADMIN"] },
+  // Integraciones (webhooks + API keys, plataforma de desarrolladores), solo ADMIN.
+  { to: "/controles/integraciones", label: "Integraciones", roles: ["ADMIN"] },
   // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
   { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
@@ -239,6 +242,7 @@ export default function App() {
           <Route path="/controles/costos" element={<ControlesCostos />} />
           <Route path="/controles/seguimiento" element={<ControlesSeguimiento />} />
           <Route path="/controles/notificaciones" element={<ControlesNotificaciones />} />
+          <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
