@@ -1,9 +1,9 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/pensive-hypatia-otcrfu` (pushed through `fcb0c8d`; descends from
+Branch: `claude/pensive-hypatia-otcrfu` (pushed through `ee23052`; descends from
 `claude/relaxed-ramanujan-jqykyw` @ `3ab7570`, same tree).
-**Phase D Tier-1 (D1–D6) is COMPLETE.** Resume at **Tier 2** (notification engine
-B2B-only first); see "What's left". A few small fast-follows are noted below.
+**Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notification engine) COMPLETE.** Resume at
+**Tier-2 §8 (developer platform)**; see "What's left". Fast-follows noted below.
 
 To resume:
 
@@ -110,21 +110,34 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 **Phase D Tier-1 (D1–D6) is COMPLETE** — strategy selector, configurable POD,
 Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 
+**Tier-2 §7 notification engine COMPLETE** (`f9d7313`, `ee23052`, 2 commits):
+- Public-tracking **privacy tiers** — `TRACKING_TIERS` (ETA_ONLY/ETA_POSITION/
+  FULL) on `Tenant` (migration `20260622000000`); `/track/:token` gates driver
+  live location (FULL only) + route queue position (ETA_POSITION/FULL); Track.tsx
+  renders per tier; Controles › Seguimiento (`/controls/tracking`). e2e (5).
+- Configurable **per-event B2B notifications** — `NOTIFICATION_EVENTS` +
+  `MessageTemplate` (event→enabled+body, migration `20260623000000`); `notifyClient`
+  gates disabled events and renders bodies (shared `renderTemplate`); 3 lifecycle
+  call sites tagged; Controles › Notificaciones (`/controls/notifications`).
+  Webhook `event` contract preserved. e2e (4). Full API suite: 41 files / 234.
+
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**Tier 2 (docs/04 §7–11), build in order:**
-1. Event-driven **notification engine** — B2B-adapted: notify the MERCHANT +
-   enrich the public tracking page (TRACKING_TIER), never the consumer. Extend
-   `services/notifications` (`dispatchToChannel`); Controls › Tracking &
-   notifications; MessageTemplate model.
-2. **Developer platform** — webhooks (reuse NOTIFICATION_EVENTS) + API keys +
-   connectors (Shopify/Zapier + VTEX/Mercado Libre).
-3. **Custom stop properties** (visible-to-driver/recipient; plan-capped).
-4. **Driver permissions layer** (nav app, edit/create-routes policy).
-5. **Barcode scanning** at load-out + delivery (ScanEvent — partly modeled:
-   SCANNED/SCAN_MISMATCH order events already exist).
+**Tier 2 (docs/04 §8–11), build in order:**
+1. **Developer platform** (§8) — webhooks (reuse NOTIFICATION_EVENTS as the event
+   list: stop.allocated, stop.out_for_delivery, …) + API key management +
+   connectors (Shopify/Zapier + VTEX/Mercado Libre). App settings › Integrations.
+   Note: the public webhook `event` field is currently the legacy template name
+   (envio_*) — standardize to NOTIFICATION_EVENTS *here* (it's a breaking change
+   to the webhook contract; b2b.test.ts asserts the legacy value, update it then).
+2. **Custom stop properties** (§9) — `CustomProperty` + `Order.customFields Json`;
+   visible-to-driver/recipient; plan-capped with upsell.
+3. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
+   create-routes); driver app reads it.
+4. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
+   modeled: SCANNED/SCAN_MISMATCH order events already exist).
 
 **Fast-follows (deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
