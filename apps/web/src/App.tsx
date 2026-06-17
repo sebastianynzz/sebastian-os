@@ -7,30 +7,35 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
-import { ToastProvider } from "./toast";import { Loading } from "./components/ui";
+import { ToastProvider } from "./toast";
+import { Loading } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import Login from "./pages/Login";
-import Pedidos from "./pages/Pedidos";
-import Clientes from "./pages/Clientes";
-import Planificacion from "./pages/Planificacion";
-import Rutas from "./pages/Rutas";
-import Conductores from "./pages/Conductores";
-import Vehiculos from "./pages/Vehiculos";
-import MapaEnVivo from "./pages/MapaEnVivo";
-import Modulos from "./pages/Modulos";
-import Ev from "./pages/Ev";
-import Seguridad from "./pages/Seguridad";
-import Analitica from "./pages/Analitica";
-import Sostenibilidad from "./pages/Sostenibilidad";
-import Track from "./pages/Track";
-import Excepciones from "./pages/Excepciones";
-import Direcciones from "./pages/Direcciones";
-import Copilot from "./pages/Copilot";
-import PortalResumen from "./pages/PortalResumen";
-import PortalPedidos from "./pages/PortalPedidos";
-import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
-import PortalVerde from "./pages/PortalVerde";
+
+// Carga diferida por ruta (code-splitting): el bundle inicial deja de arrastrar
+// todas las vistas (leaflet, charts, etc.) — cada página es su propio chunk.
+const Pedidos = lazy(() => import("./pages/Pedidos"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const Planificacion = lazy(() => import("./pages/Planificacion"));
+const Rutas = lazy(() => import("./pages/Rutas"));
+const Conductores = lazy(() => import("./pages/Conductores"));
+const Vehiculos = lazy(() => import("./pages/Vehiculos"));
+const MapaEnVivo = lazy(() => import("./pages/MapaEnVivo"));
+const Modulos = lazy(() => import("./pages/Modulos"));
+const Ev = lazy(() => import("./pages/Ev"));
+const Seguridad = lazy(() => import("./pages/Seguridad"));
+const Analitica = lazy(() => import("./pages/Analitica"));
+const Sostenibilidad = lazy(() => import("./pages/Sostenibilidad"));
+const Track = lazy(() => import("./pages/Track"));
+const Excepciones = lazy(() => import("./pages/Excepciones"));
+const Direcciones = lazy(() => import("./pages/Direcciones"));
+const Copilot = lazy(() => import("./pages/Copilot"));
+const PortalResumen = lazy(() => import("./pages/PortalResumen"));
+const PortalPedidos = lazy(() => import("./pages/PortalPedidos"));
+const PortalNuevoEnvio = lazy(() => import("./pages/PortalNuevoEnvio"));
+const PortalVerde = lazy(() => import("./pages/PortalVerde"));
 
 // `module` oculta tras una entitlement de pago; `roles` restringe por rol
 // (refleja la autorización real del API — p. ej. activar/desactivar módulos es
@@ -156,7 +161,11 @@ function Shell() {
         {/* Límite de error por ruta: una vista que falle no tumba el shell, y
             se reinicia al navegar (key por ruta). */}
         <ErrorBoundary key={location.pathname} area={location.pathname}>
-          <Outlet />
+          {/* Suspense aquí (no más arriba) para que la barra lateral no
+              parpadee mientras carga el chunk de la página. */}
+          <Suspense fallback={<Loading label="Cargando…" />}>
+            <Outlet />
+          </Suspense>
         </ErrorBoundary>
       </main>
     </div>
@@ -180,7 +189,14 @@ export default function App() {
       <ToastProvider>
       <Routes>
         {/* Rastreo público: sin login, fuera del shell autenticado. */}
-        <Route path="/t/:token" element={<Track />} />
+        <Route
+          path="/t/:token"
+          element={
+            <Suspense fallback={<Loading label="Cargando…" />}>
+              <Track />
+            </Suspense>
+          }
+        />
         {/* Dashboard autenticado: Shell es el layout (sidebar + Outlet). */}
         <Route
           element={
