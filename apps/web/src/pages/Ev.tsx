@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import {
+  Banner,
+  Button,
   Card,
   EmptyState,
+  Field,
+  inputClass,
   Loading,
   ModuleDisabled,
   PageHeader,
@@ -30,12 +34,30 @@ interface Station {
   dcFast: boolean;
   isDepot: boolean;
 }
+interface RangeEstimate {
+  vehicleId: string;
+  plate: string;
+  socPercent: number;
+  usableRangeKm: number;
+}
 
 export default function Ev() {
   const [fleet, setFleet] = useState<EvVehicle[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
   const [moduleOff, setModuleOff] = useState(false);
+
+  // Calculadora de autonomía: condiciones de operación → autonomía útil.
+  const [calcVehicleId, setCalcVehicleId] = useState("");
+  const [temperatureC, setTemperatureC] = useState("");
+  const [payloadKg, setPayloadKg] = useState("");
+  const [elevationGainM, setElevationGainM] = useState("");
+  const [estimate, setEstimate] = useState<RangeEstimate | null>(null);
+  const [calcError, setCalcError] = useState<string | null>(null);
+  const [calcBusy, setCalcBusy] = useState(false);
+
+  // Búsqueda del directorio de carga (cliente: las estaciones ya están en memoria).
+  const [stationQuery, setStationQuery] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -46,6 +68,10 @@ export default function Ev() {
         ]);
         setFleet(f);
         setStations(s);
+        // Solo los EV con autonomía nominal son calculables (la derivamos del
+        // pack instalado vía VEHICLE_TYPE_PROFILES al crearlos).
+        const firstCalc = f.find((v) => v.nominalRangeKm !== null);
+        if (firstCalc) setCalcVehicleId(firstCalc.id);
       } catch (err) {
         if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
           setModuleOff(true);
@@ -55,6 +81,40 @@ export default function Ev() {
       }
     })();
   }, []);
+
+  const calculable = useMemo(
+    () => fleet.filter((v) => v.nominalRangeKm !== null),
+    [fleet],
+  );
+
+  const filteredStations = useMemo(() => {
+    const q = stationQuery.trim().toLowerCase();
+    if (!q) return stations;
+    return stations.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.network.toLowerCase().includes(q) ||
+        s.connectors.some((c) => c.toLowerCase().includes(q)),
+    );
+  }, [stations, stationQuery]);
+
+  async function calcular() {
+    if (!calcVehicleId) return;
+    setCalcBusy(true);
+    setCalcError(null);
+    setEstimate(null);
+    const params = new URLSearchParams({ vehicleId: calcVehicleId });
+    if (temperatureC !== "") params.set("temperatureC", temperatureC);
+    if (payloadKg !== "") params.set("payloadKg", payloadKg);
+    if (elevationGainM !== "") params.set("elevationGainM", elevationGainM);
+    try {
+      setEstimate(await api<RangeEstimate>("GET", `/ev/range-estimate?${params}`));
+    } catch (err) {
+      setCalcError(err instanceof ApiError ? err.message : "No se pudo estimar la autonomía.");
+    } finally {
+      setCalcBusy(false);
+    }
+  }
 
   if (moduleOff) {
     return <ModuleDisabled title="Flota eléctrica" moduleName="de gestión EV" />;
@@ -118,7 +178,94 @@ export default function Ev() {
         )}
       </div>
 
-      <Card title="Red de carga cercana (Bogotá)">
+      {/* Calculadora de autonomía: temperatura, carga y desnivel deratean la
+          autonomía nominal (mismo modelo que usa el optimizador para planear). */}
+      <Card title="Calculadora de autonomía">
+        {calculable.length === 0 ? (
+          <EmptyState>
+            Configura la autonomía nominal de al menos un EV (al crearlo en
+            Vehículos) para estimar autonomía bajo condiciones de operación.
+          </EmptyState>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Vehículo">
+                <select
+                  className={inputClass}
+                  value={calcVehicleId}
+                  onChange={(e) => setCalcVehicleId(e.target.value)}
+                >
+                  {calculable.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.plate} · {v.type}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Temperatura (°C)">
+                <input
+                  type="number"
+                  className={inputClass}
+                  placeholder="21"
+                  value={temperatureC}
+                  onChange={(e) => setTemperatureC(e.target.value)}
+                />
+              </Field>
+              <Field label="Carga (kg)">
+                <input
+                  type="number"
+                  min="0"
+                  className={inputClass}
+                  placeholder="0"
+                  value={payloadKg}
+                  onChange={(e) => setPayloadKg(e.target.value)}
+                />
+              </Field>
+              <Field label="Desnivel acumulado (m)">
+                <input
+                  type="number"
+                  min="0"
+                  className={inputClass}
+                  placeholder="0"
+                  value={elevationGainM}
+                  onChange={(e) => setElevationGainM(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button onClick={calcular} disabled={calcBusy || !calcVehicleId}>
+                {calcBusy ? "Calculando…" : "Calcular autonomía"}
+              </Button>
+              {estimate && (
+                <span className="text-sm text-navy">
+                  Autonomía útil estimada:{" "}
+                  <strong className="text-lg">{estimate.usableRangeKm} km</strong>{" "}
+                  <span className="text-navy/50">(SoC {estimate.socPercent}%)</span>
+                </span>
+              )}
+            </div>
+            {calcError && (
+              <Banner kind="error" onDismiss={() => setCalcError(null)}>
+                {calcError}
+              </Banner>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Red de carga cercana (Bogotá)"
+        actions={
+          <input
+            type="search"
+            className={`${inputClass} sm:w-64`}
+            placeholder="Buscar estación, red o conector…"
+            value={stationQuery}
+            onChange={(e) => setStationQuery(e.target.value)}
+            aria-label="Buscar en el directorio de carga"
+          />
+        }
+      >
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -130,7 +277,7 @@ export default function Ev() {
             </tr>
           </thead>
           <tbody>
-            {stations.map((s) => (
+            {filteredStations.map((s) => (
               <tr key={s.id} className={tableRowClass}>
                 <td className="py-1.5">{s.isDepot ? `🏠 ${s.name}` : s.name}</td>
                 <td>{s.network}</td>
@@ -141,6 +288,13 @@ export default function Ev() {
                 </td>
               </tr>
             ))}
+            {filteredStations.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-6 text-center text-navy/40">
+                  Sin estaciones que coincidan con «{stationQuery}».
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
         </div>

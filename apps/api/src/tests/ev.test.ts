@@ -22,6 +22,7 @@ let otherTenantId: string;
 let adminToken: string;
 let driverToken: string;
 let publicStationId: string;
+let evVehicleId = "";
 
 async function api(
   method: "GET" | "POST" | "PATCH",
@@ -127,6 +128,7 @@ describe("flota eléctrica como núcleo", () => {
       nominalRangeKm: 90,
     });
     expect(vehicle.status).toBe(201);
+    evVehicleId = vehicle.body.id;
     await prisma.vehicle.update({
       where: { id: vehicle.body.id },
       data: { socPercent: 50 },
@@ -138,6 +140,36 @@ describe("flota eléctrica como núcleo", () => {
     expect(overview.body[0].usableRangeKm).toBeGreaterThan(0);
     // 50% SoC sobre 90 km nominales: muy por debajo de la nominal.
     expect(overview.body[0].usableRangeKm).toBeLessThan(50);
+  });
+
+  it("/ev/range-estimate deratea la autonomía con condiciones de operación", async () => {
+    // Línea base (21°C, sin carga, sin desnivel): el mismo modelo del overview.
+    const base = await api(
+      "GET",
+      `/ev/range-estimate?vehicleId=${evVehicleId}`,
+      adminToken,
+    );
+    expect(base.status).toBe(200);
+    expect(base.body.plate).toBe("EVT01A");
+    expect(base.body.socPercent).toBe(50);
+    expect(base.body.usableRangeKm).toBeGreaterThan(0);
+
+    // Frío + carga + desnivel deratean por debajo de la línea base.
+    const harsh = await api(
+      "GET",
+      `/ev/range-estimate?vehicleId=${evVehicleId}&temperatureC=2&payloadKg=110&elevationGainM=600`,
+      adminToken,
+    );
+    expect(harsh.status).toBe(200);
+    expect(harsh.body.usableRangeKm).toBeLessThan(base.body.usableRangeKm);
+
+    // Vehículo inexistente (o no EV) → 404, no un cálculo silencioso.
+    const missing = await api(
+      "GET",
+      "/ev/range-estimate?vehicleId=noexiste",
+      adminToken,
+    );
+    expect(missing.status).toBe(404);
   });
 
   it("el catálogo reporta EV_MANAGEMENT activo y de núcleo; el toggle se rechaza", async () => {
