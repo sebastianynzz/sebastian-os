@@ -9,11 +9,15 @@ export function setToken(token: string | null) {
   else localStorage.removeItem("moveos_driver_token");
 }
 
+/** Evento de sesión expirada: la App lo escucha para forzar re-login limpio. */
+export const SESSION_EXPIRED_EVENT = "moveos:session-expired";
+
 export async function api<T = unknown>(
   method: "GET" | "POST",
   path: string,
   body?: unknown,
 ): Promise<T> {
+  const hadToken = Boolean(getToken());
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
@@ -23,7 +27,16 @@ export async function api<T = unknown>(
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
+  if (!res.ok) {
+    // Sesión expirada: un 401 en una petición que SÍ llevaba token (no el
+    // propio login) significa token vencido → limpiar y avisar a la App para
+    // que pida ingresar de nuevo. Un 401 del login es "credenciales malas".
+    if (res.status === 401 && hadToken && path !== "/auth/login") {
+      setToken(null);
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
+    throw new Error(data.error ?? `Error ${res.status}`);
+  }
   return data as T;
 }
 

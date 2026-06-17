@@ -13,6 +13,7 @@ import {
   flushQueue,
   getToken,
   queueSize,
+  SESSION_EXPIRED_EVENT,
   setToken,
   uploadPodPhoto,
 } from "./api";
@@ -260,6 +261,7 @@ export default function App() {
   // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
   const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
   const [online, setOnline] = useState(navigator.onLine);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const geo = useGeo();
 
   // Una sola derivación por cambio de ruta: estabiliza la identidad del
@@ -351,6 +353,18 @@ export default function App() {
     return () => clearInterval(interval);
   }, [route, geo]);
 
+  // Sesión expirada: cualquier petición autenticada que reciba 401 (token
+  // vencido) emite el evento; aquí cerramos sesión y mostramos el aviso en la
+  // pantalla de ingreso, sin perder lo que el conductor estaba viendo.
+  useEffect(() => {
+    const onExpired = () => {
+      setSessionExpired(true);
+      setAuthed(false);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
   // Indicador de conexión: el conductor debe distinguir "sin señal" de
   // "tengo cola pendiente" — en zona muerta lo ve de inmediato.
   useEffect(() => {
@@ -374,7 +388,17 @@ export default function App() {
   }, [sos]);
 
   if (!authed) {
-    return <Login onLogin={() => setAuthed(true)} />;
+    return (
+      <Login
+        notice={
+          sessionExpired ? "Tu sesión expiró. Ingresa de nuevo." : null
+        }
+        onLogin={() => {
+          setSessionExpired(false);
+          setAuthed(true);
+        }}
+      />
+    );
   }
 
   async function startRoute() {
@@ -643,7 +667,13 @@ export default function App() {
   );
 }
 
-function Login({ onLogin }: { onLogin: () => void }) {
+function Login({
+  notice,
+  onLogin,
+}: {
+  notice: string | null;
+  onLogin: () => void;
+}) {
   const [email, setEmail] = useState("carlos@demo.moveos.co");
   const [password, setPassword] = useState("moveos123");
   const [error, setError] = useState<string | null>(null);
@@ -661,7 +691,15 @@ function Login({ onLogin }: { onLogin: () => void }) {
       setToken(res.token);
       onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      // Distinguir falta de red de credenciales malas: el conductor necesita
+      // saber si reintentar (señal) o corregir sus datos.
+      setError(
+        err instanceof TypeError
+          ? "Sin conexión. Verifica tu internet e intenta de nuevo."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo ingresar",
+      );
     } finally {
       setBusy(false);
     }
@@ -671,6 +709,14 @@ function Login({ onLogin }: { onLogin: () => void }) {
     <div className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
+        {notice && (
+          <p
+            role="status"
+            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            {notice}
+          </p>
+        )}
         <input
           className="w-full rounded-lg border border-cielo px-3 py-3 text-base focus:border-navy focus:outline-none"
           type="email"
