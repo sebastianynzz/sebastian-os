@@ -153,6 +153,58 @@ function simulateRoute(ctx: SimContext, orders: OptimizableOrder[]): SimResult |
 }
 
 /**
+ * Evalúa una secuencia FIJA de pedidos SIN reoptimizar: recalcula ETAs,
+ * distancia y duración con el mismo modelo que el planificador, o devuelve null
+ * si la secuencia viola ventanas horarias, autonomía o jornada. La usa el ajuste
+ * manual de paradas antes de despachar (el despachador fija el orden de visita).
+ */
+export interface EvaluateSequenceRequest {
+  /** Pedidos en el orden de visita deseado (cada uno: recogida→entrega). */
+  orders: OptimizableOrder[];
+  vehicle: OptimizableVehicle;
+  depot: LatLng;
+  departureMin?: number;
+  /** Presupuesto de autonomía (km). Infinity para combustión. */
+  rangeBudgetKm: number;
+  maxDurationMin?: number;
+  travel?: TravelModel;
+}
+export interface EvaluatedStop {
+  orderId: string;
+  kind: "PICKUP" | "DELIVERY";
+  etaMin: number;
+}
+export interface EvaluateSequenceResult {
+  stops: EvaluatedStop[];
+  totalDistanceKm: number;
+  totalDurationMin: number;
+}
+export function evaluateSequence(
+  req: EvaluateSequenceRequest,
+): EvaluateSequenceResult | null {
+  const ctx: SimContext = {
+    start: req.depot,
+    returnTo: req.depot,
+    vehicle: req.vehicle,
+    departureMin: req.departureMin ?? DEFAULT_DEPARTURE_MIN,
+    rangeBudgetKm: req.rangeBudgetKm,
+    maxDurationMin: req.maxDurationMin ?? MAX_ROUTE_DURATION_MIN,
+    travel: req.travel ?? haversineTravelModel(),
+  };
+  const sim = simulateRoute(ctx, req.orders);
+  if (!sim) return null;
+  return {
+    stops: sim.stops.map((s) => ({
+      orderId: s.orderId,
+      kind: s.kind,
+      etaMin: Math.round(s.etaMin),
+    })),
+    totalDistanceKm: Number(sim.totalDistanceKm.toFixed(2)),
+    totalDurationMin: Math.round(sim.totalDurationMin),
+  };
+}
+
+/**
  * Mejora 2-opt: invierte segmentos de la secuencia si reduce distancia total
  * sin violar la factibilidad (ventanas horarias, autonomía, jornada).
  */

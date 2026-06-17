@@ -1,9 +1,14 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { planRoutesSchema } from "@moveos/shared";
 import { requireModule } from "../../plugins/entitlements.js";
 import { requireRole } from "../../plugins/auth.js";
 import { persistPlan, runPlan } from "../../services/planning.js";
-import { computeInsertion, persistInsertion } from "../../services/insertion.js";
+import {
+  computeInsertion,
+  persistInsertion,
+  resequencePlannedRoute,
+} from "../../services/insertion.js";
 
 export default async function optimizationRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -75,6 +80,28 @@ export default async function optimizationRoutes(app: FastifyInstance) {
         insertedAt: computed.result.insertedAt,
         distanceModel: computed.distanceModel,
       });
+    },
+  );
+
+  /**
+   * Ajuste manual del orden de visita antes de despachar: el despachador fija
+   * la secuencia de pedidos de una ruta PLANNED y el servidor recalcula
+   * ETAs/distancia con el mismo modelo (sin reoptimizar). 422 si es infactible.
+   */
+  app.patch(
+    "/routes/:routeId/sequence",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { routeId } = z.object({ routeId: z.string() }).parse(request.params);
+      const { orderIds } = z
+        .object({ orderIds: z.array(z.string()).min(1) })
+        .parse(request.body);
+
+      const res = await resequencePlannedRoute(request.user.tenantId, routeId, orderIds);
+      if (!res.ok) {
+        return reply.code(res.statusCode).send({ error: res.error, code: res.code });
+      }
+      return { route: res.route, distanceModel: res.distanceModel };
     },
   );
 }

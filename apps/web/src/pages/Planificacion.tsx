@@ -32,15 +32,16 @@ interface Vehicle {
   isElectric: boolean;
   socPercent: number | null;
 }
+interface PlanRoute {
+  id: string;
+  vehicleId: string;
+  totalDistanceKm: number;
+  totalDurationMin: number;
+  warnings: string[];
+  stops: { orderId: string; kind: "PICKUP" | "DELIVERY"; sequence: number; etaMin: number }[];
+}
 interface PlanResponse {
-  routes: {
-    id: string;
-    vehicleId: string;
-    totalDistanceKm: number;
-    totalDurationMin: number;
-    warnings: string[];
-    stops: { orderId: string; kind: "PICKUP" | "DELIVERY"; sequence: number; etaMin: number }[];
-  }[];
+  routes: PlanRoute[];
   unassigned: { orderId: string; reason: string }[];
   excludedVehicles: { vehicleId: string; reason: string }[];
 }
@@ -56,6 +57,9 @@ export default function Planificacion() {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState("");
+  // Ajuste manual del orden de visita por ruta (antes de despachar).
+  const [seqEdits, setSeqEdits] = useState<Record<string, string[]>>({});
+  const [savingRoute, setSavingRoute] = useState<string | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -142,6 +146,48 @@ export default function Planificacion() {
     if (next.has(id)) next.delete(id);
     else next.add(id);
     return next;
+  }
+
+  /** Pedidos distintos de una ruta, en su orden de paradas actual. */
+  function routeOrderIds(r: PlanRoute): string[] {
+    const seen: string[] = [];
+    for (const s of r.stops) if (!seen.includes(s.orderId)) seen.push(s.orderId);
+    return seen;
+  }
+  function moveOrder(routeId: string, current: string[], idx: number, dir: -1 | 1) {
+    const j = idx + dir;
+    if (j < 0 || j >= current.length) return;
+    const next = [...current];
+    const tmp = next[idx]!;
+    next[idx] = next[j]!;
+    next[j] = tmp;
+    setSeqEdits((e) => ({ ...e, [routeId]: next }));
+  }
+  function resetSeq(routeId: string) {
+    setSeqEdits((e) => {
+      const n = { ...e };
+      delete n[routeId];
+      return n;
+    });
+  }
+  async function saveSeq(r: PlanRoute, orderIds: string[]) {
+    setSavingRoute(r.id);
+    try {
+      const res = await api<{ route: PlanRoute }>(
+        "PATCH",
+        `/optimization/routes/${r.id}/sequence`,
+        { orderIds },
+      );
+      setPlan((p) =>
+        p ? { ...p, routes: p.routes.map((x) => (x.id === r.id ? res.route : x)) } : p,
+      );
+      resetSeq(r.id);
+      toast.success("Orden de la ruta actualizado");
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setSavingRoute(null);
+    }
   }
 
   return (
@@ -331,39 +377,96 @@ export default function Planificacion() {
             </Card>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {plan.routes.map((r) => (
-              <Card
-                key={r.id}
-                title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
-              >
-                {r.warnings.map((w) => (
-                  <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
-                ))}
-                <ol className="space-y-1 text-sm">
-                  {r.stops.map((s) => (
-                    <li key={`${s.orderId}-${s.kind}`} className="flex justify-between">
-                      <span>
-                        {s.sequence}.{" "}
-                        <span
-                          className={`mr-1 rounded px-1 text-[10px] font-bold ${
-                            s.kind === "PICKUP" ? "bg-cielo/40" : "bg-lima/50"
-                          }`}
-                        >
-                          {s.kind === "PICKUP" ? "REC" : "ENT"}
-                        </span>
-                        {ordersById.get(s.orderId)?.customerName ?? s.orderId}
-                      </span>
-                      <span className="font-mono text-xs text-navy/50">
-                        ETA {formatEta(s.etaMin)}
-                      </span>
-                    </li>
+            {plan.routes.map((r) => {
+              const baseSeq = routeOrderIds(r);
+              const current = seqEdits[r.id] ?? baseSeq;
+              const dirty = current.join("|") !== baseSeq.join("|");
+              const etaByOrder = new Map(
+                r.stops
+                  .filter((s) => s.kind === "DELIVERY")
+                  .map((s) => [s.orderId, s.etaMin] as const),
+              );
+              const withPickup = new Set(
+                r.stops.filter((s) => s.kind === "PICKUP").map((s) => s.orderId),
+              );
+              return (
+                <Card
+                  key={r.id}
+                  title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
+                >
+                  {r.warnings.map((w) => (
+                    <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
                   ))}
-                </ol>
-                <p className="mt-2 text-xs text-navy/50">
-                  Despache esta ruta desde la pestaña Rutas.
-                </p>
-              </Card>
-            ))}
+                  {/* Orden de visita ajustable con ▲▼ antes de despachar; las ETAs
+                      se recalculan en el servidor al guardar. */}
+                  <ol className="space-y-1 text-sm">
+                    {current.map((orderId, idx) => (
+                      <li
+                        key={orderId}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="min-w-0 truncate">
+                          {idx + 1}.{" "}
+                          {withPickup.has(orderId) && (
+                            <span className="mr-1 rounded bg-cielo/40 px-1 text-[10px] font-bold">
+                              REC+ENT
+                            </span>
+                          )}
+                          {ordersById.get(orderId)?.customerName ?? orderId}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className="font-mono text-xs text-navy/50">
+                            {dirty ? "ETA —" : `ETA ${formatEta(etaByOrder.get(orderId) ?? 0)}`}
+                          </span>
+                          <span className="flex flex-col leading-none">
+                            <button
+                              aria-label="Subir parada"
+                              disabled={idx === 0 || savingRoute === r.id}
+                              onClick={() => moveOrder(r.id, current, idx, -1)}
+                              className="px-1 text-navy disabled:opacity-30"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              aria-label="Bajar parada"
+                              disabled={idx === current.length - 1 || savingRoute === r.id}
+                              onClick={() => moveOrder(r.id, current, idx, 1)}
+                              className="px-1 text-navy disabled:opacity-30"
+                            >
+                              ▼
+                            </button>
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                  {dirty ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={() => void saveSeq(r, current)}
+                        disabled={savingRoute === r.id}
+                      >
+                        {savingRoute === r.id ? "Guardando…" : "Guardar orden"}
+                      </Button>
+                      <button
+                        onClick={() => resetSeq(r.id)}
+                        disabled={savingRoute === r.id}
+                        className="text-xs font-semibold text-navy underline disabled:opacity-50"
+                      >
+                        Restablecer
+                      </button>
+                      <span className="text-xs text-navy/50">
+                        Las ETAs se recalculan al guardar.
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-navy/50">
+                      Reordena las paradas con ▲▼, o despáchala desde la pestaña Rutas.
+                    </p>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
