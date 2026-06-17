@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `7f1f817`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `b65ea54`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -57,7 +57,8 @@ decision, or are underspecified polish. Don't auto-grind; recommend and confirm.
    (`apps/web/src/toast.tsx`, adopted by Rutas + Modulos; other pages can adopt
    incrementally — mechanical, low value); i18n single-source Bogotá formatting in
    `@moveos/shared`; idempotent order creation by externalRef (`idempotency.test.ts`).
-   STILL LEFT: performance (virtualization/memoization beyond the Pedidos window);
+   Web bundle code-split (`b65ea54`): routed pages are React.lazy + Suspense; main
+   chunk 547→187 kB, size warning gone. STILL LEFT: Pedidos row virtualization;
    broad a11y & responsive sweep; broader observability.
 2. **Part 1 Driver** — DONE except minor polish (nav deeplink polish; dark mode;
    tap-target a11y audit). **client-configurable POD** shipped in `bc6b830`:
