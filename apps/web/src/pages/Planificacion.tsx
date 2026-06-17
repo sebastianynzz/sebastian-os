@@ -55,6 +55,7 @@ export default function Planificacion() {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [orderFilter, setOrderFilter] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -83,6 +84,34 @@ export default function Planificacion() {
     () => new Map(vehicles.map((v) => [v.id, v])),
     [vehicles],
   );
+
+  // Filtro de pedidos: el despachador acota por destinatario o dirección antes
+  // de seleccionar (útil con decenas de pedidos por planificar).
+  const filteredOrders = useMemo(() => {
+    const q = orderFilter.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.customerName.toLowerCase().includes(q) ||
+        o.addressRaw.toLowerCase().includes(q),
+    );
+  }, [orders, orderFilter]);
+
+  // Selección masiva sobre el subconjunto visible (respeta el filtro).
+  function selectAllFiltered() {
+    setSelectedOrders((s) => {
+      const next = new Set(s);
+      for (const o of filteredOrders) next.add(o.id);
+      return next;
+    });
+  }
+  function clearFiltered() {
+    setSelectedOrders((s) => {
+      const next = new Set(s);
+      for (const o of filteredOrders) next.delete(o.id);
+      return next;
+    });
+  }
 
   async function onPlan() {
     setBusy(true);
@@ -190,9 +219,30 @@ export default function Planificacion() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card title={`Paso 1 · Selecciona pedidos (${orders.length})`}>
+        <Card title={`Paso 1 · Selecciona pedidos (${selectedOrders.size}/${orders.length})`}>
+          <div className="mb-2 space-y-2">
+            <input
+              type="search"
+              value={orderFilter}
+              onChange={(e) => setOrderFilter(e.target.value)}
+              placeholder="Filtrar por destinatario o dirección…"
+              aria-label="Filtrar pedidos"
+              className="w-full rounded-lg border border-cielo px-2 py-1 text-sm focus:border-navy focus:outline-none"
+            />
+            <div className="flex items-center justify-between text-xs text-navy/60">
+              <span>{filteredOrders.length} visibles</span>
+              <div className="flex gap-2">
+                <button onClick={selectAllFiltered} className="font-semibold text-navy underline">
+                  Todos
+                </button>
+                <button onClick={clearFiltered} className="font-semibold text-navy underline">
+                  Ninguno
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {orders.map((o) => (
+            {filteredOrders.map((o) => (
               <label key={o.id} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -206,6 +256,9 @@ export default function Planificacion() {
             ))}
             {orders.length === 0 && (
               <p className="text-sm text-navy/50">No hay pedidos geocodificados pendientes.</p>
+            )}
+            {orders.length > 0 && filteredOrders.length === 0 && (
+              <p className="text-sm text-navy/50">Ningún pedido coincide con el filtro.</p>
             )}
           </div>
         </Card>
