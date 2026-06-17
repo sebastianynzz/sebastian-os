@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { VEHICLE_TYPES, VEHICLE_TYPE_PROFILES } from "@moveos/shared";
+import { VEHICLE_TYPES, VEHICLE_TYPE_PROFILES, type VehicleType } from "@moveos/shared";
 import { api } from "../api";
 import { TrendChart } from "../components/charts";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
@@ -203,6 +203,21 @@ export default function TenantDetail() {
   }
 
   const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
+  // Asignación FaaS dirigida por el catálogo de 6 configuraciones EV: la
+  // configuración define payload, batería y autonomía; toda la flota MOVE es
+  // eléctrica (restricción dura 1), así que no hay opción de no-eléctrico.
+  const [vType, setVType] = useState<VehicleType>(VEHICLE_TYPES[0]);
+  const [vBatteryKwh, setVBatteryKwh] = useState<number>(
+    () => VEHICLE_TYPE_PROFILES[VEHICLE_TYPES[0]].batteryOptions[0]!.batteryKwh,
+  );
+  const vProfile = VEHICLE_TYPE_PROFILES[vType];
+  const vBattery =
+    vProfile.batteryOptions.find((o) => o.batteryKwh === vBatteryKwh) ??
+    vProfile.batteryOptions[0]!;
+  function onVTypeChange(next: VehicleType) {
+    setVType(next);
+    setVBatteryKwh(VEHICLE_TYPE_PROFILES[next].batteryOptions[0]!.batteryKwh);
+  }
 
   /** Asignar un vehículo de MOVE al tenant (fleet-as-a-service). */
   async function assignVehicle(e: FormEvent<HTMLFormElement>) {
@@ -212,15 +227,16 @@ export default function TenantDetail() {
     try {
       const v = await api<{ plate: string }>("POST", `/tenants/${id}/vehicles`, {
         plate: data.get("plate"),
-        type: data.get("type"),
-        capacityKg: Number(data.get("capacityKg")),
-        isElectric: data.get("isElectric") === "on",
-        batteryKwh: Number(data.get("batteryKwh")) || undefined,
-        nominalRangeKm: Number(data.get("nominalRangeKm")) || undefined,
+        type: vType,
+        capacityKg: vProfile.payloadKg,
+        isElectric: true, // EV-only (restricción dura 1): nunca ICE
+        batteryKwh: vBattery.batteryKwh,
+        nominalRangeKm: vBattery.rangeKm,
         ownerTenantId: data.get("ownerTenantId") || undefined,
       });
       setVehicleNotice(`Vehículo ${v.plate} asignado.`);
       (e.target as HTMLFormElement).reset?.();
+      onVTypeChange(VEHICLE_TYPES[0]);
       await load();
     } catch (err) {
       setVehicleNotice(err instanceof Error ? err.message : "Error");
@@ -459,7 +475,11 @@ export default function TenantDetail() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-cielo">Configuración</span>
-            <select name="type" className={inputClass} defaultValue={VEHICLE_TYPES[0]}>
+            <select
+              className={inputClass}
+              value={vType}
+              onChange={(e) => onVTypeChange(e.target.value as VehicleType)}
+            >
               {VEHICLE_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {VEHICLE_TYPE_PROFILES[t].labelEs}
@@ -467,25 +487,36 @@ export default function TenantDetail() {
               ))}
             </select>
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Capacidad (kg)</span>
-            <input name="capacityKg" type="number" className={inputClass} required />
-          </label>
+          {vProfile.batteryOptions.length > 1 ? (
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Batería</span>
+              <select
+                className={inputClass}
+                value={vBatteryKwh}
+                onChange={(e) => setVBatteryKwh(Number(e.target.value))}
+              >
+                {vProfile.batteryOptions.map((o) => (
+                  <option key={o.batteryKwh} value={o.batteryKwh}>
+                    {o.batteryKwh} kWh · {o.rangeKm} km
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="block text-sm">
+              <span className="mb-1 block text-cielo">Batería</span>
+              <p className="py-2 text-white">{vBattery.batteryKwh} kWh</p>
+            </div>
+          )}
           <label className="block text-sm">
             <span className="mb-1 block text-cielo">Dueño (tenant id, opc.)</span>
             <input name="ownerTenantId" className={inputClass} placeholder="id del tenant MOVE" />
           </label>
-          <label className="flex items-center gap-2 text-sm text-cielo">
-            <input type="checkbox" name="isElectric" /> Eléctrico
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Batería (kWh)</span>
-            <input name="batteryKwh" type="number" step="0.1" className={inputClass} />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Autonomía (km)</span>
-            <input name="nominalRangeKm" type="number" className={inputClass} />
-          </label>
+          {/* Specs derivadas del catálogo (no editables): el perfil es la verdad. */}
+          <p className="col-span-2 self-end text-xs text-cielo sm:col-span-3">
+            ⚡ Eléctrico · {vProfile.payloadKg} kg de carga · {vBattery.batteryKwh} kWh ·
+            autonomía {vBattery.rangeKm} km
+          </p>
           <div className="flex items-end">
             <Button type="submit">Asignar</Button>
           </div>
