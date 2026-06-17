@@ -194,25 +194,41 @@ export function discardAction(id: string): void {
   writeQueue(readQueue().filter((a) => a.id !== id));
 }
 
+const UPLOAD_MAX_ATTEMPTS = 3;
+const UPLOAD_BACKOFF_MS = 1_000;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 /**
- * Sube la foto del POD (multipart). Devuelve la URL pública o null si no hay
- * red: la entrega continúa sin foto en lugar de bloquear al conductor.
+ * Sube la foto del POD (multipart). Reintenta los fallos transitorios (red caída
+ * o 5xx) con backoff antes de rendirse — un parpadeo de señal móvil no debería
+ * perder la prueba de entrega. Un rechazo del servidor (4xx, p. ej. 413 muy
+ * grande) NO se reintenta: no ayudaría. Devuelve la URL pública o null tras
+ * agotar los intentos; en ese caso la entrega continúa sin foto en lugar de
+ * bloquear al conductor (el POD solo declara la evidencia que sí tiene).
  */
 export async function uploadPodPhoto(blob: Blob): Promise<string | null> {
-  try {
-    const form = new FormData();
-    form.append("file", blob, "pod.jpg");
-    const res = await fetch(`${BASE_URL}/uploads/pod`, {
-      method: "POST",
-      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
-      body: form,
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { url: string };
-    return data.url;
-  } catch {
-    return null; // sin señal: se entrega sin foto
+  for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
+    try {
+      const form = new FormData();
+      form.append("file", blob, "pod.jpg");
+      const res = await fetch(`${BASE_URL}/uploads/pod`, {
+        method: "POST",
+        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+        body: form,
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { url: string };
+        return data.url;
+      }
+      // Rechazo del cliente (4xx): reintentar no cambia el resultado.
+      if (res.status >= 400 && res.status < 500) return null;
+      // 5xx: error transitorio del servidor → cae al backoff y reintenta.
+    } catch {
+      // Fallo de red (TypeError) → cae al backoff y reintenta.
+    }
+    if (attempt < UPLOAD_MAX_ATTEMPTS) await sleep(UPLOAD_BACKOFF_MS * attempt);
   }
+  return null; // sin señal tras varios intentos: se entrega sin foto
 }
 
 /** Comprime la foto en el dispositivo (máx 1280 px, JPEG) antes de subirla. */
