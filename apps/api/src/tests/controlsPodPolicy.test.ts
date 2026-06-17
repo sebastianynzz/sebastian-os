@@ -100,7 +100,7 @@ beforeAll(async () => {
   await api("POST", `/routes/${routeId}/start`, driverToken);
 
   // Política del tenant: SAFE_PLACE exige foto; RECIPIENT opcional.
-  await api("PUT", "/controls/pod-policy", adminToken, {
+  await api("PATCH", "/controls/pod-policy", adminToken, {
     config: {
       delivery: {
         RECIPIENT: { signature: "OPTIONAL", photo: "OPTIONAL" },

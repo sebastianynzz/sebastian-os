@@ -26,7 +26,7 @@ export default async function controlsRoutes(app: FastifyInstance) {
   });
 
   /** Actualiza la política POD del tenant (solo ADMIN). */
-  app.put(
+  app.patch(
     "/pod-policy",
     { preHandler: [requireRole("ADMIN")] },
     async (request, reply) => {

@@ -22,6 +22,12 @@ import { navLinks } from "./nav";
 import RouteMap, { type MapStop } from "./RouteMap";
 import ScanSheet, { type ScanResult } from "./Scan";
 import { canOfferPush, enablePushAlerts, precacheRouteTiles } from "./sw";
+import {
+  DELIVERY_TYPES,
+  DELIVERY_TYPE_LABELS,
+  PICKUP_TYPES,
+  PICKUP_TYPE_LABELS,
+} from "@moveos/shared";
 
 interface Stop {
   id: string;
@@ -1025,6 +1031,11 @@ function StopActionSheet({
   // Escaneo del paquete (D3): vínculo bulto↔parada, validado localmente.
   const [scanOpen, setScanOpen] = useState(false);
   const [scan, setScan] = useState<ScanResult | null>(null);
+  // Tipo de entrega/recogida (política POD por tipo, D2): determina qué evidencia
+  // exige el servidor; se envía en la finalización.
+  const [stopType, setStopType] = useState<string>(
+    stop.kind === "PICKUP" ? "FROM_CUSTOMER" : "RECIPIENT",
+  );
   const photoRef = useRef<HTMLInputElement>(null);
 
   // Geocerca en vivo: `geo` es un ref que `watchPosition` actualiza sin
@@ -1055,6 +1066,11 @@ function StopActionSheet({
   const podRequired = isPickup ? [] : stop.order.client?.podRequired ?? [];
   const requiresPhoto = podRequired.includes("PHOTO");
   const requiresReceiver = podRequired.includes("RECEIVER_NAME");
+
+  // Opciones del tipo de parada (política POD por tipo, D2).
+  const typeOptions: [string, string][] = isPickup
+    ? PICKUP_TYPES.map((t) => [t, PICKUP_TYPE_LABELS[t]])
+    : DELIVERY_TYPES.map((t) => [t, DELIVERY_TYPE_LABELS[t]]);
 
   // Corrección de pin (el tap más valioso del producto): si el GPS real está
   // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
@@ -1140,6 +1156,8 @@ function StopActionSheet({
 
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
         types,
+        deliveryType: isPickup ? undefined : stopType,
+        pickupType: isPickup ? stopType : undefined,
         photoUrl,
         receivedBy: receivedBy || undefined,
         lat: subLat,
@@ -1246,6 +1264,24 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Tipo de parada (política POD por tipo): define qué evidencia se exige. */}
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-navy/70 dark:text-niebla/70">
+                {isPickup ? "Tipo de recogida" : "Tipo de entrega"}
+              </span>
+              <select
+                value={stopType}
+                onChange={(e) => setStopType(e.target.value)}
+                className="w-full rounded-lg border border-cielo bg-white px-3 py-3 text-navy focus:border-navy focus:outline-none dark:bg-navy-700 dark:text-niebla"
+              >
+                {typeOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
             {podRequired.length > 0 && (
               <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-info">
