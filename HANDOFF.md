@@ -1,6 +1,6 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/sleepy-ride-3bkdbn` (pushed through `333ddd2`).
+Branch: `claude/sleepy-ride-3bkdbn` (pushed through `34ae136`).
 Paste the prompt below as the first message of a fresh session, and re-attach the
 4 spec docs (VehicleTypes, OptimizationAction Registry, Feature Refinement,
 vehicleTypeProfiles) — uploads don't carry across sessions.
@@ -16,7 +16,7 @@ cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && c
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `6d22501`). Read `CLAUDE.md` first (EV-only,
+checked out, pushed through commit `34ae136`). Read `CLAUDE.md` first (EV-only,
 B2B-only, tenant isolation, Spanish/America-Bogotá). I've re-attached the 4 spec
 docs.
 
@@ -49,9 +49,12 @@ docs.
   StopCard current-stop ring + SIGUIENTE/EN SITIO (ARRIVED) badge.
 
 **WHAT'S LEFT (Phase C, doc order):**
-1. Finish **Part 4 cross-cutting**: typed-error toasts + retry; performance
-   (pagination/virtualization/memoization); a11y & responsive; i18n for
-   portal + Track + admin; idempotency audit; broader observability.
+1. **Part 4 cross-cutting** — DONE: typed-error toast+retry system
+   (`apps/web/src/toast.tsx`, adopted by Rutas + Modulos; other pages can adopt
+   incrementally — mechanical, low value); i18n single-source Bogotá formatting in
+   `@moveos/shared`; idempotent order creation by externalRef (`idempotency.test.ts`).
+   STILL LEFT: performance (virtualization/memoization beyond the Pedidos window);
+   broad a11y & responsive sweep; broader observability.
 2. **Part 1 Driver** — DONE except minor polish (nav deeplink polish; dark mode;
    tap-target a11y audit). **client-configurable POD** shipped in `bc6b830`:
    `Client.podRequired` (`POD_REQUIREMENTS` = PHOTO | RECEIVER_NAME, additive
@@ -71,11 +74,13 @@ docs.
    Planificación manual stop tweak; map clustering (deferred to admin Flota — needs
    leaflet cluster lib); Seguridad/Ev/Analítica/Sostenibilidad polish;
    Excepciones/Direcciones/Copiloto finishers; Modulos; saved views; responsive.
-4. **Part 3 Admin** — DONE so far: FaaS vehicle assignment via 6-config catalog
-   (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always). last-admin guard
-   already enforced backend (`platform/users.ts`). STILL LEFT: TenantDetail health +
-   plan-change confirm + module-dep enforcement (MODULE_CATALOG has no `requires`
-   field yet — needs a product call on the dep graph); Tenants list; Flota SSE +
+4. **Part 3 Admin** — DONE: FaaS vehicle assignment via 6-config catalog
+   (`17a0171`, type-driven off VEHICLE_TYPE_PROFILES, EV-always); TenantDetail
+   plan-change confirm + health badge (`d8199e7`); module dependency graph
+   (`333ddd2`, `requires` in MODULE_CATALOG, enable-cascade + 409 disable-block on
+   both toggle endpoints, `moduleDeps.test.ts`). last-admin guard already enforced
+   backend (`platform/users.ts`). STILL LEFT (all underspecified polish on
+   already-working pages — spec before touching): Tenants list; Flota SSE +
    clustering; Métricas; Auditoría; **data flywheel** investor screen;
    integration-health view.
 5. **EV-only compliance (cross-cutting, done):** API now rejects ICE vehicle
@@ -98,7 +103,7 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
 - Last green: **optimizer 73 + API 139**; all frontends build; migrations apply
   clean to a fresh DB.
 - Prioritized batch DONE: (1) global typed-error toast+retry (`3aab72e`,
-  `apps/web/src/toast.tsx`, Rutas migrated; other pages adopt incrementally);
+  `apps/web/src/toast.tsx`, adopted by Rutas + Modulos `34ae136`; rest optional);
   (2) i18n single-source Bogotá formatting in `@moveos/shared` (`c32b98e`, fixed
   timezone bug in portal/Track/admin); (3) TenantDetail plan-confirm + health badge
   (`d8199e7`); (4) module dependency graph (`333ddd2`, `requires` in MODULE_CATALOG,
@@ -108,10 +113,16 @@ the LLM only triggers and explains; confirm-before-mutate on every mutation.
   importers/callers + the user's instruction, then retry the identical call). To
   quiet it: run with `ECC_GATEGUARD=off`.
 
-**Next story:** Part 1 done; 5 Part-2 stories done. Continue **Part 2 (Web)** —
-MapaEnVivo follow-vehicle / clustering (clustering needs a leaflet cluster lib;
-follow needs none), Excepciones/Direcciones/Copiloto finishers, Modulos, or
-web-wide role-based nav — or jump to **Part 3 (Admin)** (TenantDetail validation +
-module-dep toggles + FaaS vehicle assignment using the 6-config catalog) or
-**Part 4 cross-cutting** (typed-error toasts/retry, perf, a11y, broader i18n).
+**Next story (pick one — all are now either low-value or need a spec):**
+- Finish the toast rollout onto Conductores/Vehículos/Clientes/Planificación/
+  PortalNuevoEnvio. MECHANICAL, low value (their `setError`+Banner already work);
+  leave Login/Track inline. Only do if you want full visual consistency.
+- Marker clustering on the live maps (admin Flota first) — needs the
+  `leaflet.markercluster` dependency added (deferred earlier, your call).
+- Module-deps UI hint: show "requiere TELEMATICS" next to each toggle in
+  Modulos/TenantDetail (small, real polish on top of `333ddd2`).
+- Any **newly-specified** page feature. The remaining Part 2/3 "polish"
+  (Seguridad/Analítica/Sostenibilidad/Métricas/Auditoría/Flywheel,
+  Excepciones/Direcciones/Copiloto finishers, saved views, perf, a11y sweep)
+  is UNDERSPECIFIED — spec the concrete target before touching working code.
 Bring up Postgres first (env notes) and keep the `pnpm -r test` gate green.
