@@ -71,6 +71,18 @@ export const WEEKDAY_LABELS: Record<Weekday, string> = {
 };
 
 /**
+ * Permisos (scopes) de una API key del tenant (plataforma de desarrolladores,
+ * Tier 2 §8). Acotan qué puede hacer una integración externa con la key.
+ */
+export const API_KEY_SCOPES = ["orders:write", "orders:read", "tracking:read"] as const;
+export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
+export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
+  "orders:write": "Crear pedidos",
+  "orders:read": "Leer pedidos",
+  "tracking:read": "Leer rastreo",
+};
+
+/**
  * Catálogo de eventos del ciclo de vida que pueden notificar al NEGOCIO cliente
  * (Tier 2, motor de notificaciones B2B). Nunca se mensajea al consumidor final.
  * El operador decide, por evento, si notifica y con qué texto (MessageTemplate).

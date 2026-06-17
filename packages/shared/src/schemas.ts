@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  API_KEY_SCOPES,
   DELIVERY_TYPES,
   DRIVER_STATUSES,
   FAIL_REASONS,
@@ -226,6 +227,14 @@ export const serviceSchema = z.object({
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
 // === Plataforma de desarrolladores (Tier 2 §8) ===
+
+/** Crea una API key del tenant (nombre + permisos). La key en claro se ve una vez. */
+export const apiKeySchema = z.object({
+  name: z.string().min(1).max(60),
+  scopes: z.array(z.enum(API_KEY_SCOPES)).min(1),
+});
+export type ApiKeyInput = z.infer<typeof apiKeySchema>;
+
 
 /** Suscripción de webhook del tenant a eventos del ciclo de vida (NOTIFICATION_EVENTS). */
 export const webhookSchema = z.object({

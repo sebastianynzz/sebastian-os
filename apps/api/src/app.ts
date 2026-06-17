@@ -39,6 +39,7 @@ import servicesRoutes from "./modules/services/routes.js";
 import depotsRoutes from "./modules/depots/routes.js";
 import zonesRoutes from "./modules/zones/routes.js";
 import developerRoutes from "./modules/developer/routes.js";
+import ingestRoutes from "./modules/ingest/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -147,6 +148,8 @@ export async function buildApp() {
   await app.register(zonesRoutes, { prefix: "/zones" });
   // Plataforma de desarrolladores (Tier 2): webhooks del tenant por evento.
   await app.register(developerRoutes, { prefix: "/developer" });
+  // Ingesta por API key (Tier 2): creación de pedidos desde sistemas externos.
+  await app.register(ingestRoutes, { prefix: "/ingest" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

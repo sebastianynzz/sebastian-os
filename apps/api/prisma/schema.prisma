@@ -72,6 +72,7 @@ model Tenant {
   zones         Zone[]
   messageTemplates MessageTemplate[]
   webhooks      Webhook[]
+  apiKeys       ApiKey[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -583,6 +584,24 @@ model Webhook {
   lastDeliveredAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+/// API key del tenant (plataforma de desarrolladores, Tier 2 §8). Guarda solo el
+/// hash SHA-256 de la key (nunca la key en claro) + un `prefix` visible para
+/// identificarla. `scopes` acota lo que la integración puede hacer. Habilita la
+/// ingesta de pedidos por API (el desbloqueo de escala). Tenant-scoped.
+model ApiKey {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String
+  hashedKey  String    @unique
+  scopes     String[]  @default([])
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([tenantId])
 }

@@ -1,9 +1,19 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { webhookSchema, webhookUpdateSchema } from "@moveos/shared";
+import { apiKeySchema, webhookSchema, webhookUpdateSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { deliverWebhook, generateWebhookSecret } from "../../services/webhooks.js";
+import { generateApiKey } from "../../services/apiKeys.js";
+
+const apiKeyView = {
+  id: true,
+  name: true,
+  prefix: true,
+  scopes: true,
+  lastUsedAt: true,
+  createdAt: true,
+} as const;
 
 /**
  * Plataforma de desarrolladores (Tier 2 §8): gestión de webhooks del tenant
@@ -62,5 +72,36 @@ export default async function developerRoutes(app: FastifyInstance) {
       message: "Webhook de prueba de MoveOS",
     });
     return { ok: result.ok, status: result.status };
+  });
+
+  // --- API keys: nunca se devuelve el hash; la key en claro se ve una vez. ---
+
+  app.get("/api-keys", async (request) =>
+    prisma.apiKey.findMany({
+      where: { tenantId: request.user.tenantId },
+      orderBy: { createdAt: "desc" },
+      select: apiKeyView,
+    }),
+  );
+
+  app.post("/api-keys", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const input = apiKeySchema.parse(request.body);
+    const { plaintext, prefix, hashedKey } = generateApiKey();
+    const created = await prisma.apiKey.create({
+      data: { ...input, tenantId: request.user.tenantId, prefix, hashedKey },
+      select: apiKeyView,
+    });
+    // La key en claro solo se muestra ahora; después solo queda el prefijo.
+    return reply.code(201).send({ ...created, key: plaintext });
+  });
+
+  app.delete("/api-keys/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const existing = await prisma.apiKey.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+    });
+    if (!existing) return reply.code(404).send({ error: "API key no encontrada" });
+    await prisma.apiKey.delete({ where: { id } });
+    return reply.code(204).send();
   });
 }
