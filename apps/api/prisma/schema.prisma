@@ -62,6 +62,7 @@ model Tenant {
   snoozedExceptions SnoozedException[]
   savedViews    SavedView[]
   depots        Depot[]
+  zones         Zone[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -515,6 +516,24 @@ model Depot {
   routes        Route[]
   drivers       Driver[]
   vehicles      Vehicle[]
+
+  @@index([tenantId])
+}
+
+/// Zona de entrega (D5): polígono geográfico con conductores asignados. Base
+/// de la verificación de cobertura al crear pedidos (point-in-zone) y de la
+/// preferencia de asignación por zona. `geometry` guarda { points: [{lat,lng}] };
+/// `color` es un dato de la zona (no un token de UI). Tenant-scoped.
+model Zone {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  color     String   @default("#233955")
+  geometry  Json
+  driverIds String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
 }

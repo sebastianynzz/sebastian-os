@@ -222,6 +222,26 @@ export const serviceSchema = z.object({
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
+// === Zonas de entrega (D5) ===
+
+const zonePointSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+/** Crea/edita una Zone (polígono geográfico + conductores asignados). */
+export const zoneSchema = z.object({
+  name: z.string().min(1).max(80),
+  // Color del polígono en el mapa (dato de la zona, no token de UI).
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default("#233955"),
+  geometry: z.object({ points: z.array(zonePointSchema).min(3) }),
+  driverIds: z.array(z.string()).default([]),
+});
+export type ZoneInput = z.infer<typeof zoneSchema>;
+
 // === Depósitos / multi-depot (D4) ===
 
 /** Crea/edita un Depot (centro de salida y regreso de rutas). Tenant-scoped. */

@@ -37,6 +37,7 @@ import savedViewsRoutes from "./modules/savedViews/routes.js";
 import controlsRoutes from "./modules/controls/routes.js";
 import servicesRoutes from "./modules/services/routes.js";
 import depotsRoutes from "./modules/depots/routes.js";
+import zonesRoutes from "./modules/zones/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -141,6 +142,8 @@ export async function buildApp() {
   await app.register(servicesRoutes, { prefix: "/services" });
   // Depósitos / multi-depot (núcleo): salida y regreso de rutas por depósito.
   await app.register(depotsRoutes, { prefix: "/depots" });
+  // Zonas de entrega (núcleo): polígonos geográficos + conductores asignados.
+  await app.register(zonesRoutes, { prefix: "/zones" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });
