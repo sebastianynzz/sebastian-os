@@ -55,14 +55,57 @@ export default async function ordersRoutes(app: FastifyInstance) {
     return reply.code(201).send(order);
   });
 
-  /** Carga masiva (import CSV procesado en el cliente, o integración API). */
+  /**
+   * Carga masiva (import CSV procesado en el cliente, o integración API).
+   * Resiliente por fila: una fila inválida NO tumba el lote — se validan y
+   * crean fila por fila y se devuelve el detalle por fila para que el
+   * despachador vea exactamente cuáles fallaron y por qué (las buenas entran).
+   */
   app.post("/bulk", async (request, reply) => {
-    const inputs = z.array(createOrderSchema).min(1).max(500).parse(request.body);
-    const orders = [];
-    for (const input of inputs) {
-      orders.push(await createOrder(request.user.tenantId, input));
+    const rows = z.array(z.unknown()).min(1).max(500).parse(request.body);
+    const results: {
+      row: number;
+      ok: boolean;
+      error?: string;
+      id?: string;
+      trackingNumber?: string;
+    }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const parsed = createOrderSchema.safeParse(rows[i]);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        const field = issue?.path.join(".");
+        results.push({
+          row: i + 1,
+          ok: false,
+          error: field ? `${field}: ${issue?.message}` : issue?.message ?? "Fila inválida",
+        });
+        continue;
+      }
+      try {
+        const order = await createOrder(request.user.tenantId, parsed.data);
+        results.push({
+          row: i + 1,
+          ok: true,
+          id: order.id,
+          trackingNumber: order.trackingNumber ?? undefined,
+        });
+      } catch (err) {
+        results.push({
+          row: i + 1,
+          ok: false,
+          error: err instanceof Error ? err.message : "Error al crear el pedido",
+        });
+      }
     }
-    return reply.code(201).send({ created: orders.length, orders });
+
+    const created = results.filter((r) => r.ok).length;
+    return reply.code(201).send({
+      created,
+      failed: results.length - created,
+      results,
+    });
   });
 
   /**

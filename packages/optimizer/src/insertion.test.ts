@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { insertOrderIntoRoute } from "./vrp.js";
-import { matrixTravelModel, haversineTravelModel } from "./travel.js";
+import {
+  matrixTravelModel,
+  haversineTravelModel,
+  durationFactor,
+} from "./travel.js";
 import type { OptimizableOrder, OptimizableVehicle } from "./types.js";
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 };
@@ -14,8 +18,14 @@ function order(
   return { id, location: { lat, lng }, weightKg: 2, priority: 0, ...extra };
 }
 
-function moto(): OptimizableVehicle {
-  return { id: "m1", plate: "ABC12D", type: "MOTO", capacityKg: 15, isElectric: false };
+function lightEv(): OptimizableVehicle {
+  return {
+    id: "m1",
+    plate: "ABC12D",
+    type: "RAP_MOVE_LIGHT",
+    capacityKg: 15,
+    isElectric: false,
+  };
 }
 
 describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
@@ -26,7 +36,7 @@ describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
     const result = insertOrderIntoRoute({
       pendingOrders: pending,
       newOrder: order("mid", 4.65, -74.06),
-      vehicle: moto(),
+      vehicle: lightEv(),
       start: DEPOT,
       returnTo: DEPOT,
       departureMin: 8 * 60,
@@ -46,7 +56,7 @@ describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
     const result = insertOrderIntoRoute({
       pendingOrders: [order("a", 4.66, -74.05)],
       newOrder: order("heavy", 4.65, -74.06, { weightKg: 12 }),
-      vehicle: moto(), // 15 kg
+      vehicle: lightEv(), // 15 kg
       start: DEPOT,
       returnTo: DEPOT,
       departureMin: 8 * 60,
@@ -60,7 +70,7 @@ describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
     const result = insertOrderIntoRoute({
       pendingOrders: [order("a", 4.66, -74.05)],
       newOrder: order("far", 5.0, -74.4), // lejos
-      vehicle: { ...moto(), isElectric: true },
+      vehicle: { ...lightEv(), isElectric: true },
       start: DEPOT,
       returnTo: DEPOT,
       departureMin: 8 * 60,
@@ -76,7 +86,7 @@ describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
       newOrder: order("p", 4.65, -74.06, {
         pickupLocation: { lat: 4.64, lng: -74.065 },
       }),
-      vehicle: moto(),
+      vehicle: lightEv(),
       start: DEPOT,
       returnTo: DEPOT,
       departureMin: 8 * 60,
@@ -102,7 +112,7 @@ describe("insertOrderIntoRoute (inserción dinámica / express)", () => {
     const result = insertOrderIntoRoute({
       pendingOrders: pending,
       newOrder: order("lejos", 4.75, -74.1), // desvío largo
-      vehicle: moto(),
+      vehicle: lightEv(),
       start: DEPOT,
       returnTo: DEPOT,
       departureMin: 8 * 60,
@@ -134,8 +144,11 @@ describe("matrixTravelModel", () => {
     );
 
     expect(model.distanceKm(a, b)).toBe(99);
-    // Moto: 60 min de carro × 0.8 = 48.
-    expect(model.travelMin(a, b, "MOTO")).toBeCloseTo(48, 5);
+    // La duración de carro se multiplica por el factor de la configuración.
+    expect(model.travelMin(a, b, "RAP_MOVE_LIGHT")).toBeCloseTo(
+      60 * durationFactor("RAP_MOVE_LIGHT"),
+      5,
+    );
     // Punto fuera de la matriz → fallback haversine (≈ valor real, no 99).
     const fallback = haversineTravelModel().distanceKm(a, unknown);
     expect(model.distanceKm(a, unknown)).toBeCloseTo(fallback, 6);

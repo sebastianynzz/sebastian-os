@@ -12,6 +12,7 @@ export const MODULE_KEYS = [
   "CUSTOMER_EXPERIENCE_PRO",
   "ANALYTICS_PRO",
   "AI_ADDONS",
+  "COLD_CHAIN",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -28,6 +29,12 @@ export interface ModuleDescriptor {
    * módulo de pago (restricción dura 1.3 de CLAUDE.md).
    */
   core?: boolean;
+  /**
+   * Otros módulos que este requiere. Habilitarlo arrastra sus dependencias
+   * (cascada); no se puede desactivar un módulo del que dependa otro
+   * habilitado. El núcleo nunca se lista aquí (ya está siempre activo).
+   */
+  requires?: ModuleKey[];
 }
 
 import type { TenantBusinessModel } from "./enums.js";
@@ -76,6 +83,7 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     descripcion:
       "Geocercas, alertas de desviación de ruta, botón de pánico y paradas seguras (piratería terrestre).",
     defaultEnabled: false,
+    requires: ["TELEMATICS"], // inmovilización y desvíos dependen de la posición
   },
   {
     key: "COMPLIANCE_RNDC",
@@ -104,6 +112,15 @@ export const MODULE_CATALOG: ModuleDescriptor[] = [
     descripcion:
       "ETAs predictivos, predicción de entregas fallidas, detección de anomalías/robo, resolución de direcciones informales.",
     defaultEnabled: false,
+    requires: ["ROUTE_OPTIMIZATION"], // las acciones de optimización envuelven el ruteo
+  },
+  {
+    key: "COLD_CHAIN",
+    nombre: "Cadena de frío",
+    descripcion:
+      "Monitoreo de temperatura por zona (reefer), secuenciación de paradas para minimizar tiempo fuera de banda y alertas de excursión para vehículos Cold Box.",
+    defaultEnabled: false,
+    requires: ["TELEMATICS"], // la temperatura llega por la ingesta de telemetría
   },
 ];
 
@@ -133,4 +150,48 @@ export function initialModulesForBusinessModel(
     keys.add(key);
   }
   return keys;
+}
+
+/** Dependencias directas declaradas de un módulo. */
+export function moduleDeps(key: ModuleKey): ModuleKey[] {
+  return MODULE_CATALOG.find((m) => m.key === key)?.requires ?? [];
+}
+
+/**
+ * Cierre transitivo de dependencias que deben quedar habilitadas junto con
+ * `key` (incluye `key`; excluye el núcleo, que ya está siempre activo).
+ * Habilitar un módulo arrastra sus dependencias en cascada.
+ */
+export function modulesToEnableWith(key: ModuleKey): ModuleKey[] {
+  const out = new Set<ModuleKey>();
+  const visit = (k: ModuleKey) => {
+    if (out.has(k)) return;
+    out.add(k);
+    for (const dep of moduleDeps(k)) visit(dep);
+  };
+  visit(key);
+  return [...out].filter((k) => !CORE_MODULE_KEYS.has(k));
+}
+
+/**
+ * De los módulos habilitados, cuáles dependen (transitivamente) de `key` y por
+ * tanto impiden desactivarlo. Vacío = se puede desactivar.
+ */
+export function modulesBlockingDisable(
+  key: ModuleKey,
+  enabledKeys: Iterable<ModuleKey>,
+): ModuleKey[] {
+  const blockers: ModuleKey[] = [];
+  for (const k of new Set(enabledKeys)) {
+    if (k === key) continue;
+    if (modulesToEnableWith(k).includes(key)) blockers.push(k);
+  }
+  return blockers;
+}
+
+/** Nombre legible de un módulo (para mensajes al usuario). Acepta `string`
+ *  para usarse con arrays serializados (`requires`) en el frontend; si la clave
+ *  no existe, devuelve la clave tal cual. */
+export function moduleName(key: string): string {
+  return MODULE_CATALOG.find((m) => m.key === key)?.nombre ?? key;
 }

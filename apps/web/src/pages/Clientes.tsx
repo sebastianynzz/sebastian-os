@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useToast } from "../toast";
 import {
   Banner,
   Button,
@@ -51,7 +52,11 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [channel, setChannel] = useState("IN_APP");
-  const [error, setError] = useState<string | null>(null);
+  const webhookRef = useRef<HTMLInputElement>(null);
+  const [webhookTest, setWebhookTest] = useState<
+    { testing?: boolean; ok?: boolean; status?: number; error?: string } | null
+  >(null);
+  const toast = useToast();
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
   const [portalFor, setPortalFor] = useState<string | null>(null);
@@ -81,7 +86,6 @@ export default function Clientes() {
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     const data = new FormData(e.currentTarget);
     try {
       await api("POST", "/clients", {
@@ -93,11 +97,37 @@ export default function Clientes() {
         webhookUrl: data.get("webhookUrl") || undefined,
         pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
         pickupNotes: data.get("pickupNotes") || undefined,
+        // Política POD configurable: pruebas que este comercio exige por entrega.
+        podRequired: data.getAll("podRequired"),
       });
       setShowForm(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error");
+      toast.error(err);
+    }
+  }
+
+  /** Prueba la URL del webhook antes de guardar, para no descubrir que está
+   *  rota cuando ya dependa de ella un pedido real. */
+  async function testWebhook() {
+    const url = webhookRef.current?.value.trim();
+    if (!url) {
+      setWebhookTest({ ok: false, error: "Ingresa la URL primero" });
+      return;
+    }
+    setWebhookTest({ testing: true });
+    try {
+      const res = await api<{ ok: boolean; status?: number; error?: string }>(
+        "POST",
+        "/clients/test-webhook",
+        { webhookUrl: url },
+      );
+      setWebhookTest(res);
+    } catch (err) {
+      setWebhookTest({
+        ok: false,
+        error: err instanceof Error ? err.message : "Error",
+      });
     }
   }
 
@@ -168,8 +198,35 @@ export default function Clientes() {
             {channel === "WEBHOOK" && (
               <div className="sm:col-span-2">
                 <Field label="URL del webhook (recibe los eventos de entrega)">
-                  <input name="webhookUrl" type="url" className={inputClass} placeholder="https://..." />
+                  <div className="flex gap-2">
+                    <input
+                      ref={webhookRef}
+                      name="webhookUrl"
+                      type="url"
+                      className={inputClass}
+                      placeholder="https://..."
+                      onChange={() => setWebhookTest(null)}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={testWebhook}
+                      disabled={webhookTest?.testing}
+                    >
+                      {webhookTest?.testing ? "Probando…" : "Probar"}
+                    </Button>
+                  </div>
                 </Field>
+                {webhookTest && !webhookTest.testing && (
+                  <p
+                    role="status"
+                    className={`mt-1 text-sm ${webhookTest.ok ? "text-emerald-700" : "text-red-600"}`}
+                  >
+                    {webhookTest.ok
+                      ? `✅ Respondió correctamente (HTTP ${webhookTest.status})`
+                      : `❌ ${webhookTest.error ?? `Respuesta HTTP ${webhookTest.status}`}`}
+                  </p>
+                )}
               </div>
             )}
             <Field label="Dirección de recogida (origen de sus envíos del portal)">
@@ -182,13 +239,18 @@ export default function Clientes() {
             <Field label="Indicaciones de recogida">
               <input name="pickupNotes" className={inputClass} placeholder="Local 2, bodega…" />
             </Field>
-            {error && (
-              <div className="sm:col-span-2">
-                <Banner kind="error" onDismiss={() => setError(null)}>
-                  {error}
-                </Banner>
+            <Field label="Prueba de entrega exigida (política POD)">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="PHOTO" />
+                  Foto de evidencia
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="RECEIVER_NAME" />
+                  Nombre de quien recibe
+                </label>
               </div>
-            )}
+            </Field>
             <div className="sm:col-span-2">
               <Button type="submit">Crear cliente</Button>
             </div>
@@ -307,6 +369,7 @@ export default function Clientes() {
                             <li key={n.id} className="flex items-baseline gap-3">
                               <span className="font-mono text-xs text-navy/50">
                                 {new Date(n.createdAt).toLocaleString("es-CO", {
+                                  timeZone: "America/Bogota",
                                   day: "2-digit",
                                   month: "2-digit",
                                   hour: "2-digit",

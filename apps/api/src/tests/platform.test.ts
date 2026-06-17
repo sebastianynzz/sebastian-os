@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import type { FastifyInstance } from "fastify";
+import { MODULE_CATALOG } from "@moveos/shared";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -124,6 +125,38 @@ describe("panel de plataforma + seguridad de planos", () => {
     expect(allowed.status).toBe(200);
   });
 
+  it("override de módulo respeta el grafo de dependencias (cascada + bloqueo)", async () => {
+    // Habilitar SAFETY arrastra TELEMATICS (cascada) desde el plano de plataforma.
+    const onSafety = await api(
+      "PATCH",
+      `/platform/tenants/${tenantId}/modules/SAFETY`,
+      platformToken,
+      { enabled: true },
+    );
+    expect(onSafety.status).toBe(200);
+    expect(onSafety.body.enabled).toContain("SAFETY");
+    expect(onSafety.body.enabled).toContain("TELEMATICS");
+
+    // No se puede apagar TELEMATICS mientras SAFETY depende de él.
+    const blocked = await api(
+      "PATCH",
+      `/platform/tenants/${tenantId}/modules/TELEMATICS`,
+      platformToken,
+      { enabled: false },
+    );
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.code).toBe("MODULE_DEPENDENCY");
+    expect(blocked.body.blockedBy).toContain("SAFETY");
+
+    // Tras apagar la dependencia, sí se puede; restauramos el estado por defecto.
+    expect(
+      (await api("PATCH", `/platform/tenants/${tenantId}/modules/SAFETY`, platformToken, { enabled: false })).status,
+    ).toBe(200);
+    expect(
+      (await api("PATCH", `/platform/tenants/${tenantId}/modules/TELEMATICS`, platformToken, { enabled: false })).status,
+    ).toBe(200);
+  });
+
   it("suspender bloquea el login del tenant Y los tokens existentes; reactivar restaura", async () => {
     const suspend = await api("PATCH", `/platform/tenants/${tenantId}`, platformToken, {
       status: "SUSPENDED",
@@ -156,7 +189,7 @@ describe("panel de plataforma + seguridad de planos", () => {
     const res = await api("GET", "/platform/metrics", platformToken);
     expect(res.status).toBe(200);
     expect(res.body.tenants.total).toBeGreaterThanOrEqual(1);
-    expect(res.body.moduleAdoption).toHaveLength(8);
+    expect(res.body.moduleAdoption).toHaveLength(MODULE_CATALOG.length);
     expect(Array.isArray(res.body.orders.byDay)).toBe(true);
   });
 
@@ -201,7 +234,7 @@ describe("panel de plataforma + seguridad de planos", () => {
         platformToken,
         {
           plate: "FAS99E",
-          type: "MOTO",
+          type: "RAP_MOVE_LIGHT",
           capacityKg: 20,
           isElectric: true,
           batteryKwh: 4,
@@ -221,6 +254,10 @@ describe("panel de plataforma + seguridad de planos", () => {
       expect(mine).toBeDefined();
       expect(mine.operatedBy.id).toBe(subTenantId);
       expect(mine.ownerTenantId).toBe(tenantId);
+      // El mapa de flota agrupado consume la posición denormalizada: el contrato
+      // expone lastLat/lastLng (null hasta que el vehículo reporte un ping).
+      expect(mine).toHaveProperty("lastLat");
+      expect(mine).toHaveProperty("lastLng");
     });
 
     afterAll(async () => {

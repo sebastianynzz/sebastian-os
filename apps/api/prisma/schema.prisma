@@ -58,6 +58,8 @@ model Tenant {
   dailyMetrics  DailyTenantMetric[]
   chargingStations ChargingStation[]
   pushSubscriptions PushSubscription[]
+  aiProposals   AiProposal[]
+  snoozedExceptions SnoozedException[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -82,6 +84,23 @@ model DailyTenantMetric {
 
   @@unique([tenantId, date])
   @@index([date])
+}
+
+/// Excepción del cockpit pospuesta por el despachador: oculta una excepción
+/// derivada (por su `key` estable: alert-…, late-…, soc-…, triage-pending)
+/// de la cola hasta `until`. No persiste la excepción en sí — solo el aplazo,
+/// reevaluado contra el cálculo en vivo. Scoping por tenant.
+model SnoozedException {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key             String // id estable de la excepción derivada
+  until           DateTime
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId, until])
 }
 
 /// Bitácora del plano de plataforma: toda mutación del operador MOVE queda
@@ -175,7 +194,9 @@ model Vehicle {
   // plataforma agrega/lee a través de tenants por este campo.
   ownerTenantId  String?
   plate          String
-  type           String // MOTO | BICICLETA | CARRO | VAN | CAMION
+  // Configuración del catálogo EV (fuente de verdad: VEHICLE_TYPE_PROFILES en
+  // packages/shared). String para portabilidad de motor (no enum de Prisma).
+  type           String // RAP_MOVE_LIGHT | RAP_MOVE_XL | RAP_MOVE_COLD_BOX | IONAX | IONAX_COLD_BOX | IONAX_PICKUP
   capacityKg     Float
   capacityM3     Float?
   isElectric     Boolean   @default(false)
@@ -188,6 +209,11 @@ model Vehicle {
   engineOn       Boolean   @default(true)
   immobilized    Boolean   @default(false) // motor bloqueado por comando (relé)
   lastSpeedKmh   Float?    // fuente del interlock de seguridad (apagado solo si 0)
+  // Última posición conocida, denormalizada del TelemetryPing más reciente por
+  // el path de ingesta telemática (misma fuente que lastSpeedKmh/lastSeenAt).
+  // Alimenta el mapa de flota agrupado del panel de plataforma sin recorrer pings.
+  lastLat        Float?
+  lastLng        Float?
   lastSeenAt     DateTime?
   routes         Route[]
   telemetry      TelemetryPing[]
@@ -212,6 +238,9 @@ model Client {
   // Canal por el que el negocio recibe las confirmaciones de entrega.
   notifyChannel String   @default("IN_APP") // IN_APP | EMAIL | WHATSAPP | WEBHOOK
   webhookUrl    String?
+  // Política POD configurable por cliente: pruebas que este comercio exige
+  // para aceptar una entrega (PHOTO | RECEIVER_NAME). Vacío = sin exigencia.
+  podRequired   String[] @default([])
   // Dirección de recogida registrada: origen por defecto de los pedidos que
   // el negocio crea desde su portal (recogida en su bodega/tienda).
   pickupAddressRaw String?
@@ -261,6 +290,9 @@ model Order {
   status          String    @default("PENDING")
   weightKg        Float     @default(1)
   volumeM3        Float?
+  // Perfil de cadena de frío. AMBIENT (seco) por defecto; CHILLED/FROZEN
+  // obligan a una Cold Box compatible en la asignación (ver optimizador).
+  tempProfile     String    @default("AMBIENT") // AMBIENT | CHILLED | FROZEN
   timeWindowStart DateTime?
   timeWindowEnd   DateTime?
   priority        Int       @default(0)
@@ -489,4 +521,31 @@ model NotificationLog {
   createdAt DateTime @default(now())
 
   @@index([tenantId, clientId, createdAt])
+}
+
+/// Propuesta de la capa de IA (capa de optimización). Persiste la propuesta
+/// pendiente que la UI (botones "Optimizar con IA") y el Copiloto confirman.
+/// Es la bitácora de auditoría de la IA: una sola ruta de aplicación
+/// (run → confirmar → apply) deja aquí quién/qué/cuándo. El solver hace la
+/// matemática; el LLM solo dispara y explica (no calcula el cambio).
+model AiProposal {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId          String // quién la generó (request.user.sub)
+  actionId        String // OptimizationActionId
+  scope           String
+  summaryEs       String
+  changeJson      Json // cambio propuesto (para mostrar en el panel)
+  impactJson      Json // métricas de impacto
+  contextJson     Json // ActionContext con el que se generó (para re-validar al aplicar)
+  mutates         Boolean
+  feasible        Boolean
+  status          String   @default("PENDING") // PENDING | APPLIED | DISCARDED
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  appliedAt       DateTime?
+  appliedByUserId String?
+
+  @@index([tenantId, status])
 }

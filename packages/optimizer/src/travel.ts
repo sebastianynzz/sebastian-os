@@ -1,4 +1,9 @@
-import { roadDistanceKm, type LatLng, type VehicleType } from "@moveos/shared";
+import {
+  roadDistanceKm,
+  VEHICLE_TYPE_PROFILES,
+  type LatLng,
+  type VehicleType,
+} from "@moveos/shared";
 
 /**
  * Modelo de viaje conectable: separa el "cuánto se tarda / cuánta distancia"
@@ -20,37 +25,40 @@ export interface TravelModel {
 }
 
 /**
- * Velocidades urbanas promedio por tipo de vehículo (km/h), calibradas para
- * tráfico denso tipo Bogotá. Las motos son significativamente más rápidas en
- * congestión: esto hace que el optimizador prefiera motos en rutas urbanas.
+ * Velocidad base urbana densa (km/h) para una configuración de referencia en
+ * el modelo haversine. Sobre ella se aplica `durationFactor(type)` por
+ * configuración. Calibrada para tráfico tipo Bogotá.
  */
-export const URBAN_SPEED_KMH: Record<VehicleType, number> = {
-  MOTO: 22,
-  BICICLETA: 13,
-  CARRO: 17,
-  VAN: 16,
-  CAMION: 14,
-};
+export const BASE_URBAN_KMH = 18;
 
 /**
- * Factores de duración por tipo de vehículo sobre un tiempo base "carro"
- * (p. ej. duraciones OSRM, que modelan un automóvil). Heurística documentada:
- * la moto filtra entre el tráfico; el camión es más lento en maniobras.
+ * Línea base de velocidad libre (km/h) para derivar factores relativos por
+ * configuración desde el catálogo (`topSpeedKmh` × `agilityFactor`).
  */
-export const VEHICLE_DURATION_FACTOR: Record<VehicleType, number> = {
-  MOTO: 0.8,
-  BICICLETA: 2.2,
-  CARRO: 1.0,
-  VAN: 1.05,
-  CAMION: 1.2,
-};
+const FREE_SPEED_BASELINE_KMH = 75;
 
-/** Modelo por defecto: haversine × factor urbano + velocidades por tipo. */
+/**
+ * Factor de velocidad relativo de una configuración (>1 = más rápida que la
+ * línea base, <1 = más lenta). Derivado del perfil del vehículo
+ * (`topSpeedKmh`, `agilityFactor`) — sin segunda copia hardcodeada.
+ * Primera aproximación; calibrar contra OSRM más adelante.
+ */
+export function speedFactor(type: VehicleType): number {
+  const p = VEHICLE_TYPE_PROFILES[type];
+  return (p.topSpeedKmh / FREE_SPEED_BASELINE_KMH) * p.agilityFactor;
+}
+
+/** Factor de duración (inverso de la velocidad): multiplica el tiempo de viaje. */
+export function durationFactor(type: VehicleType): number {
+  return 1 / speedFactor(type);
+}
+
+/** Modelo por defecto: haversine × factor urbano + factor de duración por tipo. */
 export function haversineTravelModel(): TravelModel {
   return {
     distanceKm: (a, b) => roadDistanceKm(a, b),
     travelMin: (a, b, type) =>
-      (roadDistanceKm(a, b) / URBAN_SPEED_KMH[type]) * 60,
+      (roadDistanceKm(a, b) / BASE_URBAN_KMH) * 60 * durationFactor(type),
   };
 }
 
@@ -81,7 +89,7 @@ export function matrixTravelModel(
       const i = index.get(keyOf(a));
       const j = index.get(keyOf(b));
       if (i === undefined || j === undefined) return fallback.travelMin(a, b, type);
-      return durationsMinCar[i]![j]! * VEHICLE_DURATION_FACTOR[type];
+      return durationsMinCar[i]![j]! * durationFactor(type);
     },
   };
 }

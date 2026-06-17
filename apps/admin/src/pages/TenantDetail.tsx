@@ -1,5 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import {
+  VEHICLE_TYPES,
+  VEHICLE_TYPE_PROFILES,
+  formatShortBogota,
+  moduleName,
+  type VehicleType,
+} from "@moveos/shared";
 import { api } from "../api";
 import { TrendChart } from "../components/charts";
 import { Button, Card, PlanBadge, StatusBadge, Toggle, inputClass } from "../components/ui";
@@ -14,7 +21,13 @@ interface TenantDetailData {
   operatorType: string;
   businessModel: string;
   counts: { users: number; drivers: number; vehicles: number; orders: number; routes: number; clients: number };
-  modules: { key: string; nombre: string; enabled: boolean; core?: boolean }[];
+  modules: {
+    key: string;
+    nombre: string;
+    enabled: boolean;
+    core?: boolean;
+    requires?: string[];
+  }[];
 }
 
 interface TenantUser {
@@ -56,6 +69,24 @@ const ACTION_LABEL: Record<string, string> = {
   USER_DELETE: "Usuario eliminado",
 };
 
+/** Salud del tenant de un vistazo: estado + actividad reciente (últimos 7 días
+ *  de la serie). Suspendido > sin pedidos > saludable > sin actividad reciente. */
+function tenantHealth(
+  t: TenantDetailData,
+  serie: DayPoint[] | null,
+): { label: string; cls: string } {
+  if (t.status !== "ACTIVE")
+    return { label: "⏸ Suspendido", cls: "bg-red-500/20 text-red-200" };
+  if (t.counts.orders === 0)
+    return { label: "● Sin pedidos aún", cls: "bg-white/10 text-cielo" };
+  const recent = (serie ?? [])
+    .slice(-7)
+    .reduce((s, d) => s + d.ordersCreated + d.ordersDelivered, 0);
+  return recent > 0
+    ? { label: "● Saludable", cls: "bg-emerald-500/20 text-emerald-200" }
+    : { label: "● Sin actividad reciente", cls: "bg-amber-500/20 text-amber-200" };
+}
+
 export default function TenantDetail() {
   const { id } = useParams<{ id: string }>();
   const [t, setT] = useState<TenantDetailData | null>(null);
@@ -94,12 +125,28 @@ export default function TenantDetail() {
   }
 
   async function setPlan(plan: string) {
+    // El plan es una decisión comercial: confirmar antes de cambiarlo. El
+    // <select> es controlado por t.plan, así que al cancelar vuelve solo.
+    if (!t || plan === t.plan) return;
+    if (
+      !confirm(
+        `¿Cambiar el plan de "${t.name}" de ${t.plan} a ${plan}? Es una etiqueta comercial; los módulos se controlan aparte.`,
+      )
+    ) {
+      return;
+    }
     await api("PATCH", `/tenants/${id}`, { plan });
     await load();
   }
 
   async function toggleModule(key: string, enabled: boolean) {
-    await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
+    try {
+      await api("PATCH", `/tenants/${id}/modules/${key}`, { enabled });
+    } catch (err) {
+      // Bloqueo por dependencia (u otro error): avisar al operador. El reload
+      // de abajo re-sincroniza el toggle con el estado real.
+      alert(err instanceof Error ? err.message : "No se pudo cambiar el módulo");
+    }
     await load();
   }
 
@@ -202,6 +249,21 @@ export default function TenantDetail() {
   }
 
   const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
+  // Asignación FaaS dirigida por el catálogo de 6 configuraciones EV: la
+  // configuración define payload, batería y autonomía; toda la flota MOVE es
+  // eléctrica (restricción dura 1), así que no hay opción de no-eléctrico.
+  const [vType, setVType] = useState<VehicleType>(VEHICLE_TYPES[0]);
+  const [vBatteryKwh, setVBatteryKwh] = useState<number>(
+    () => VEHICLE_TYPE_PROFILES[VEHICLE_TYPES[0]].batteryOptions[0]!.batteryKwh,
+  );
+  const vProfile = VEHICLE_TYPE_PROFILES[vType];
+  const vBattery =
+    vProfile.batteryOptions.find((o) => o.batteryKwh === vBatteryKwh) ??
+    vProfile.batteryOptions[0]!;
+  function onVTypeChange(next: VehicleType) {
+    setVType(next);
+    setVBatteryKwh(VEHICLE_TYPE_PROFILES[next].batteryOptions[0]!.batteryKwh);
+  }
 
   /** Asignar un vehículo de MOVE al tenant (fleet-as-a-service). */
   async function assignVehicle(e: FormEvent<HTMLFormElement>) {
@@ -211,15 +273,16 @@ export default function TenantDetail() {
     try {
       const v = await api<{ plate: string }>("POST", `/tenants/${id}/vehicles`, {
         plate: data.get("plate"),
-        type: data.get("type"),
-        capacityKg: Number(data.get("capacityKg")),
-        isElectric: data.get("isElectric") === "on",
-        batteryKwh: Number(data.get("batteryKwh")) || undefined,
-        nominalRangeKm: Number(data.get("nominalRangeKm")) || undefined,
+        type: vType,
+        capacityKg: vProfile.payloadKg,
+        isElectric: true, // EV-only (restricción dura 1): nunca ICE
+        batteryKwh: vBattery.batteryKwh,
+        nominalRangeKm: vBattery.rangeKm,
         ownerTenantId: data.get("ownerTenantId") || undefined,
       });
       setVehicleNotice(`Vehículo ${v.plate} asignado.`);
       (e.target as HTMLFormElement).reset?.();
+      onVTypeChange(VEHICLE_TYPES[0]);
       await load();
     } catch (err) {
       setVehicleNotice(err instanceof Error ? err.message : "Error");
@@ -240,6 +303,16 @@ export default function TenantDetail() {
             {t.city} {t.nit && `· NIT ${t.nit}`} ·{" "}
             {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
           </p>
+          {(() => {
+            const h = tenantHealth(t, serie);
+            return (
+              <span
+                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${h.cls}`}
+              >
+                {h.label}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-3">
           <StatusBadge status={t.status} />
@@ -432,7 +505,14 @@ export default function TenantDetail() {
               key={m.key}
               className="flex items-center justify-between rounded-lg border border-white/10 px-3 py-2"
             >
-              <span className="text-sm">{m.nombre}</span>
+              <div className="min-w-0">
+                <span className="text-sm">{m.nombre}</span>
+                {m.requires && m.requires.length > 0 && (
+                  <span className="block text-xs text-cielo">
+                    Requiere: {m.requires.map(moduleName).join(", ")}
+                  </span>
+                )}
+              </div>
               {m.core ? (
                 <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
                   Núcleo
@@ -457,34 +537,49 @@ export default function TenantDetail() {
             <input name="plate" className={inputClass} required placeholder="ABC12D" />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Tipo</span>
-            <select name="type" className={inputClass} defaultValue="MOTO">
-              <option value="MOTO">Moto</option>
-              <option value="BICICLETA">Bicicleta</option>
-              <option value="CARRO">Carro</option>
-              <option value="VAN">Van</option>
-              <option value="CAMION">Camión</option>
+            <span className="mb-1 block text-cielo">Configuración</span>
+            <select
+              className={inputClass}
+              value={vType}
+              onChange={(e) => onVTypeChange(e.target.value as VehicleType)}
+            >
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {VEHICLE_TYPE_PROFILES[t].labelEs}
+                </option>
+              ))}
             </select>
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Capacidad (kg)</span>
-            <input name="capacityKg" type="number" className={inputClass} required />
-          </label>
+          {vProfile.batteryOptions.length > 1 ? (
+            <label className="block text-sm">
+              <span className="mb-1 block text-cielo">Batería</span>
+              <select
+                className={inputClass}
+                value={vBatteryKwh}
+                onChange={(e) => setVBatteryKwh(Number(e.target.value))}
+              >
+                {vProfile.batteryOptions.map((o) => (
+                  <option key={o.batteryKwh} value={o.batteryKwh}>
+                    {o.batteryKwh} kWh · {o.rangeKm} km
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="block text-sm">
+              <span className="mb-1 block text-cielo">Batería</span>
+              <p className="py-2 text-white">{vBattery.batteryKwh} kWh</p>
+            </div>
+          )}
           <label className="block text-sm">
             <span className="mb-1 block text-cielo">Dueño (tenant id, opc.)</span>
             <input name="ownerTenantId" className={inputClass} placeholder="id del tenant MOVE" />
           </label>
-          <label className="flex items-center gap-2 text-sm text-cielo">
-            <input type="checkbox" name="isElectric" /> Eléctrico
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Batería (kWh)</span>
-            <input name="batteryKwh" type="number" step="0.1" className={inputClass} />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Autonomía (km)</span>
-            <input name="nominalRangeKm" type="number" className={inputClass} />
-          </label>
+          {/* Specs derivadas del catálogo (no editables): el perfil es la verdad. */}
+          <p className="col-span-2 self-end text-xs text-cielo sm:col-span-3">
+            ⚡ Eléctrico · {vProfile.payloadKg} kg de carga · {vBattery.batteryKwh} kWh ·
+            autonomía {vBattery.rangeKm} km
+          </p>
           <div className="flex items-end">
             <Button type="submit">Asignar</Button>
           </div>
@@ -499,12 +594,7 @@ export default function TenantDetail() {
             {audit.map((a) => (
               <li key={a.id} className="flex items-baseline gap-2">
                 <span className="font-mono text-white/30">
-                  {new Date(a.createdAt).toLocaleString("es-CO", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatShortBogota(a.createdAt)}
                 </span>
                 <span className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</span>
                 <span className="text-cielo">{a.adminEmail}</span>

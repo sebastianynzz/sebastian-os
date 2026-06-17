@@ -305,4 +305,106 @@ describe("series de tiempo de plataforma", () => {
     expect(platform.status).toBe(200);
     expect(Array.isArray(platform.body.days)).toBe(true);
   });
+
+  it("acepta un rango explícito from/to y devuelve esa cantidad de días con successRate", async () => {
+    const today = new Date(Date.now() - 5 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const fromD = new Date(`${today}T12:00:00Z`);
+    fromD.setUTCDate(fromD.getUTCDate() - 6); // 7 días inclusive
+    const from = fromD.toISOString().slice(0, 10);
+
+    const res = await api(
+      "GET",
+      `/platform/metrics/timeseries?from=${from}&to=${today}&tenantId=${tenantId}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.from).toBe(from);
+    expect(res.body.to).toBe(today);
+    expect(res.body.days.length).toBe(7);
+    // El drill del frontend depende de successRate por día (null o número).
+    expect(res.body.days[0]).toHaveProperty("successRate");
+  });
+
+  it("rango inválido (from > to) → 400", async () => {
+    const res = await api(
+      "GET",
+      "/platform/metrics/timeseries?from=2026-02-10&to=2026-02-01",
+      platformToken,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("drill a un tenant inexistente → 404", async () => {
+    const res = await api(
+      "GET",
+      "/platform/metrics/timeseries?tenantId=no-existe-xyz",
+      platformToken,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("exporta la serie como CSV con encabezado y tipo text/csv", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/platform/metrics/timeseries/export?tenantId=${tenantId}`,
+      headers: { authorization: `Bearer ${platformToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.body).toContain("fecha,creados,entregados");
+  });
+});
+
+describe("filtros y exportación de auditoría", () => {
+  it("filtra por acción y solo devuelve esa acción", async () => {
+    const res = await api(
+      "GET",
+      "/platform/audit?action=TENANT_UPDATE",
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries.length).toBeGreaterThan(0);
+    expect(
+      res.body.entries.every((e: { action: string }) => e.action === "TENANT_UPDATE"),
+    ).toBe(true);
+  });
+
+  it("busca por operador (q) sobre el email del admin", async () => {
+    const res = await api(
+      "GET",
+      `/platform/audit?q=${encodeURIComponent(opsEmail)}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries.length).toBeGreaterThan(0);
+    expect(
+      res.body.entries.every((e: { adminEmail: string }) => e.adminEmail === opsEmail),
+    ).toBe(true);
+  });
+
+  it("rango de fechas futuro → sin resultados", async () => {
+    const tomorrow = new Date(Date.now() + 24 * 3600 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const res = await api(
+      "GET",
+      `/platform/audit?from=${tomorrow}`,
+      platformToken,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.entries).toHaveLength(0);
+  });
+
+  it("exporta CSV con encabezado y tipo text/csv", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/platform/audit/export?action=TENANT_UPDATE",
+      headers: { authorization: `Bearer ${platformToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.body).toContain("fecha,accion,operador,tenant,usuario,detalle");
+  });
 });

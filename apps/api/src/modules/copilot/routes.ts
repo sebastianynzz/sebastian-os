@@ -1,12 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
+import type { ActionContext, ActionRole } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { requireModule } from "../../plugins/entitlements.js";
 import { computeExceptions } from "../../services/exceptions.js";
 import { LOW_CONFIDENCE_THRESHOLD } from "../../services/geocoding.js";
 import { addDays, todayBogota } from "../../services/dailyMetrics.js";
+import { AiActionError, applyProposal, runAction } from "../ai/executor.js";
 
 /**
  * Copiloto MoveOS — la cara visible del nivel de IA (módulo AI_ADDONS).
@@ -63,11 +65,23 @@ function getClient(): Anthropic | null {
   return anthropic;
 }
 
-/** Acción propuesta que la UI sabe confirmar y ejecutar. */
+/**
+ * Acción propuesta que la UI sabe confirmar y ejecutar.
+ *
+ * Unificación con la capa de IA: las propuestas de OPTIMIZACIÓN (planear rutas,
+ * inserción exprés) se generan vía el registro (`runAction`), persisten un
+ * `AiProposal` y se confirman por la MISMA ruta de aplicación que los botones
+ * (`/copilot/actions/confirm` → `applyProposal`). Llevan `proposalId`. Las
+ * acciones puramente operativas (despacho, recuperación B2B) conservan su
+ * confirmación contra el endpoint existente (no son acciones de optimización).
+ */
 export interface CopilotAction {
   kind: "PLAN_ROUTES" | "INSERT_ORDER" | "DISPATCH_ROUTE" | "FLAG_RECOVERY";
   summary: string;
   params: Record<string, unknown>;
+  /** Si está presente, se confirma por la ruta de aplicación compartida. */
+  proposalId?: string;
+  feasible?: boolean;
 }
 
 const TOOLS: Anthropic.Tool[] = [
@@ -366,45 +380,39 @@ async function runReadTool(
  * convierte en una CopilotAction que la UI puede confirmar.
  */
 async function buildProposal(
-  tenantId: string,
+  ctx: ActionContext,
   name: string,
   input: Record<string, unknown>,
 ): Promise<{ action?: CopilotAction; result: unknown }> {
+  const tenantId = ctx.tenantId;
   switch (name) {
     case "proponer_plan": {
       const date = String(input.date ?? todayBogota());
       const orderIds = Array.isArray(input.orderIds) ? input.orderIds.map(String) : [];
       const vehicleIds = Array.isArray(input.vehicleIds) ? input.vehicleIds.map(String) : [];
-      const [orders, vehicles, tenant] = await Promise.all([
-        prisma.order.findMany({
-          where: { id: { in: orderIds }, tenantId, status: { in: ["PENDING", "GEOCODED"] } },
-          select: { id: true },
-        }),
-        prisma.vehicle.findMany({
-          where: { id: { in: vehicleIds }, tenantId },
-          select: { id: true, plate: true },
-        }),
-        prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { city: true } }),
-      ]);
-      if (orders.length === 0 || vehicles.length === 0) {
-        return {
-          result: {
-            error:
-              "No hay pedidos planificables o vehículos válidos entre los ids dados. Consulta listar_pedidos (status GEOCODED) y listar_vehiculos.",
-          },
-        };
-      }
+      // Mismo registro y misma ruta de aplicación que los botones: genera un
+      // AiProposal real (el solver hace la matemática; persiste para auditar).
+      const proposal = await runAction("optimize_routes", {
+        ...ctx,
+        orderIds,
+        vehicleIds,
+        date,
+      });
       const action: CopilotAction = {
         kind: "PLAN_ROUTES",
-        summary: `Planificar ${orders.length} pedido(s) en ${vehicles.length} vehículo(s) para el ${date} (${tenant.city})`,
-        params: { date, orderIds: orders.map((o) => o.id), vehicleIds: vehicles.map((v) => v.id) },
+        summary: proposal.summaryEs,
+        params: { date, orderIds, vehicleIds },
+        proposalId: proposal.proposalId,
+        feasible: proposal.feasible,
       };
       return {
         action,
         result: {
           propuesta_registrada: true,
-          pedidosValidos: orders.length,
-          vehiculosValidos: vehicles.length,
+          proposalId: proposal.proposalId,
+          feasible: proposal.feasible,
+          resumen: proposal.summaryEs,
+          impacto: proposal.impact,
           nota: "Preséntala al usuario: debe confirmarla con el botón antes de ejecutarse.",
         },
       };
@@ -413,24 +421,28 @@ async function buildProposal(
     case "proponer_insercion": {
       const routeId = String(input.routeId ?? "");
       const orderId = String(input.orderId ?? "");
-      const [route, order] = await Promise.all([
-        prisma.route.findFirst({
-          where: { id: routeId, tenantId, status: { in: ["PLANNED", "DISPATCHED", "IN_PROGRESS"] } },
-          include: { vehicle: { select: { plate: true } } },
-        }),
-        prisma.order.findFirst({
-          where: { id: orderId, tenantId, status: { in: ["PENDING", "GEOCODED"] } },
-          select: { id: true, trackingNumber: true, customerName: true },
-        }),
-      ]);
-      if (!route) return { result: { error: "Ruta no válida para inserción" } };
-      if (!order) return { result: { error: "Pedido no válido (debe estar PENDING/GEOCODED y sin asignar)" } };
+      const proposal = await runAction("reoptimize_route", {
+        ...ctx,
+        routeId,
+        params: { orderId },
+      });
+      if (!proposal.feasible) {
+        return {
+          result: {
+            error:
+              "No fue posible insertar el pedido (ruta/pedido inválidos o no cabe). " +
+              (proposal.impact.notesEs?.join(" ") ?? ""),
+          },
+        };
+      }
       const action: CopilotAction = {
         kind: "INSERT_ORDER",
-        summary: `Insertar ${order.trackingNumber ?? order.id} (${order.customerName}) en la ruta de ${route.vehicle.plate}`,
-        params: { routeId: route.id, orderId: order.id },
+        summary: proposal.summaryEs,
+        params: { routeId, orderId },
+        proposalId: proposal.proposalId,
+        feasible: proposal.feasible,
       };
-      return { action, result: { propuesta_registrada: true } };
+      return { action, result: { propuesta_registrada: true, proposalId: proposal.proposalId } };
     }
 
     case "proponer_despacho": {
@@ -541,7 +553,12 @@ export default async function copilotRoutes(app: FastifyInstance) {
             let payload: unknown;
             try {
               if (tool.name.startsWith("proponer_")) {
-                const { action, result } = await buildProposal(tenantId, tool.name, input);
+                const actionCtx: ActionContext = {
+                  tenantId,
+                  userId: request.user.sub,
+                  role: request.user.role as ActionRole,
+                };
+                const { action, result } = await buildProposal(actionCtx, tool.name, input);
                 if (action) actions.push(action);
                 payload = result;
               } else {
@@ -589,6 +606,36 @@ export default async function copilotRoutes(app: FastifyInstance) {
             error: "El Copiloto no pudo responder (error del proveedor de IA)",
             code: "COPILOT_UPSTREAM_ERROR",
           });
+        }
+        throw err;
+      }
+    },
+  );
+
+  /**
+   * Confirmación de una propuesta de optimización generada por el chat. Llama
+   * EXACTAMENTE el mismo ejecutor que `/ai/actions/:id/apply` — una sola ruta
+   * de aplicación, una sola bitácora de auditoría. Solo aplica propuestas de
+   * optimización (las acciones operativas despacho/recuperación se confirman
+   * contra su endpoint existente desde la UI).
+   */
+  app.post(
+    "/actions/confirm",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { proposalId } = z
+        .object({ proposalId: z.string().min(1) })
+        .parse(request.body);
+      try {
+        const result = await applyProposal(proposalId, {
+          tenantId: request.user.tenantId,
+          userId: request.user.sub,
+          role: request.user.role as ActionRole,
+        });
+        return reply.send(result);
+      } catch (err) {
+        if (err instanceof AiActionError) {
+          return reply.code(err.statusCode).send({ error: err.message, code: err.code });
         }
         throw err;
       }

@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
 import { useRealtimeReload } from "../realtime";
@@ -70,6 +73,35 @@ function FitToVehicles({ entries }: { entries: LiveEntry[] }) {
   return null;
 }
 
+/**
+ * Seguir un vehículo: cuando está activo, recentra el mapa sobre el vehículo
+ * seleccionado en cada actualización de posición. Si el despachador arrastra el
+ * mapa, deja de seguir para no pelear su gesto (panTo programático no dispara
+ * `dragstart`, así que solo reacciona al arrastre real del usuario).
+ */
+function FollowVehicle({
+  target,
+  follow,
+  onUserPan,
+}: {
+  target: { lat: number; lng: number } | null;
+  follow: boolean;
+  onUserPan: () => void;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (follow && target) map.panTo([target.lat, target.lng], { animate: true });
+  }, [follow, target?.lat, target?.lng, map]);
+  useEffect(() => {
+    if (!follow) return;
+    map.on("dragstart", onUserPan);
+    return () => {
+      map.off("dragstart", onUserPan);
+    };
+  }, [follow, map, onUserPan]);
+  return null;
+}
+
 export default function MapaEnVivo() {
   const [entries, setEntries] = useState<LiveEntry[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -77,6 +109,8 @@ export default function MapaEnVivo() {
   const [moduleOff, setModuleOff] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [follow, setFollow] = useState(false);
+  const stopFollow = useCallback(() => setFollow(false), []);
 
   async function load() {
     try {
@@ -96,6 +130,9 @@ export default function MapaEnVivo() {
     () => entries.find((e) => e.vehicle.id === selected) ?? null,
     [entries, selected],
   );
+  const followTarget = selectedEntry?.ping
+    ? { lat: selectedEntry.ping.lat, lng: selectedEntry.ping.lng }
+    : null;
 
   async function loadCommands(vehicleId: string) {
     setCommands(
@@ -162,27 +199,33 @@ export default function MapaEnVivo() {
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <FitToVehicles entries={entries} />
+              <FollowVehicle target={followTarget} follow={follow} onUserPan={stopFollow} />
               <Marker position={[DEPOT.lat, DEPOT.lng]} icon={stationIcon}>
                 <Popup>Depósito</Popup>
               </Marker>
-              {entries
-                .filter((e) => e.ping)
-                .map((e) => (
-                  <Marker
-                    key={e.vehicle.id}
-                    position={[e.ping!.lat, e.ping!.lng]}
-                    icon={dotIcon(e.vehicle.engineOn ? "#16a34a" : "#dc2626")}
-                    eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
-                  >
-                    <Popup>
-                      <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
-                      <br />
-                      {e.vehicle.engineOn ? "Motor encendido" : "Motor apagado"}
-                      <br />
-                      {(e.ping!.speedKmh ?? 0).toFixed(0)} km/h
-                    </Popup>
-                  </Marker>
-                ))}
+              {/* Agrupar vehículos cercanos en burbujas con conteo; se separan
+                  al hacer zoom o clic. chunkedLoading evita trabar el hilo con
+                  flotas grandes. El depósito queda fuera (marcador único). */}
+              <MarkerClusterGroup chunkedLoading>
+                {entries
+                  .filter((e) => e.ping)
+                  .map((e) => (
+                    <Marker
+                      key={e.vehicle.id}
+                      position={[e.ping!.lat, e.ping!.lng]}
+                      icon={dotIcon(e.vehicle.engineOn ? "#16a34a" : "#dc2626")}
+                      eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
+                    >
+                      <Popup>
+                        <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
+                        <br />
+                        {e.vehicle.engineOn ? "Encendido" : "Apagado"}
+                        <br />
+                        {(e.ping!.speedKmh ?? 0).toFixed(0)} km/h
+                      </Popup>
+                    </Marker>
+                  ))}
+              </MarkerClusterGroup>
             </MapContainer>
           </Card>
         </div>
@@ -218,18 +261,25 @@ export default function MapaEnVivo() {
 
           {selectedEntry && (
             <Card title={`${selectedEntry.vehicle.plate} · telemetría`}>
+              {/* Seguir en el mapa: recentra sobre este vehículo en vivo. Se
+                  desactiva solo si el despachador arrastra el mapa. */}
+              <button
+                onClick={() => setFollow((f) => !f)}
+                aria-pressed={follow}
+                disabled={!followTarget}
+                className={`mb-3 w-full rounded-lg py-2 text-sm font-semibold disabled:opacity-50 ${
+                  follow ? "bg-navy text-white" : "bg-niebla text-navy"
+                }`}
+              >
+                {follow ? "📍 Siguiendo — toca para soltar" : "📍 Seguir en el mapa"}
+              </button>
+              {/* Telemetría EV-only (Constraint 1): SoC y energía, nunca RPM /
+                  combustible / temp. de refrigerante — la flota MoveOS es 100 %
+                  eléctrica, así que esos campos CAN ICE no se muestran. */}
               <dl className="space-y-1 text-sm">
                 <Row label="Velocidad" value={`${(selectedEntry.ping?.speedKmh ?? 0).toFixed(0)} km/h`} />
-                <Row label="Motor" value={selectedEntry.vehicle.engineOn ? "Encendido" : "Apagado"} />
-                {selectedEntry.vehicle.isElectric ? (
-                  <Row label="Carga (SoC)" value={`${selectedEntry.vehicle.socPercent?.toFixed(0) ?? "—"}%`} />
-                ) : (
-                  <>
-                    <Row label="RPM" value={`${selectedEntry.ping?.rpm?.toFixed(0) ?? "—"}`} />
-                    <Row label="Combustible" value={`${selectedEntry.ping?.fuelLevelPct?.toFixed(0) ?? "—"}%`} />
-                  </>
-                )}
-                <Row label="Temp. motor" value={`${selectedEntry.ping?.coolantTempC?.toFixed(0) ?? "—"} °C`} />
+                <Row label="Sistema" value={selectedEntry.vehicle.engineOn ? "Encendido" : "Apagado"} />
+                <Row label="Carga (SoC)" value={`${selectedEntry.vehicle.socPercent?.toFixed(0) ?? "—"}%`} />
                 <Row label="Odómetro" value={`${selectedEntry.ping?.odometerKm?.toFixed(0) ?? "—"} km`} />
               </dl>
 

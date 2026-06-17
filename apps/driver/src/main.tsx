@@ -1,6 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { UpdateToast } from "./components/UpdateToast";
+import { OfflineQueue } from "./components/OfflineQueue";
 import { registerServiceWorker } from "./sw";
 import "./styles.css";
 
@@ -10,6 +13,10 @@ registerServiceWorker();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary area="root">
+      <App />
+      <OfflineQueue />
+      <UpdateToast />
+    </ErrorBoundary>
   </StrictMode>,
 );

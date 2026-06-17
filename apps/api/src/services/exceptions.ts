@@ -198,10 +198,20 @@ export async function computeExceptions(tenantId: string): Promise<ExceptionItem
     });
   }
 
-  items.sort(
+  // Excluir las excepciones pospuestas por el despachador (aplazo vigente). La
+  // excepción no se persiste; solo el aplazo, reevaluado contra el cálculo en
+  // vivo: si la condición sigue al expirar `until`, la excepción reaparece.
+  const snoozes = await prisma.snoozedException.findMany({
+    where: { tenantId, until: { gt: new Date() } },
+    select: { key: true },
+  });
+  const snoozed = new Set(snoozes.map((s) => s.key));
+  const visible = snoozed.size ? items.filter((i) => !snoozed.has(i.id)) : items;
+
+  visible.sort(
     (a, b) =>
       SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
       b.createdAt.localeCompare(a.createdAt),
   );
-  return items;
+  return visible;
 }

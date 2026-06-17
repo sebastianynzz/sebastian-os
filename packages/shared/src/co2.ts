@@ -1,4 +1,5 @@
-import type { VehicleType } from "./enums.js";
+import { VEHICLE_TYPES, type VehicleType } from "./enums.js";
+import { VEHICLE_TYPE_PROFILES } from "./vehicleTypeProfiles.js";
 
 /**
  * Factores de emisión de CO₂e de la flota urbana, base del informe verde
@@ -20,13 +21,41 @@ export interface VehicleEmissionProfile {
   evKwhPerKm: number;
 }
 
-export const VEHICLE_EMISSIONS: Record<VehicleType, VehicleEmissionProfile> = {
-  MOTO: { iceKgPerKm: 0.075, evKwhPerKm: 0.04 },
-  BICICLETA: { iceKgPerKm: 0, evKwhPerKm: 0.012 },
-  CARRO: { iceKgPerKm: 0.192, evKwhPerKm: 0.16 },
-  VAN: { iceKgPerKm: 0.245, evKwhPerKm: 0.28 },
-  CAMION: { iceKgPerKm: 0.515, evKwhPerKm: 0.9 },
+/**
+ * Línea base de combustión (kg CO₂e/km) que cada configuración EV DESPLAZA.
+ * Existe SOLO como contrafactual de "emisiones evitadas" (CLAUDE.md 1.6): es
+ * el vehículo a gasolina/diésel que el mercado usaría para el mismo trabajo,
+ * nunca un vehículo real de MoveOS. Las Rap Move desplazan motos/moto-carga a
+ * gasolina; las IONAx, vans/pickups utilitarias a combustión (la Cold Box
+ * carga un extra por la refrigeración a combustible).
+ */
+const ICE_BASELINE_KG_PER_KM: Record<VehicleType, number> = {
+  RAP_MOVE_LIGHT: 0.075,
+  RAP_MOVE_XL: 0.115,
+  RAP_MOVE_COLD_BOX: 0.13,
+  IONAX: 0.245,
+  IONAX_COLD_BOX: 0.27,
+  IONAX_PICKUP: 0.245,
 };
+
+/**
+ * Consumo eléctrico (kWh/km) derivado del perfil del vehículo
+ * (batería del pack base / autonomía nominal) — una sola fuente de verdad,
+ * sin segunda copia hardcodeada.
+ */
+export const VEHICLE_EMISSIONS: Record<VehicleType, VehicleEmissionProfile> =
+  Object.fromEntries(
+    VEHICLE_TYPES.map((t) => {
+      const p = VEHICLE_TYPE_PROFILES[t];
+      return [
+        t,
+        {
+          iceKgPerKm: ICE_BASELINE_KG_PER_KM[t],
+          evKwhPerKm: p.batteryOptions[0]!.batteryKwh / p.nominalRangeKm,
+        },
+      ];
+    }),
+  ) as Record<VehicleType, VehicleEmissionProfile>;
 
 /** kg CO₂e emitidos por `km` recorridos con el tipo/propulsión dados. */
 export function co2KgForKm(
@@ -43,13 +72,11 @@ export function co2KgForKm(
 
 /**
  * Línea base contra la que se mide el ahorro: el mismo recorrido hecho con el
- * equivalente de combustión que el mercado usaría (una bicicleta o moto
- * eléctrica desplaza una moto a gasolina; un EV desplaza su versión a
- * combustión del mismo tipo).
+ * equivalente de combustión que el mercado usaría para esa configuración
+ * (contrafactual de "emisiones evitadas").
  */
 export function co2BaselineKgForKm(type: VehicleType, km: number): number {
-  const baselineType: VehicleType = type === "BICICLETA" ? "MOTO" : type;
-  return VEHICLE_EMISSIONS[baselineType].iceKgPerKm * km;
+  return VEHICLE_EMISSIONS[type].iceKgPerKm * km;
 }
 
 /** Absorción anual aproximada de un árbol urbano (kg CO₂/año). */
