@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  POD_REQUIREMENTS,
   POD_TYPES,
   TELEMETRY_SOURCES,
   TEMP_PROFILES,
@@ -49,6 +50,10 @@ export const clientFields = z.object({
   pickupNotes: z.string().optional(),
   pickupLat: z.number().min(-90).max(90).optional(),
   pickupLng: z.number().min(-180).max(180).optional(),
+  // Política POD configurable: pruebas que ESTE comercio exige para aceptar
+  // una entrega (el servidor la hace cumplir en /complete). Vacío = sin
+  // exigencia extra (se conserva el comportamiento actual).
+  podRequired: z.array(z.enum(POD_REQUIREMENTS)).default([]),
 });
 
 const requireWebhookUrl = (c: { notifyChannel?: string; webhookUrl?: string }) =>

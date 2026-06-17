@@ -42,6 +42,8 @@ interface Stop {
     pickupNotes: string | null;
     pickupLat: number | null;
     pickupLng: number | null;
+    // Política POD del comercio cliente (pruebas exigidas para la entrega).
+    client: { podRequired: string[] } | null;
   };
   pod: unknown | null;
 }
@@ -1021,6 +1023,11 @@ function StopActionSheet({
     ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
     : stop.order.addressRaw;
 
+  // Política POD del comercio: en entregas, las pruebas que este cliente exige.
+  const podRequired = isPickup ? [] : stop.order.client?.podRequired ?? [];
+  const requiresPhoto = podRequired.includes("PHOTO");
+  const requiresReceiver = podRequired.includes("RECEIVER_NAME");
+
   // Corrección de pin (el tap más valioso del producto): si el GPS real está
   // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
   // verdadera — cada confirmación enseña al grafo de direcciones.
@@ -1052,6 +1059,16 @@ function StopActionSheet({
 
   async function deliver() {
     setError(null);
+    // Política POD del comercio: exigir nombre antes de gastar la subida; el
+    // servidor re-valida (esto es solo UX — no se puede saltar por offline).
+    if (requiresReceiver && !receivedBy.trim()) {
+      setError("Este cliente exige el nombre de quien recibe.");
+      return;
+    }
+    if (requiresPhoto && !photo) {
+      setError("Este cliente exige una foto de evidencia. Tómala antes de confirmar.");
+      return;
+    }
     setBusy(true);
     try {
       // Subir la foto primero; si no hay señal se entrega sin foto.
@@ -1061,6 +1078,15 @@ function StopActionSheet({
         const url = await uploadPodPhoto(photo.blob);
         if (url) photoUrl = url;
         else photoSkipped = true;
+      }
+      // Foto exigida pero no se pudo subir (sin señal): no se confirma sin la
+      // prueba que el cliente exige — se reintenta con señal (offline no la salta).
+      if (requiresPhoto && !photoUrl) {
+        setError(
+          "Sin conexión no se puede confirmar: este cliente exige foto y aún no se ha subido. Reintenta con señal.",
+        );
+        setBusy(false);
+        return;
       }
 
       // Posición más fresca al confirmar: lee el ref directo, no el sondeo de
@@ -1192,6 +1218,19 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
+            {podRequired.length > 0 && (
+              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Este cliente exige:{" "}
+                {[
+                  requiresPhoto ? "foto de evidencia" : null,
+                  requiresReceiver ? "nombre de quien recibe" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            )}
+
             {/* Escaneo del paquete: evita entregar el bulto equivocado. */}
             {scan === null ? (
               <button
@@ -1225,7 +1264,7 @@ function StopActionSheet({
             {!isPickup && (
               <input
                 className="w-full rounded-lg border border-cielo px-3 py-3 focus:border-navy focus:outline-none"
-                placeholder="¿Quién recibe?"
+                placeholder={requiresReceiver ? "¿Quién recibe? (obligatorio)" : "¿Quién recibe?"}
                 aria-label="Nombre de quien recibe"
                 value={receivedBy}
                 onChange={(e) => setReceivedBy(e.target.value)}

@@ -215,6 +215,9 @@ model Client {
   // Canal por el que el negocio recibe las confirmaciones de entrega.
   notifyChannel String   @default("IN_APP") // IN_APP | EMAIL | WHATSAPP | WEBHOOK
   webhookUrl    String?
+  // Política POD configurable por cliente: pruebas que este comercio exige
+  // para aceptar una entrega (PHOTO | RECEIVER_NAME). Vacío = sin exigencia.
+  podRequired   String[] @default([])
   // Dirección de recogida registrada: origen por defecto de los pedidos que
   // el negocio crea desde su portal (recogida en su bodega/tienda).
   pickupAddressRaw String?

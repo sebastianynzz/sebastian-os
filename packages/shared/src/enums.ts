@@ -96,6 +96,15 @@ export type SafetyAlertType = (typeof SAFETY_ALERT_TYPES)[number];
 export const POD_TYPES = ["PHOTO", "SIGNATURE", "OTP", "GEOFENCE"] as const;
 export type PodType = (typeof POD_TYPES)[number];
 
+/**
+ * Pruebas de entrega que el comercio cliente puede EXIGIR por configuración
+ * (política POD configurable por cliente). Es el vocabulario de la política,
+ * distinto de POD_TYPES (el registro de evidencia). Se limita a lo que la app
+ * del conductor realmente captura hoy: foto y nombre de quien recibe.
+ */
+export const POD_REQUIREMENTS = ["PHOTO", "RECEIVER_NAME"] as const;
+export type PodRequirement = (typeof POD_REQUIREMENTS)[number];
+
 export const TELEMETRY_SOURCES = ["PHONE", "DEVICE", "SIMULATOR"] as const;
 export type TelemetrySource = (typeof TELEMETRY_SOURCES)[number];
 

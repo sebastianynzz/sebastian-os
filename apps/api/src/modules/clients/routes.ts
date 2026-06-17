@@ -72,6 +72,7 @@ export default async function clientsRoutes(app: FastifyInstance) {
           pickupLat: input.pickupLat,
           pickupLng: input.pickupLng,
           pickupNotes: input.pickupNotes,
+          podRequired: input.podRequired,
         },
       });
       return reply.code(201).send(client);
@@ -102,6 +103,7 @@ export default async function clientsRoutes(app: FastifyInstance) {
           pickupLat: input.pickupLat,
           pickupLng: input.pickupLng,
           pickupNotes: input.pickupNotes,
+          podRequired: input.podRequired,
         },
       });
     },

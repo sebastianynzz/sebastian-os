@@ -93,6 +93,8 @@ export default function Clientes() {
         webhookUrl: data.get("webhookUrl") || undefined,
         pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
         pickupNotes: data.get("pickupNotes") || undefined,
+        // Política POD configurable: pruebas que este comercio exige por entrega.
+        podRequired: data.getAll("podRequired"),
       });
       setShowForm(false);
       await load();
@@ -181,6 +183,18 @@ export default function Clientes() {
             </Field>
             <Field label="Indicaciones de recogida">
               <input name="pickupNotes" className={inputClass} placeholder="Local 2, bodega…" />
+            </Field>
+            <Field label="Prueba de entrega exigida (política POD)">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="PHOTO" />
+                  Foto de evidencia
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="podRequired" value="RECEIVER_NAME" />
+                  Nombre de quien recibe
+                </label>
+              </div>
             </Field>
             {error && (
               <div className="sm:col-span-2">
