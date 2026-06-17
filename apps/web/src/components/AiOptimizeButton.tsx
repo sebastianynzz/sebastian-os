@@ -92,7 +92,7 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
       )}
       {i.unassigned && i.unassigned.length > 0 && (
         <div>
-          <p className="font-medium text-amber-700">
+          <p className="font-medium text-warning">
             Sin asignar ({i.unassigned.length})
           </p>
           <ul className="list-disc pl-5 text-navy/70">
@@ -105,7 +105,7 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
       )}
       {i.excluded && i.excluded.length > 0 && (
         <div>
-          <p className="font-medium text-amber-700">
+          <p className="font-medium text-warning">
             Vehículos excluidos ({i.excluded.length})
           </p>
           <ul className="list-disc pl-5 text-navy/70">

@@ -315,7 +315,7 @@ export default function Planificacion() {
                 <span>
                   {v.plate} · {v.type} · {v.capacityKg} kg
                   {v.isElectric && (
-                    <span className="ml-1 text-xs font-medium text-emerald-600">
+                    <span className="ml-1 text-xs font-medium text-success">
                       ⚡ {v.socPercent != null ? `${v.socPercent}%` : "EV"}
                     </span>
                   )}
@@ -361,7 +361,7 @@ export default function Planificacion() {
           {plan.excludedVehicles.length > 0 && (
             <Card title="Vehículos excluidos">
               {plan.excludedVehicles.map((e) => (
-                <p key={e.vehicleId} className="text-sm text-amber-700">
+                <p key={e.vehicleId} className="text-sm text-warning">
                   {vehiclesById.get(e.vehicleId)?.plate ?? e.vehicleId}: {e.reason}
                 </p>
               ))}
@@ -370,7 +370,7 @@ export default function Planificacion() {
           {plan.unassigned.length > 0 && (
             <Card title="Pedidos sin asignar">
               {plan.unassigned.map((u) => (
-                <p key={u.orderId} className="text-sm text-red-700">
+                <p key={u.orderId} className="text-sm text-danger">
                   {ordersById.get(u.orderId)?.customerName ?? u.orderId}: {u.reason}
                 </p>
               ))}
@@ -395,7 +395,7 @@ export default function Planificacion() {
                   title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
                 >
                   {r.warnings.map((w) => (
-                    <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
+                    <p key={w} className="mb-1 text-xs text-warning">⚠ {w}</p>
                   ))}
                   {/* Orden de visita ajustable con ▲▼ antes de despachar; las ETAs
                       se recalculan en el servidor al guardar. */}

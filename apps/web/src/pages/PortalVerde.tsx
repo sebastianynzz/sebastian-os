@@ -88,7 +88,7 @@ export default function PortalVerde() {
               <div className="text-xs text-navy/50">CO₂e emitido en tus envíos</div>
             </Card>
             <Card>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-2xl font-bold text-success">
                 −{report.co2SavedKg} kg
               </div>
               <div className="text-xs text-navy/50">
@@ -141,7 +141,7 @@ export default function PortalVerde() {
                         <td className="text-xs">{vehicleLabel(o.vehicle)}</td>
                         <td className="text-right">{o.km}</td>
                         <td className="text-right">{o.co2Kg}</td>
-                        <td className="text-right text-emerald-600">
+                        <td className="text-right text-success">
                           {o.co2SavedKg > 0 ? `−${o.co2SavedKg}` : "0"}
                         </td>
                       </tr>

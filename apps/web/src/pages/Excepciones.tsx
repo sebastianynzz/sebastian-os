@@ -42,8 +42,8 @@ interface Snoozed {
 }
 
 const SEVERITY_STYLES: Record<Severity, string> = {
-  CRITICAL: "border-l-4 border-red-600 bg-red-50",
-  HIGH: "border-l-4 border-amber-500 bg-amber-50",
+  CRITICAL: "border-l-4 border-danger bg-danger-bg",
+  HIGH: "border-l-4 border-warning bg-warning-bg",
   MEDIUM: "border-l-4 border-cielo bg-white",
 };
 
@@ -230,7 +230,9 @@ export default function Excepciones() {
 
       {items.length === 0 && snoozed.length === 0 ? (
         <Card>
-          <EmptyState>✅ Operación sana: no hay excepciones abiertas.</EmptyState>
+          <EmptyState phrase="El motor limpio de tu negocio.">
+            ✅ Operación sana: no hay excepciones abiertas.
+          </EmptyState>
         </Card>
       ) : (
         <>

@@ -85,12 +85,12 @@ function summarize(days: DayPoint[]): RangeSummary {
 type Trend = { text: string; cls: string };
 function countTrend(cur: number, prev: number): Trend {
   if (cur === prev) return { text: "—", cls: "text-navy/40" };
-  if (prev === 0) return { text: "▲ nuevo", cls: "text-emerald-600" };
+  if (prev === 0) return { text: "▲ nuevo", cls: "text-success" };
   const pct = ((cur - prev) / prev) * 100;
   const up = cur > prev;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}%`,
-    cls: up ? "text-emerald-600" : "text-red-600",
+    cls: up ? "text-success" : "text-danger",
   };
 }
 function rateTrend(cur: number | null, prev: number | null): Trend {
@@ -100,7 +100,7 @@ function rateTrend(cur: number | null, prev: number | null): Trend {
   const up = diff > 0;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pp`,
-    cls: up ? "text-emerald-600" : "text-red-600",
+    cls: up ? "text-success" : "text-danger",
   };
 }
 
@@ -308,14 +308,14 @@ export default function Analitica() {
 
       {rangeError && (
         <Card>
-          <p className="text-sm text-amber-700">{rangeError}</p>
+          <p className="text-sm text-warning">{rangeError}</p>
         </Card>
       )}
 
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-700">No se pudieron cargar las tendencias.</span>
+            <span className="text-danger">No se pudieron cargar las tendencias.</span>
             <Button variant="secondary" onClick={() => void loadSeries()}>
               Reintentar
             </Button>

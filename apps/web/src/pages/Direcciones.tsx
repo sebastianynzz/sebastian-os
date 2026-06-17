@@ -278,8 +278,8 @@ export default function Direcciones() {
                         <span
                           className={`rounded px-1.5 py-0.5 text-xs font-bold ${
                             (o.geoConfidence ?? 0) < 0.5
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
+                              ? "bg-danger-bg text-danger"
+                              : "bg-warning-bg text-warning"
                           }`}
                         >
                           {o.geoConfidence === null ? "?" : `${Math.round(o.geoConfidence * 100)}%`}
@@ -324,7 +324,7 @@ export default function Direcciones() {
                     <Marker
                       position={[draft.lat, draft.lng]}
                       draggable
-                      icon={pinIcon("#e11d48")}
+                      icon={pinIcon("#a32d2d")}
                       eventHandlers={{
                         dragend: (e) => {
                           const m = e.target as L.Marker;

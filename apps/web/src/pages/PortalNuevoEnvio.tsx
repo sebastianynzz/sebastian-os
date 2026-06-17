@@ -156,10 +156,10 @@ export default function PortalNuevoEnvio() {
               <p
                 className={`mt-1 rounded px-2 py-1 text-xs ${
                   addressCheck.knownAddress
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-success-bg text-success"
                     : addressCheck.ambiguous
-                      ? "bg-amber-50 text-amber-800"
-                      : "bg-emerald-50 text-emerald-700"
+                      ? "bg-warning-bg text-warning"
+                      : "bg-success-bg text-success"
                 }`}
               >
                 {addressCheck.knownAddress

@@ -39,9 +39,9 @@ function licenseState(iso: string | null): LicenseState {
 }
 
 const LICENSE_BADGE: Record<Exclude<LicenseState, "none">, { label: string; cls: string }> = {
-  expired: { label: "Vencida", cls: "bg-red-100 text-red-700" },
-  soon: { label: "Por vencer", cls: "bg-amber-100 text-amber-700" },
-  ok: { label: "Vigente", cls: "bg-emerald-100 text-emerald-700" },
+  expired: { label: "Vencida", cls: "bg-danger-bg text-danger" },
+  soon: { label: "Por vencer", cls: "bg-warning-bg text-warning" },
+  ok: { label: "Vigente", cls: "bg-success-bg text-success" },
 };
 
 type Filter = "ALL" | "ACTIVE" | "INACTIVE";
@@ -231,7 +231,7 @@ export default function Conductores() {
                           disabled={busyId === d.id}
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium disabled:opacity-50 ${
                             d.status === "ACTIVE"
-                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                              ? "bg-success-bg text-success hover:bg-success-bg"
                               : "bg-niebla text-navy/60 hover:bg-cielo/30"
                           }`}
                           title="Cambiar disponibilidad"

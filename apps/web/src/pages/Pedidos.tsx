@@ -338,7 +338,7 @@ export default function Pedidos() {
       )}
 
       {importFailures.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning">
           <div className="mb-1 flex items-center justify-between">
             <span className="font-semibold">
               Filas con error en el import ({importFailures.length})
@@ -476,7 +476,7 @@ export default function Pedidos() {
               <button
                 onClick={() => void deleteView(v.id)}
                 aria-label={`Borrar vista ${v.name}`}
-                className="text-navy/40 hover:text-red-600"
+                className="text-navy/40 hover:text-danger"
               >
                 ×
               </button>
@@ -584,6 +584,7 @@ export default function Pedidos() {
               <tr>
                 <td colSpan={6}>
                   <EmptyState
+                    phrase="Entregas rápidas, operaciones inteligentes."
                     action={
                       <Button onClick={() => setShowForm(true)}>Nuevo pedido</Button>
                     }

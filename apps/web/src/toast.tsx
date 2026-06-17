@@ -55,7 +55,7 @@ export function describeApiError(
 }
 
 const KIND_STYLES: Record<ToastKind, string> = {
-  error: "border-red-500 bg-red-50 text-red-800",
+  error: "border-danger bg-danger-bg text-danger",
   success: "border-lima bg-lima/10 text-navy",
   info: "border-cielo bg-cielo/10 text-navy",
 };

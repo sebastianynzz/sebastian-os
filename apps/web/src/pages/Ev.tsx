@@ -150,7 +150,7 @@ export default function Ev() {
           Los EVs están exentos de pico y placa (Ley 1964 de 2019)."
         actions={
           lowCount > 0 ? (
-            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+            <span className="rounded-full bg-danger-bg px-3 py-1 text-xs font-semibold text-danger">
               {lowCount} con batería baja
             </span>
           ) : undefined
@@ -169,7 +169,7 @@ export default function Ev() {
               <div className="flex items-center justify-between">
                 <span className="font-mono text-lg font-bold">{v.plate}</span>
                 {v.lowBattery && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                  <span className="rounded-full bg-danger-bg px-2 py-0.5 text-xs font-medium text-danger">
                     Batería baja
                   </span>
                 )}
@@ -181,7 +181,7 @@ export default function Ev() {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-niebla">
                   <div
-                    className={`h-full rounded-full ${(v.socPercent ?? 0) < 25 ? "bg-red-500" : "bg-emerald-500"}`}
+                    className={`h-full rounded-full ${(v.socPercent ?? 0) < 25 ? "bg-danger" : "bg-success"}`}
                     style={{ width: `${v.socPercent ?? 0}%` }}
                   />
                 </div>
@@ -279,13 +279,13 @@ export default function Ev() {
               <span className="text-sm">
                 <span className="font-mono font-bold">{calc.plate}</span> · SoC{" "}
                 {calc.socPercent}% →{" "}
-                <span className="text-lg font-bold text-emerald-600">
+                <span className="text-lg font-bold text-success">
                   {calc.usableRangeKm} km
                 </span>{" "}
                 útiles
               </span>
             )}
-            {calcErr && <span className="text-sm text-red-700">{calcErr}</span>}
+            {calcErr && <span className="text-sm text-danger">{calcErr}</span>}
           </div>
         </Card>
       )}

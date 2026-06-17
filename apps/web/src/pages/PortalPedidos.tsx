@@ -199,7 +199,7 @@ export default function PortalPedidos() {
                       <td>
                         <StatusBadge status={o.status} />
                         {o.failureReason && (
-                          <div className="text-xs text-red-600">{o.failureReason}</div>
+                          <div className="text-xs text-danger">{o.failureReason}</div>
                         )}
                       </td>
                       <td className="text-xs text-navy/50">
@@ -217,7 +217,7 @@ export default function PortalPedidos() {
                             </button>
                           )}
                         {o.recoveryStatus === "RESCHEDULED" && (
-                          <span className="text-emerald-700">↻ Reprogramado</span>
+                          <span className="text-success">↻ Reprogramado</span>
                         )}
                         {o.trackingUrl && (
                           <button

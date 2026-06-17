@@ -174,7 +174,7 @@ export default function Sostenibilidad() {
       {!loading && error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-700">No se pudo calcular el informe verde.</span>
+            <span className="text-danger">No se pudo calcular el informe verde.</span>
             <Button variant="secondary" onClick={load}>
               Reintentar
             </Button>
@@ -194,7 +194,7 @@ export default function Sostenibilidad() {
               <div className="text-xs text-navy/50">CO₂e emitido</div>
             </Card>
             <Card>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-2xl font-bold text-success">
                 −{report.co2SavedKg} kg
               </div>
               <div className="text-xs text-navy/50">CO₂e evitado vs. gasolina</div>
@@ -247,7 +247,7 @@ export default function Sostenibilidad() {
                         <td className="text-right">{t.routes}</td>
                         <td className="text-right">{t.km}</td>
                         <td className="text-right">{t.co2Kg}</td>
-                        <td className="text-right text-emerald-600">
+                        <td className="text-right text-success">
                           {t.co2SavedKg > 0 ? `−${t.co2SavedKg}` : "0"}
                         </td>
                       </tr>
@@ -278,7 +278,7 @@ export default function Sostenibilidad() {
                         <td className="text-right">{c.deliveredOrders}</td>
                         <td className="text-right">{c.km}</td>
                         <td className="text-right">{c.co2Kg}</td>
-                        <td className="text-right text-emerald-600">
+                        <td className="text-right text-success">
                           {c.co2SavedKg > 0 ? `−${c.co2SavedKg}` : "0"}
                         </td>
                       </tr>

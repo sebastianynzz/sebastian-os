@@ -65,7 +65,7 @@ function stopCoords(s: Stop): [number, number] | null {
 }
 
 function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
-  const color = kind === "PICKUP" ? "#5b8def" : "#16a34a";
+  const color = kind === "PICKUP" ? "#3a5169" : "#5a6b18";
   return L.divIcon({
     className: "",
     html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)">${n}</div>`,
@@ -75,7 +75,7 @@ function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
 }
 const depotIcon = L.divIcon({
   className: "",
-  html: `<div style="width:14px;height:14px;background:#1b365d;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
+  html: `<div style="width:14px;height:14px;background:#233955;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
@@ -117,7 +117,7 @@ function RouteMap({ stops }: { stops: Stop[] }) {
         </Marker>
         <Polyline
           positions={line}
-          pathOptions={{ color: "#1b365d", weight: 3, opacity: 0.5, dashArray: "6 6" }}
+          pathOptions={{ color: "#233955", weight: 3, opacity: 0.5, dashArray: "6 6" }}
         />
         {pts.map(({ s, c }) => (
           <Marker key={s.id} position={c} icon={seqIcon(s.sequence, s.kind)}>
@@ -239,10 +239,11 @@ export default function Rutas() {
       {!loading && routes.length === 0 && (
         <Card>
           <EmptyState
+            phrase="Última milla con máxima eficiencia."
             action={
               <Link
                 to="/planificacion"
-                className="rounded-lg bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                className="rounded-md bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 Ir a Planificación
               </Link>

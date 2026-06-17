@@ -254,7 +254,7 @@ export default function Clientes() {
                 {webhookTest && !webhookTest.testing && (
                   <p
                     role="status"
-                    className={`mt-1 text-sm ${webhookTest.ok ? "text-emerald-700" : "text-red-600"}`}
+                    className={`mt-1 text-sm ${webhookTest.ok ? "text-success" : "text-danger"}`}
                   >
                     {webhookTest.ok
                       ? `✅ Respondió correctamente (HTTP ${webhookTest.status})`
@@ -449,6 +449,7 @@ export default function Clientes() {
               <tr>
                 <td colSpan={6}>
                   <EmptyState
+                    phrase="Entregas rápidas, operaciones inteligentes."
                     action={
                       <Button onClick={() => setShowForm(true)}>
                         Nuevo cliente

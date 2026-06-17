@@ -213,7 +213,7 @@ export default function MapaEnVivo() {
                     <Marker
                       key={e.vehicle.id}
                       position={[e.ping!.lat, e.ping!.lng]}
-                      icon={dotIcon(e.vehicle.engineOn ? "#16a34a" : "#dc2626")}
+                      icon={dotIcon(e.vehicle.engineOn ? "#5a6b18" : "#a32d2d")}
                       eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
                     >
                       <Popup>
@@ -249,10 +249,10 @@ export default function MapaEnVivo() {
                 >
                   <span className="font-mono font-medium">{e.vehicle.plate}</span>
                   <span className="flex items-center gap-2 text-xs">
-                    <span className={e.vehicle.engineOn ? "text-emerald-600" : "text-red-600"}>
+                    <span className={e.vehicle.engineOn ? "text-success" : "text-danger"}>
                       {e.vehicle.engineOn ? "●" : "○"} {(e.vehicle.lastSpeedKmh ?? 0).toFixed(0)} km/h
                     </span>
-                    {e.vehicle.immobilized && <span className="text-red-600">🔒</span>}
+                    {e.vehicle.immobilized && <span className="text-danger">🔒</span>}
                   </span>
                 </button>
               ))}
@@ -297,7 +297,7 @@ export default function MapaEnVivo() {
                       Apagar motor
                     </Button>
                     {moving && (
-                      <p className="mt-1 text-xs text-amber-600">
+                      <p className="mt-1 text-xs text-warning">
                         Solo se puede apagar con el vehículo detenido (seguridad).
                       </p>
                     )}
