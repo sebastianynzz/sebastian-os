@@ -11,6 +11,7 @@ import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
+import { emitWebhookEvent } from "../../services/webhooks.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
@@ -140,6 +141,11 @@ export default async function routesRoutes(app: FastifyInstance) {
             conductor: driver.name,
             rastreo: publicTrackingUrl(stop.order.trackingToken),
           },
+        });
+        await emitWebhookEvent(request.user.tenantId, "OUT_FOR_DELIVERY", {
+          orderId: stop.orderId,
+          guia: stop.order.trackingNumber,
+          etaMin: stop.etaMin,
         });
       }
       return updated;
@@ -395,6 +401,11 @@ export default async function routesRoutes(app: FastifyInstance) {
         rastreo: publicTrackingUrl(order.trackingToken),
       },
     });
+    await emitWebhookEvent(tenantId, "DELIVERED", {
+      orderId: order.id,
+      guia: order.trackingNumber,
+      destinatario: order.customerName,
+    });
 
     await maybeCompleteRoute(stop.route.id);
     return { ok: true, geofenceOk, kind: "DELIVERY" };
@@ -459,6 +470,11 @@ export default async function routesRoutes(app: FastifyInstance) {
         destinatario: stop.order.customerName,
         motivo: input.reason,
       },
+    });
+    await emitWebhookEvent(request.user.tenantId, "FAILED", {
+      orderId: stop.orderId,
+      guia: stop.order.trackingNumber,
+      motivo: input.reason,
     });
 
     await maybeCompleteRoute(stop.route.id);

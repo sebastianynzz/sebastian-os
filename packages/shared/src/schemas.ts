@@ -225,6 +225,17 @@ export const serviceSchema = z.object({
 });
 export type ServiceInput = z.infer<typeof serviceSchema>;
 
+// === Plataforma de desarrolladores (Tier 2 §8) ===
+
+/** Suscripción de webhook del tenant a eventos del ciclo de vida (NOTIFICATION_EVENTS). */
+export const webhookSchema = z.object({
+  url: z.string().url(),
+  events: z.array(z.enum(NOTIFICATION_EVENTS)).min(1),
+  enabled: z.boolean().default(true),
+});
+export type WebhookInput = z.infer<typeof webhookSchema>;
+export const webhookUpdateSchema = webhookSchema.partial();
+
 // === Motor de notificaciones B2B (Tier 2) ===
 
 /** Plantilla de notificación por evento: ¿notifica? y con qué cuerpo. */

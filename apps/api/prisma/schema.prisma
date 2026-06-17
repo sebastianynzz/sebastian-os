@@ -71,6 +71,7 @@ model Tenant {
   depots        Depot[]
   zones         Zone[]
   messageTemplates MessageTemplate[]
+  webhooks      Webhook[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -562,6 +563,27 @@ model MessageTemplate {
   updatedAt DateTime @updatedAt
 
   @@unique([tenantId, event])
+  @@index([tenantId])
+}
+
+/// Webhook del tenant (plataforma de desarrolladores, Tier 2 §8): suscripción a
+/// eventos del ciclo de vida (NOTIFICATION_EVENTS). En cada evento se hace POST
+/// firmado (HMAC-SHA256 con `secret`, cabecera x-moveos-signature) a `url`.
+/// Distinto del webhook por-cliente (Client.webhookUrl): este es a nivel tenant
+/// y orientado a integraciones. Tenant-scoped.
+model Webhook {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url       String
+  secret    String
+  events    String[] @default([])
+  enabled   Boolean  @default(true)
+  lastStatus Int?
+  lastDeliveredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tenantId])
 }
 
