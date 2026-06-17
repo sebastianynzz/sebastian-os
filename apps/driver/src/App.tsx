@@ -92,6 +92,13 @@ const ADDRESS_FIX_THRESHOLD_M = 300;
 /** Radio de la geocerca: dentro de esto se considera "en el punto de entrega". */
 const GEOFENCE_RADIUS_M = 80;
 
+/**
+ * Cada cuánto la hoja de entrega sondea el GPS en vivo. `watchPosition`
+ * actualiza el ref sin re-render; sondeamos para que la distancia a la
+ * geocerca se mueva mientras el conductor se acerca al punto.
+ */
+const GEOFENCE_POLL_MS = 2000;
+
 /** Motivos de fallo disputables: exigen foto de evidencia. */
 const EVIDENCE_REQUIRED_REASONS = ["CLIENTE_AUSENTE", "RECHAZO_PRODUCTO"];
 
@@ -414,7 +421,7 @@ export default function App() {
       {activeStop && (
         <StopActionSheet
           stop={activeStop}
-          geo={geo.current}
+          geo={geo}
           onClose={() => setActiveStop(null)}
           onDone={async (queued) => {
             setActiveStop(null);
@@ -614,7 +621,7 @@ function StopActionSheet({
   onDone,
 }: {
   stop: Stop;
-  geo: { lat: number; lng: number } | null;
+  geo: React.MutableRefObject<{ lat: number; lng: number } | null>;
   onClose: () => void;
   onDone: (queued: boolean) => void;
 }) {
@@ -631,22 +638,36 @@ function StopActionSheet({
   const [scan, setScan] = useState<ScanResult | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
+  // Geocerca en vivo: `geo` es un ref que `watchPosition` actualiza sin
+  // re-render. Lo sondeamos para que la distancia al punto, el estado de la
+  // geocerca y la oferta de corregir pin se muevan mientras el conductor
+  // camina hacia la puerta — no congelados al abrir la hoja.
+  const [livePos, setLivePos] = useState(geo.current);
+  useEffect(() => {
+    const tick = () => {
+      const next = geo.current;
+      setLivePos((prev) =>
+        prev?.lat === next?.lat && prev?.lng === next?.lng ? prev : next,
+      );
+    };
+    tick();
+    const id = setInterval(tick, GEOFENCE_POLL_MS);
+    return () => clearInterval(id);
+  }, [geo]);
+
   const isPickup = stop.kind === "PICKUP";
   const refLat = isPickup ? stop.order.pickupLat : stop.order.lat;
   const refLng = isPickup ? stop.order.pickupLng : stop.order.lng;
   const sheetAddress = isPickup
     ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
     : stop.order.addressRaw;
-  // Fallback demo: si el navegador no da GPS, usar la coordenada de la parada.
-  const lat = geo?.lat ?? refLat ?? undefined;
-  const lng = geo?.lng ?? refLng ?? undefined;
 
   // Corrección de pin (el tap más valioso del producto): si el GPS real está
   // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
   // verdadera — cada confirmación enseña al grafo de direcciones.
   const pinDriftM =
-    !isPickup && geo && refLat !== null && refLng !== null
-      ? Math.round(distanceM(geo, { lat: refLat, lng: refLng }))
+    !isPickup && livePos && refLat !== null && refLng !== null
+      ? Math.round(distanceM(livePos, { lat: refLat, lng: refLng }))
       : null;
   const offerPinFix = pinDriftM !== null && pinDriftM > ADDRESS_FIX_THRESHOLD_M;
 
@@ -683,12 +704,19 @@ function StopActionSheet({
         else photoSkipped = true;
       }
 
+      // Posición más fresca al confirmar: lee el ref directo, no el sondeo de
+      // hace ~2 s, para que la evidencia de geocerca sea la del momento exacto.
+      // Fallback demo: sin GPS del navegador, usar la coordenada de la parada.
+      const here = geo.current ?? livePos;
+      const subLat = here?.lat ?? refLat ?? undefined;
+      const subLng = here?.lng ?? refLng ?? undefined;
+
       // El POD solo declara las pruebas que REALMENTE tiene (el servidor
       // valida la evidencia). Sin foto subida ni GPS no hay prueba verificable:
       // se bloquea en lugar de fingir una foto (B2B: defensa ante disputas).
       const types: string[] = [];
       if (photoUrl) types.push("PHOTO");
-      if (lat !== undefined && lng !== undefined) types.push("GEOFENCE");
+      if (subLat !== undefined && subLng !== undefined) types.push("GEOFENCE");
       if (types.length === 0) {
         setError(
           "Sin foto ni señal GPS no se puede confirmar la entrega. Toma una foto o espera la ubicación.",
@@ -701,14 +729,14 @@ function StopActionSheet({
         types,
         photoUrl,
         receivedBy: receivedBy || undefined,
-        lat,
-        lng,
+        lat: subLat,
+        lng: subLng,
       });
       // Pin-drop: aprender la ubicación real de la entrega si difiere del pin.
-      if (offerPinFix && fixPin && geo) {
+      if (offerPinFix && fixPin && here) {
         await apiOrQueue(`/addresses/orders/${stop.order.id}/driver-fix`, {
-          lat: geo.lat,
-          lng: geo.lng,
+          lat: here.lat,
+          lng: here.lng,
         });
       }
       if (photoSkipped) {
@@ -747,10 +775,12 @@ function StopActionSheet({
         setBusy(false);
         return;
       }
+      // Posición más fresca al registrar el fallo (igual que en la entrega).
+      const here = geo.current ?? livePos;
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/fail`, {
         reason: failReason,
-        lat,
-        lng,
+        lat: here?.lat ?? refLat ?? undefined,
+        lng: here?.lng ?? refLng ?? undefined,
         photoUrl,
       });
       onDone(queued);
