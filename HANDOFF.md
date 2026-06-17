@@ -16,9 +16,13 @@ cd /home/user/move-os && git checkout claude/sleepy-ride-3bkdbn && git pull && c
 ## Kickoff prompt
 
 Continue the MoveOS go-live build on branch `claude/sleepy-ride-3bkdbn` (already
-checked out, pushed through commit `933cb9e`). Read `CLAUDE.md` first (EV-only,
-B2B-only, tenant isolation, Spanish/America-Bogotá). I've re-attached the 4 spec
-docs.
+checked out, pushed through commit `13466ec`). Read `CLAUDE.md` AND this file's
+ledger below first (EV-only, B2B-only, tenant isolation, Spanish/America-Bogotá).
+I've re-attached the 4 spec docs.
+
+**Before coding, propose what to work on from "Next story" below and wait for my
+pick** — the remaining items are either low-value mechanical, need a dependency
+decision, or are underspecified polish. Don't auto-grind; recommend and confirm.
 
 **DONE (committed & green):**
 - **Phase A** — 6-config EV vehicle catalog (shared enum + `VEHICLE_TYPE_PROFILES`,
