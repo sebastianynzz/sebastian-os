@@ -177,7 +177,7 @@ export default function MapaEnVivo() {
                     <Popup>
                       <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
                       <br />
-                      {e.vehicle.engineOn ? "Motor encendido" : "Motor apagado"}
+                      {e.vehicle.engineOn ? "Encendido" : "Apagado"}
                       <br />
                       {(e.ping!.speedKmh ?? 0).toFixed(0)} km/h
                     </Popup>
@@ -218,18 +218,13 @@ export default function MapaEnVivo() {
 
           {selectedEntry && (
             <Card title={`${selectedEntry.vehicle.plate} · telemetría`}>
+              {/* Telemetría EV-only (Constraint 1): SoC y energía, nunca RPM /
+                  combustible / temp. de refrigerante — la flota MoveOS es 100 %
+                  eléctrica, así que esos campos CAN ICE no se muestran. */}
               <dl className="space-y-1 text-sm">
                 <Row label="Velocidad" value={`${(selectedEntry.ping?.speedKmh ?? 0).toFixed(0)} km/h`} />
-                <Row label="Motor" value={selectedEntry.vehicle.engineOn ? "Encendido" : "Apagado"} />
-                {selectedEntry.vehicle.isElectric ? (
-                  <Row label="Carga (SoC)" value={`${selectedEntry.vehicle.socPercent?.toFixed(0) ?? "—"}%`} />
-                ) : (
-                  <>
-                    <Row label="RPM" value={`${selectedEntry.ping?.rpm?.toFixed(0) ?? "—"}`} />
-                    <Row label="Combustible" value={`${selectedEntry.ping?.fuelLevelPct?.toFixed(0) ?? "—"}%`} />
-                  </>
-                )}
-                <Row label="Temp. motor" value={`${selectedEntry.ping?.coolantTempC?.toFixed(0) ?? "—"} °C`} />
+                <Row label="Sistema" value={selectedEntry.vehicle.engineOn ? "Encendido" : "Apagado"} />
+                <Row label="Carga (SoC)" value={`${selectedEntry.vehicle.socPercent?.toFixed(0) ?? "—"}%`} />
                 <Row label="Odómetro" value={`${selectedEntry.ping?.odometerKm?.toFixed(0) ?? "—"} km`} />
               </dl>
 
