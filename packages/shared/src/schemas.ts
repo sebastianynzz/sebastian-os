@@ -1,9 +1,15 @@
 import { z } from "zod";
 import {
+  DELIVERY_TYPES,
   DRIVER_STATUSES,
   OPTIMIZATION_OBJECTIVES,
+  PICKUP_TYPES,
+  POD_REQ,
   POD_REQUIREMENTS,
   POD_TYPES,
+  type DeliveryType,
+  type PickupType,
+  type PodReq,
   TELEMETRY_SOURCES,
   TEMP_PROFILES,
   TENANT_BUSINESS_MODELS,
@@ -187,6 +193,60 @@ export const planRoutesSchema = z.object({
   objective: z.enum(OPTIMIZATION_OBJECTIVES).optional(),
 });
 
+// === Política de prueba de entrega (POD) configurable por tipo (D2) ===
+
+const podEvidenceReqSchema = z.object({
+  signature: z.enum(POD_REQ),
+  photo: z.enum(POD_REQ),
+});
+export type PodEvidenceReq = z.infer<typeof podEvidenceReqSchema>;
+
+/** Config completa: por cada tipo de entrega/recogida, exigencia de firma/foto. */
+export const podPolicyConfigSchema = z.object({
+  delivery: z.record(z.enum(DELIVERY_TYPES), podEvidenceReqSchema),
+  pickup: z.record(z.enum(PICKUP_TYPES), podEvidenceReqSchema),
+});
+export type PodPolicyConfig = {
+  delivery: Partial<Record<DeliveryType, PodEvidenceReq>>;
+  pickup: Partial<Record<PickupType, PodEvidenceReq>>;
+};
+
+/** Política por defecto sensata (sin pagos: solo entrega y recogida). */
+export function defaultPodPolicyConfig(): PodPolicyConfig {
+  return {
+    delivery: {
+      RECIPIENT: { signature: "OPTIONAL", photo: "OPTIONAL" },
+      THIRD_PARTY: { signature: "OPTIONAL", photo: "MANDATORY" },
+      PICKUP_POINT: { signature: "OPTIONAL", photo: "OPTIONAL" },
+      SAFE_PLACE: { signature: "DISABLED", photo: "MANDATORY" },
+      MAILBOX: { signature: "DISABLED", photo: "OPTIONAL" },
+      OTHER: { signature: "OPTIONAL", photo: "OPTIONAL" },
+    },
+    pickup: {
+      FROM_CUSTOMER: { signature: "OPTIONAL", photo: "OPTIONAL" },
+      UNMANNED: { signature: "DISABLED", photo: "MANDATORY" },
+      FROM_LOCKER: { signature: "DISABLED", photo: "OPTIONAL" },
+      OTHER: { signature: "OPTIONAL", photo: "OPTIONAL" },
+    },
+  };
+}
+
+/** Exigencia de firma/foto para una parada según el tipo elegido (con respaldo). */
+export function resolvePodReq(
+  config: PodPolicyConfig | null | undefined,
+  kind: "DELIVERY" | "PICKUP",
+  type: DeliveryType | PickupType | null | undefined,
+): PodEvidenceReq {
+  const fallback: PodEvidenceReq = { signature: "OPTIONAL", photo: "OPTIONAL" };
+  const cfg = config ?? defaultPodPolicyConfig();
+  const map = (kind === "PICKUP" ? cfg.pickup : cfg.delivery) as Record<
+    string,
+    PodEvidenceReq | undefined
+  >;
+  if (!type) return fallback;
+  return map[type] ?? fallback;
+}
+
 export const trackingPingSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
@@ -200,6 +260,9 @@ export const trackingPingSchema = z.object({
 export const submitPodSchema = z
   .object({
     types: z.array(z.enum(POD_TYPES)).min(1),
+    /** Tipo de entrega/recogida elegido por el conductor (política POD por tipo). */
+    deliveryType: z.enum(DELIVERY_TYPES).optional(),
+    pickupType: z.enum(PICKUP_TYPES).optional(),
     photoUrl: z.string().url().optional(),
     signatureUrl: z.string().url().optional(),
     otpCode: z.string().optional(),

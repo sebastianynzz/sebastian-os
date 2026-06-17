@@ -34,6 +34,7 @@ import portalRoutes from "./modules/portal/routes.js";
 import pushRoutes from "./modules/push/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
 import savedViewsRoutes from "./modules/savedViews/routes.js";
+import controlsRoutes from "./modules/controls/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -132,6 +133,8 @@ export async function buildApp() {
   await app.register(evRoutes, { prefix: "/ev" });
   // Web Push (VAPID): avisos instantáneos a conductor y despachador.
   await app.register(pushRoutes, { prefix: "/push" });
+  // Controles del tenant (núcleo): política POD configurable por tipo.
+  await app.register(controlsRoutes, { prefix: "/controls" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

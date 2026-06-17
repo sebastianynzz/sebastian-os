@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { failStopSchema, submitPodSchema, haversineKm } from "@moveos/shared";
+import {
+  failStopSchema,
+  submitPodSchema,
+  haversineKm,
+  resolvePodReq,
+  type PodPolicyConfig,
+} from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
@@ -265,25 +271,48 @@ export default async function routesRoutes(app: FastifyInstance) {
     const isPickup = stop.kind === "PICKUP";
     const now = new Date();
 
-    // Política POD configurable por cliente (FUENTE DE VERDAD = servidor): el
-    // comercio puede exigir foto y/o nombre de quien recibe para aceptar la
-    // entrega. Solo aplica a entregas (la recogida es en su propia bodega). El
-    // conductor también lo valida en el dispositivo, pero aquí no se puede
-    // saltar — ni siquiera reproducido desde la cola offline.
+    // Política POD (FUENTE DE VERDAD = servidor; no se puede saltar, ni siquiera
+    // reproducida desde la cola offline). Dos capas que se combinan:
+    //  1) Política por TIPO de parada (D2): el despachador define, por tipo de
+    //     entrega/recogida, si la firma y la foto son obligatorias.
+    //  2) Política por CLIENTE (existente): el comercio puede exigir foto y/o
+    //     nombre de quien recibe (solo entregas).
+    const policyRow = await prisma.podPolicy.findUnique({
+      where: { tenantId_scope: { tenantId, scope: "TEAM_DEFAULT" } },
+    });
+    const podReq = resolvePodReq(
+      (policyRow?.config as PodPolicyConfig | null) ?? null,
+      isPickup ? "PICKUP" : "DELIVERY",
+      isPickup ? input.pickupType : input.deliveryType,
+    );
+    const hasPhoto = input.types.includes("PHOTO") || Boolean(input.photoUrl);
+    const hasSignature =
+      input.types.includes("SIGNATURE") || Boolean(input.signatureUrl);
+
+    const missing: string[] = [];
+    if (podReq.photo === "MANDATORY" && !hasPhoto) {
+      missing.push("una foto de evidencia");
+    }
+    if (podReq.signature === "MANDATORY" && !hasSignature) {
+      missing.push("la firma de quien recibe");
+    }
     if (!isPickup) {
       const required = order.client?.podRequired ?? [];
-      const missing: string[] = [];
-      if (required.includes("PHOTO") && !input.types.includes("PHOTO")) {
+      if (
+        required.includes("PHOTO") &&
+        !hasPhoto &&
+        !missing.includes("una foto de evidencia")
+      ) {
         missing.push("una foto de evidencia");
       }
       if (required.includes("RECEIVER_NAME") && !input.receivedBy?.trim()) {
         missing.push("el nombre de quien recibe");
       }
-      if (missing.length > 0) {
-        return reply.code(422).send({
-          error: `Este cliente exige ${missing.join(" y ")} para confirmar la entrega.`,
-        });
-      }
+    }
+    if (missing.length > 0) {
+      return reply.code(422).send({
+        error: `Se requiere ${missing.join(" y ")} para confirmar esta parada.`,
+      });
     }
 
     // Geocerca: validar contra el punto correcto (recogida vs entrega).
@@ -305,6 +334,7 @@ export default async function routesRoutes(app: FastifyInstance) {
           pod: {
             create: {
               types: input.types,
+              deliveryType: isPickup ? input.pickupType : input.deliveryType,
               photoUrl: input.photoUrl,
               signatureUrl: input.signatureUrl,
               receivedBy: input.receivedBy,

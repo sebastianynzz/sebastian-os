@@ -140,6 +140,51 @@ export type PodType = (typeof POD_TYPES)[number];
 export const POD_REQUIREMENTS = ["PHOTO", "RECEIVER_NAME"] as const;
 export type PodRequirement = (typeof POD_REQUIREMENTS)[number];
 
+/**
+ * Política de prueba de entrega CONFIGURABLE POR TIPO (paridad con Spoke, D2).
+ * El despachador define, por tipo de entrega/recogida, si la firma y la foto son
+ * obligatorias, opcionales o deshabilitadas; el conductor elige el tipo y la app
+ * BLOQUEA la finalización si falta una evidencia obligatoria (servidor = fuente
+ * de verdad). NOTA: MoveOS no procesa pagos → NO existe pestaña/credenciales COD
+ * (a diferencia de Spoke); la política cubre solo entrega y recogida.
+ */
+export const DELIVERY_TYPES = [
+  "RECIPIENT",
+  "THIRD_PARTY",
+  "PICKUP_POINT",
+  "SAFE_PLACE",
+  "MAILBOX",
+  "OTHER",
+] as const;
+export type DeliveryType = (typeof DELIVERY_TYPES)[number];
+
+export const PICKUP_TYPES = [
+  "FROM_CUSTOMER",
+  "UNMANNED",
+  "FROM_LOCKER",
+  "OTHER",
+] as const;
+export type PickupType = (typeof PICKUP_TYPES)[number];
+
+/** Nivel de exigencia de una evidencia (firma/foto) por tipo de parada. */
+export const POD_REQ = ["MANDATORY", "OPTIONAL", "DISABLED"] as const;
+export type PodReq = (typeof POD_REQ)[number];
+
+export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
+  RECIPIENT: "Destinatario",
+  THIRD_PARTY: "Tercero",
+  PICKUP_POINT: "Punto de recogida",
+  SAFE_PLACE: "Lugar seguro",
+  MAILBOX: "Buzón",
+  OTHER: "Otro",
+};
+export const PICKUP_TYPE_LABELS: Record<PickupType, string> = {
+  FROM_CUSTOMER: "En el cliente",
+  UNMANNED: "Sin personal",
+  FROM_LOCKER: "Casillero",
+  OTHER: "Otro",
+};
+
 export const TELEMETRY_SOURCES = ["PHONE", "DEVICE", "SIMULATOR"] as const;
 export type TelemetrySource = (typeof TELEMETRY_SOURCES)[number];
 

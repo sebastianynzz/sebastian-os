@@ -430,6 +430,7 @@ model ProofOfDelivery {
   stopId       String    @unique
   stop         RouteStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
   types        String[] // PHOTO | SIGNATURE | OTP | GEOFENCE
+  deliveryType String? // tipo elegido (RECIPIENT | SAFE_PLACE | ...) — política POD por tipo
   photoUrl     String?
   signatureUrl String?
   receivedBy   String?
@@ -438,6 +439,22 @@ model ProofOfDelivery {
   lng          Float?
   geofenceOk   Boolean?
   createdAt    DateTime  @default(now())
+}
+
+/// Política de prueba de entrega (POD) configurable por tipo de parada (D2).
+/// `scope` = "TEAM_DEFAULT" (predeterminado del tenant) o un serviceId futuro.
+/// `config` guarda { delivery: { RECIPIENT: { signature, photo }, ... }, pickup: {...} }
+/// con niveles MANDATORY | OPTIONAL | DISABLED. Sin pagos → no hay sección COD.
+model PodPolicy {
+  id        String   @id @default(cuid())
+  tenantId  String
+  scope     String   @default("TEAM_DEFAULT")
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, scope])
+  @@index([tenantId])
 }
 
 /// Directorio de estaciones de carga (núcleo EV, roadmap P0.4b). Las redes
