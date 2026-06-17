@@ -221,6 +221,8 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       immobilized: v.immobilized,
       lastSpeedKmh: v.lastSpeedKmh,
       lastSeenAt: v.lastSeenAt,
+      lastLat: v.lastLat,
+      lastLng: v.lastLng,
       operatedBy: v.tenant,
       ownerTenantId: v.ownerTenantId,
       ownerName: ownerName.get(v.ownerTenantId!) ?? null,

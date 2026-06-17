@@ -68,6 +68,8 @@ export default async function telematicsRoutes(app: FastifyInstance) {
       data: {
         lastSpeedKmh: input.speedKmh ?? vehicle.lastSpeedKmh,
         lastSeenAt: ping.recordedAt,
+        lastLat: input.lat,
+        lastLng: input.lng,
         ...(input.batterySoc !== undefined ? { socPercent: input.batterySoc } : {}),
         ...(input.engineOn !== undefined ? { engineOn: input.engineOn } : {}),
       },
