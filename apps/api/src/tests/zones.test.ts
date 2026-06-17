@@ -157,3 +157,53 @@ describe("Zonas de entrega (D5)", () => {
     expect((await api("DELETE", "/zones/nope", adminToken)).status).toBe(404);
   });
 });
+
+describe("cobertura por zona al crear pedido (D5.3)", () => {
+  beforeAll(async () => {
+    // Zona única que cubre lat 4.60–4.70, lng -74.10 … -74.00.
+    await api("POST", "/zones", adminToken, {
+      name: "Cobertura",
+      geometry: { points: polygon.points },
+    });
+  });
+
+  async function eventTypes(orderId: string): Promise<string[]> {
+    const evs = await prisma.orderEvent.findMany({
+      where: { orderId },
+      select: { type: true },
+    });
+    return evs.map((e) => e.type);
+  }
+
+  it("un destino dentro de una zona no marca fuera de cobertura", async () => {
+    const order = await api("POST", "/orders", adminToken, {
+      customerName: "Dentro",
+      customerPhone: "+573111111130",
+      addressRaw: "Centro",
+      lat: 4.65,
+      lng: -74.05,
+    });
+    expect(await eventTypes(order.body.id)).not.toContain("OUT_OF_ZONE");
+  });
+
+  it("un destino fuera de toda zona queda registrado (OUT_OF_ZONE)", async () => {
+    const order = await api("POST", "/orders", adminToken, {
+      customerName: "Fuera",
+      customerPhone: "+573111111131",
+      addressRaw: "Lejos",
+      lat: 4.8,
+      lng: -74.05,
+    });
+    expect(await eventTypes(order.body.id)).toContain("OUT_OF_ZONE");
+  });
+
+  it("la validación de dirección del portal reporta cobertura", async () => {
+    const res = await api("POST", "/portal/address/validate", portalToken, {
+      addressRaw: "Cra 13 # 54-20, Bogotá",
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.hasZones).toBe(true);
+    expect(typeof res.body.serviceable).toBe("boolean");
+    expect(Array.isArray(res.body.coverageZones)).toBe(true);
+  });
+});

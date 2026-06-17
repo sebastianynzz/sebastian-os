@@ -18,6 +18,7 @@ export type OrderEventType =
   | "FAILED"
   | "NOTIFIED"
   | "ADDRESS_CONFIRMED"
+  | "OUT_OF_ZONE"
   | "RECOVERY_FLAGGED"
   | "RECOVERY_RESCHEDULED"
   | "SCANNED"

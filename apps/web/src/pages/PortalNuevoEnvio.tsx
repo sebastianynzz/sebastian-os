@@ -40,6 +40,9 @@ interface AddressCheck {
   ambiguous: boolean;
   knownAddress: boolean;
   source: string;
+  hasZones: boolean;
+  serviceable: boolean;
+  coverageZones: string[];
 }
 
 export default function PortalNuevoEnvio() {
@@ -179,6 +182,14 @@ export default function PortalNuevoEnvio() {
                   : addressCheck.ambiguous
                     ? "⚠️ Esta dirección es ambigua. Revisa la nomenclatura o agrega una referencia (ej: \"frente al colegio…\") para evitar una entrega fallida."
                     : "✅ Dirección verificada."}
+              </p>
+            )}
+            {/* Cobertura por zona (D5): aviso B2B cuando el destino cae fuera de
+                las zonas del operador. No bloquea el envío. */}
+            {addressCheck && !checkingAddress && addressCheck.hasZones && !addressCheck.serviceable && (
+              <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
+                ⚠️ Este destino está fuera de las zonas de cobertura de tu operador.
+                Puedes crear el envío, pero confírmalo con ellos.
               </p>
             )}
           </div>

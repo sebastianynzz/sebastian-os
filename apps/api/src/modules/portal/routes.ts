@@ -24,6 +24,7 @@ import {
   normalizeAddress,
   LOW_CONFIDENCE_THRESHOLD,
 } from "../../services/geocoding.js";
+import { checkServiceability } from "../../services/zones.js";
 import { logOrderEvent } from "../../services/orderEvents.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 
@@ -192,6 +193,12 @@ export default async function portalRoutes(app: FastifyInstance) {
       select: { city: true },
     });
     const geo = await geocodeAddress(request.user.tenantId, body.addressRaw, tenant.city);
+    // Cobertura por zona (D5): avisa al comercio si el destino cae fuera de las
+    // zonas de cobertura ANTES de crear el envío (no bloquea — solo informa).
+    const svc = await checkServiceability(request.user.tenantId, {
+      lat: geo.lat,
+      lng: geo.lng,
+    });
     return {
       lat: geo.lat,
       lng: geo.lng,
@@ -200,6 +207,9 @@ export default async function portalRoutes(app: FastifyInstance) {
       normalized: normalizeAddress(body.addressRaw),
       ambiguous: geo.confidence < LOW_CONFIDENCE_THRESHOLD,
       knownAddress: geo.source === "ADDRESS_PIN",
+      hasZones: svc.hasZones,
+      serviceable: !svc.hasZones || svc.covering.length > 0,
+      coverageZones: svc.covering.map((z) => z.name),
     };
   });
 

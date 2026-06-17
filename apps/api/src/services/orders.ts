@@ -7,6 +7,7 @@ import {
   logOrderEvents,
 } from "./orderEvents.js";
 import { emitOrderUpdate } from "./realtime.js";
+import { checkServiceability } from "./zones.js";
 
 /**
  * Alta de un pedido (compartida por el dashboard del tenant y el portal de
@@ -122,6 +123,23 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     { orderId: order.id, type: "CREATED", details: `Guía ${order.trackingNumber}` },
     { orderId: order.id, type: "GEOCODED", details: `Fuente: ${geocodeSource}` },
   ]);
+
+  // Cobertura por zona (D5): si el tenant definió zonas y el destino cae fuera
+  // de todas, se registra en la bitácora. NO bloquea (B2B: solo se avisa); los
+  // tenants sin zonas no se ven afectados.
+  if (lat !== undefined && lng !== undefined) {
+    const { hasZones, covering } = await checkServiceability(tenantId, { lat, lng });
+    if (hasZones && covering.length === 0) {
+      await logOrderEvents([
+        {
+          orderId: order.id,
+          type: "OUT_OF_ZONE",
+          details: "Destino fuera de las zonas de cobertura",
+        },
+      ]);
+    }
+  }
+
   emitOrderUpdate(tenantId, order);
   return order;
 }

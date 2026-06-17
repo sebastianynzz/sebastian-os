@@ -51,6 +51,7 @@ interface OrderEvent {
 const EVENT_LABELS: Record<string, string> = {
   CREATED: "Pedido creado",
   GEOCODED: "Dirección geocodificada",
+  OUT_OF_ZONE: "Fuera de cobertura",
   ASSIGNED: "Asignado a ruta",
   DISPATCHED: "Despachado",
   IN_TRANSIT: "En camino",
