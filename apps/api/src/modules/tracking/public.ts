@@ -2,6 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { openSseStream, subscribeOrder } from "../../services/realtime.js";
+import {
+  loadVisibleProperties,
+  selectVisibleFields,
+} from "../../services/customProperties.js";
 
 /**
  * Página pública de rastreo (SIN autenticación). El negocio cliente sigue su
@@ -54,11 +58,13 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
       const order = await prisma.order.findUnique({
         where: { trackingToken: token },
         select: {
+          tenantId: true,
           trackingNumber: true,
           customerName: true,
           addressRaw: true,
           status: true,
           deliveredAt: true,
+          customFields: true,
           tenant: { select: { name: true, trackingTier: true } },
           client: { select: { name: true } },
           events: {
@@ -78,6 +84,16 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
       if (!order) {
         return reply.code(404).send({ error: "Envío no encontrado" });
       }
+
+      // Propiedades personalizadas visibles para el destinatario (Tier 2 §9): el
+      // negocio elige por campo qué exponer en la página pública (B2B). Se
+      // muestran en todos los niveles de privacidad (no son ubicación).
+      const recipientProps = await loadVisibleProperties(order.tenantId, "recipient");
+      const customProperties = selectVisibleFields(
+        order.customFields,
+        recipientProps,
+        "recipient",
+      );
 
       // Nivel de privacidad del rastreo público (Tier 2). Por defecto FULL.
       const tier = order.tenant.trackingTier;
@@ -141,6 +157,7 @@ export default async function publicTrackingRoutes(app: FastifyInstance) {
         etaMin: deliveryStop?.etaMin ?? null,
         trackingTier: tier,
         queuePosition,
+        customProperties,
         timeline: order.events.map((e) => ({
           type: e.type,
           label: PUBLIC_EVENT_LABELS[e.type] ?? e.type,

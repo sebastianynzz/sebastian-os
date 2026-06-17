@@ -73,6 +73,7 @@ model Tenant {
   messageTemplates MessageTemplate[]
   webhooks      Webhook[]
   apiKeys       ApiKey[]
+  customProperties CustomProperty[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -350,6 +351,10 @@ model Order {
   // consumidor final.
   recoveryStatus    String  @default("NONE") // NONE | FLAGGED | RESCHEDULED | RESOLVED
   rescheduledFromId String? // pedido fallido que originó este reenvío
+  // Propiedades personalizadas (Tier 2 §9): mapa { [customPropertyId]: valor }
+  // de los campos extra que el tenant definió. La visibilidad por conductor /
+  // destinatario la decide cada CustomProperty (nunca el JSON crudo).
+  customFields    Json?
   createdAt       DateTime  @default(now())
 
   // Un pedido puede tener hasta 2 paradas: PICKUP (si hay recogida) y DELIVERY.
@@ -602,6 +607,24 @@ model ApiKey {
   scopes     String[]  @default([])
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+/// Propiedad personalizada de parada (Tier 2 §9): campo extra definido por el
+/// tenant (p. ej. "Piso", "# factura"). Por campo se decide si es visible para
+/// el CONDUCTOR (app) y/o el DESTINATARIO (página pública de rastreo, B2B). El
+/// valor por pedido vive en Order.customFields, indexado por el id de la
+/// propiedad. El número de campos se limita por plan (upsell). Tenant-scoped.
+model CustomProperty {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  visibleToDriver    Boolean  @default(false)
+  visibleToRecipient Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([tenantId])
 }

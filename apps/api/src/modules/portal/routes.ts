@@ -164,10 +164,24 @@ export default async function portalRoutes(app: FastifyInstance) {
       weightKg: input.weightKg,
       tempProfile: input.tempProfile,
       priority: 0,
+      customFields: input.customFields,
       ...pickup,
     });
     return reply.code(201).send(withTrackingUrl(order));
   });
+
+  /**
+   * Propiedades personalizadas del operador (Tier 2 §9) que el negocio puede
+   * rellenar al crear un envío. Tenant-scoped; el portal solo necesita el id y
+   * la etiqueta (la visibilidad por conductor/destinatario la fija el operador).
+   */
+  app.get("/custom-properties", async (request) =>
+    prisma.customProperty.findMany({
+      where: { tenantId: request.user.tenantId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
+  );
 
   /**
    * Servicios activos del operador disponibles para el negocio al crear un

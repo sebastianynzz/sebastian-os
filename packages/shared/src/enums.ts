@@ -217,6 +217,22 @@ export type TenantStatus = (typeof TENANT_STATUSES)[number];
 export const TENANT_PLANS = ["FREE", "PRO", "ENTERPRISE"] as const;
 export type TenantPlan = (typeof TENANT_PLANS)[number];
 
+/**
+ * Tope de propiedades personalizadas de parada por plan (Tier 2 §9). Al llegar
+ * al tope, la creación devuelve 409 con un mensaje de upsell — el gancho de
+ * "mejora tu plan" del que vive la medición de uso (Tier 3). Núcleo B2B
+ * configurable; sin pagos.
+ */
+export const CUSTOM_PROPERTY_CAPS: Record<TenantPlan, number> = {
+  FREE: 3,
+  PRO: 10,
+  ENTERPRISE: 50,
+};
+/** Tope de campos personalizados para un plan (fallback al de FREE si no existe). */
+export function customPropertyCap(plan: string): number {
+  return CUSTOM_PROPERTY_CAPS[plan as TenantPlan] ?? CUSTOM_PROPERTY_CAPS.FREE;
+}
+
 export const TENANT_OPERATOR_TYPES = [
   "SELF_SERVE",
   "SUB_OPERATOR",

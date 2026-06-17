@@ -15,6 +15,10 @@ import { emitWebhookEvent } from "../../services/webhooks.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import {
+  loadVisibleProperties,
+  selectVisibleFields,
+} from "../../services/customProperties.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
 const clientSelect = {
@@ -211,7 +215,22 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: "desc" },
     });
-    return route ?? null;
+    if (!route) return null;
+    // Propiedades personalizadas visibles para el conductor (Tier 2 §9): se
+    // adjuntan ya etiquetadas por parada y NUNCA se envía el JSON crudo — un
+    // campo no visible para el conductor no debe llegar a la app.
+    const props = await loadVisibleProperties(request.user.tenantId, "driver");
+    return {
+      ...route,
+      stops: route.stops.map((s) => ({
+        ...s,
+        order: {
+          ...s.order,
+          customFields: undefined,
+          customProperties: selectVisibleFields(s.order.customFields, props, "driver"),
+        },
+      })),
+    };
   });
 
   /**

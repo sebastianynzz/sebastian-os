@@ -88,11 +88,31 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     }
   }
 
+  // Propiedades personalizadas (Tier 2 §9): conservar solo los valores cuyas
+  // claves son propiedades EXISTENTES del tenant (corta claves ajenas/erróneas
+  // y aísla por tenant); las desconocidas se ignoran para no tumbar imports/API.
+  let customFields: Record<string, string> | undefined;
+  if (input.customFields && Object.keys(input.customFields).length > 0) {
+    const props = await prisma.customProperty.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    const known = new Set(props.map((p) => p.id));
+    const filtered: Record<string, string> = {};
+    for (const [key, value] of Object.entries(input.customFields)) {
+      if (known.has(key) && value != null && String(value).trim() !== "") {
+        filtered[key] = String(value).trim();
+      }
+    }
+    if (Object.keys(filtered).length > 0) customFields = filtered;
+  }
+
   const order = await prisma.order.create({
     data: {
       tenantId,
       clientId: input.clientId,
       serviceId: input.serviceId,
+      customFields,
       trackingNumber: generateTrackingNumber(),
       trackingToken: generateTrackingToken(),
       externalRef: input.externalRef,

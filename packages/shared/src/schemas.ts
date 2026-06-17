@@ -106,6 +106,12 @@ export const createOrderSchema = z.object({
   pickupNotes: z.string().optional(),
   pickupLat: z.number().min(-90).max(90).optional(),
   pickupLng: z.number().min(-180).max(180).optional(),
+  /**
+   * Valores de las propiedades personalizadas del tenant (Tier 2 §9), indexados
+   * por id de CustomProperty. Las claves que no correspondan a una propiedad del
+   * tenant se ignoran al crear (resiliencia de import/API).
+   */
+  customFields: z.record(z.string(), z.string().max(500)).optional(),
 });
 
 /**
@@ -129,6 +135,8 @@ export const portalCreateOrderSchema = z
     pickupMode: z.enum(["REGISTERED", "CUSTOM", "NONE"]).default("REGISTERED"),
     pickupAddressRaw: z.string().min(3).optional(),
     pickupNotes: z.string().optional(),
+    /** Valores de propiedades personalizadas del operador (Tier 2 §9), por id. */
+    customFields: z.record(z.string(), z.string().max(500)).optional(),
   })
   .refine((o) => o.pickupMode !== "CUSTOM" || !!o.pickupAddressRaw, {
     message: "La recogida puntual requiere pickupAddressRaw",
@@ -244,6 +252,21 @@ export const webhookSchema = z.object({
 });
 export type WebhookInput = z.infer<typeof webhookSchema>;
 export const webhookUpdateSchema = webhookSchema.partial();
+
+// === Propiedades personalizadas de parada (Tier 2 §9) ===
+
+/**
+ * Crea/edita una propiedad personalizada: campo extra por pedido (p. ej.
+ * "Piso", "# factura") con visibilidad por campo para el CONDUCTOR (app) y/o el
+ * DESTINATARIO (página pública de rastreo, B2B). El valor por pedido vive en
+ * Order.customFields, indexado por id de la propiedad.
+ */
+export const customPropertySchema = z.object({
+  name: z.string().min(1).max(60),
+  visibleToDriver: z.boolean().default(false),
+  visibleToRecipient: z.boolean().default(false),
+});
+export type CustomPropertyInput = z.infer<typeof customPropertySchema>;
 
 // === Motor de notificaciones B2B (Tier 2) ===
 
