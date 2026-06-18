@@ -1,15 +1,16 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/charming-ritchie-d51s46` (pushed through `29f2399`+; the prior
+Branch: `claude/charming-ritchie-d51s46` (pushed through `c06d475`+; the prior
 `claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
 carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE. ALL of Tier-2 (§7 notifications, §8 developer platform
 core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
 scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
 billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (4
-items done) + **D4 multi-depot fast-follow DONE** (driver/vehicle home depot +
-route depot on Rutas). Full API suite green (54 files / 288 tests). Resume by
-continuing **Phase E — feature hardening (`docs/05`)**; see "What's left".
+items done) + **D4 + D5 fast-follows DONE** (driver/vehicle home depot + route
+depot on Rutas; zone-preferred drivers at dispatch). Full API suite green (54
+files / 290 tests). Resume by continuing **Phase E — feature hardening
+(`docs/05`)**; see "What's left".
 
 To resume:
 
@@ -247,8 +248,13 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 validation tenant-scoped + Conductores/Vehiculos "Depósito base" selectors;
 drivers/vehicles tests +2 each), and the route's depot now shows on Rutas
 (`/routes` includes depot). STILL DEFERRED for D4: global depot selector in the
-web header scoping views, nearest-depot auto-assignment. D5 (assignment prefers a
-zone's drivers + demand-heatmap) still deferred.
+web header scoping views, nearest-depot auto-assignment.
+
+**D5 zone-preferred drivers — DONE** (`c06d475`): `zones.zoneDriverIdsForPoints` +
+`GET /routes/:id/suggested-drivers` (active drivers from the zones covering a
+route's stops); Rutas auto-loads suggestions for PLANNED routes and sorts/labels
+zone drivers first in the assign selector. zones.test.ts +2. STILL DEFERRED for
+D5: tie the coverage signal into the demand-heatmap AI feature.
 
 ## What's left
 
@@ -271,8 +277,8 @@ updated) — the new `/developer` webhooks already use the standard events.
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
   Analítica (orders carry no depot → scope via the route's depot), nearest-depot
   auto-assignment. (Driver/vehicle home-depot + route depot on Rutas: DONE above.)
-- D5: **assignment prefers a zone's drivers** (optimizer hint), and tie the
-  coverage signal into the demand-heatmap AI feature.
+- D5: tie the zone-coverage signal into the demand-heatmap AI feature.
+  (Zone-preferred drivers at dispatch: DONE above.)
 
 **Carry-over polish:**
 - `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
