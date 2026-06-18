@@ -7,10 +7,10 @@ carries the same ledger and continues from `e4e687c`).
 core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
 scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
 billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (4
-items done) + **D4 + D5 fast-follows DONE** (driver/vehicle home depot + route
-depot on Rutas; zone-preferred drivers at dispatch). Full API suite green (54
-files / 290 tests). Resume by continuing **Phase E — feature hardening
-(`docs/05`)**; see "What's left".
+items done) + **D4 + D5 fast-follows DONE** (driver/vehicle home depot, route
+depot on Rutas, nearest-depot suggestion; zone-preferred drivers at dispatch).
+Full API suite green (54 files / 291 tests). Resume by continuing **Phase E —
+feature hardening (`docs/05`)**; see "What's left".
 
 To resume:
 
@@ -247,8 +247,9 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 `depotId` / vehicle `homeDepotId` exposed end-to-end (shared schemas + API depot
 validation tenant-scoped + Conductores/Vehiculos "Depósito base" selectors;
 drivers/vehicles tests +2 each), and the route's depot now shows on Rutas
-(`/routes` includes depot). STILL DEFERRED for D4: global depot selector in the
-web header scoping views, nearest-depot auto-assignment.
+(`/routes` includes depot) and a nearest-depot suggestion when planning
+(`GET /depots/nearest` + "📍 Más cercano" in Planificación; depots.test.ts +1).
+STILL DEFERRED for D4: global depot selector in the web header scoping all views.
 
 **D5 zone-preferred drivers — DONE** (`c06d475`): `zones.zoneDriverIdsForPoints` +
 `GET /routes/:id/suggested-drivers` (active drivers from the zones covering a
@@ -275,8 +276,8 @@ updated) — the new `/developer` webhooks already use the standard events.
 
 **Fast-follows (still deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
-  Analítica (orders carry no depot → scope via the route's depot), nearest-depot
-  auto-assignment. (Driver/vehicle home-depot + route depot on Rutas: DONE above.)
+  Analítica (orders carry no depot → scope via the route's depot). (Driver/vehicle
+  home-depot, route depot on Rutas, nearest-depot suggestion: DONE above.)
 - D5: tie the zone-coverage signal into the demand-heatmap AI feature.
   (Zone-preferred drivers at dispatch: DONE above.)
 
