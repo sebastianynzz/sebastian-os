@@ -6,11 +6,12 @@ carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE. ALL of Tier-2 (§7 notifications, §8 developer platform
 core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
 scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
-billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (4
+billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (6
 items done) + **D4 + D5 fast-follows DONE** (driver/vehicle home depot, route
-depot on Rutas, nearest-depot suggestion; zone-preferred drivers at dispatch).
-Full API suite green (54 files / 291 tests). Resume by continuing **Phase E —
-feature hardening (`docs/05`)**; see "What's left".
+depot on Rutas, nearest-depot suggestion; zone-preferred drivers at dispatch) +
+**legacy webhook `standardEvent` shipped (non-breaking)**. Full API suite green
+(54 files / 291 tests). Resume by continuing **Phase E — feature hardening
+(`docs/05`)**; see "What's left".
 
 To resume:
 
@@ -242,6 +243,12 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 - Cockpit (`953ed8a`): document-expiry reminders (vehicle SOAT/tecno + driver
   license within 30 days) as `DOC_EXPIRY` exceptions (expired HIGH / soon
   MEDIUM), snooze-able. exceptions.test.ts +2.
+- Web/Rutas (`13d8dc6`): actionable 422 INSERTION_INFEASIBLE handling (reason +
+  "replanifica o prueba con otra ruta", no futile retry). Covered by
+  insertion.test.ts.
+- Webhooks (`68e0906`): `standardEvent` (NOTIFICATION_EVENTS) added to the legacy
+  per-client webhook payload — resolves the deferred standardization WITHOUT
+  breaking `event`. b2b.test.ts asserts it.
 
 **D4 multi-depot fast-follow — DONE** (`29f2399` + depot-on-Rutas): driver
 `depotId` / vehicle `homeDepotId` exposed end-to-end (shared schemas + API depot
@@ -270,9 +277,9 @@ MapaEnVivo, then Excepciones/Direcciones/Copiloto), Admin (Part 3 — TenantDeta
 Flota first, then Métricas/Auditoría/flywheel). Apply design tokens on every
 screen touched.
 
-**Legacy webhook standardization (deferred):** standardize the *legacy* per-client
-webhook `event` field to NOTIFICATION_EVENTS (breaking; would need `b2b.test.ts`
-updated) — the new `/developer` webhooks already use the standard events.
+(Legacy webhook standardization is DONE non-breakingly — see `standardEvent`
+above; a future breaking change could drop the template-name `event` once
+integrators migrate.)
 
 **Fast-follows (still deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
