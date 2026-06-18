@@ -10,8 +10,19 @@ billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (6
 items done) + **D4 + D5 fast-follows DONE** (driver/vehicle home depot, route
 depot on Rutas, nearest-depot suggestion; zone-preferred drivers at dispatch) +
 **legacy webhook `standardEvent` shipped (non-breaking)**. Full API suite green
-(54 files / 291 tests). Resume by continuing **Phase E — feature hardening
+(54 files / 292 tests). Resume by continuing **Phase E — feature hardening
 (`docs/05`)**; see "What's left".
+
+> **Phase E maturity note (verified this session — already implemented, don't
+> re-hunt):** SSE auto-reconnect + 60 s fallback poll (`useRealtimeReload`);
+> login rate-limiting (10/min on `/auth/login` + platform); driver PWA
+> auto-update (`UpdateToast` + sw); per-route error boundaries; platform audit
+> filters + cursor + CSV export; tenant last-ADMIN guard (degrade + delete);
+> engine-off in-motion interlock (anti-piratería); AI confirm-before-mutate
+> (run→apply + copilot `proponer_*` guard); driver fail flow REJECTED-vs-FAILED +
+> mandatory evidence photo for disputable reasons; connector idempotency (now
+> test-locked). Remaining Phase E is mostly per-screen frontend polish (no API
+> test harness) + the items in "What's left".
 
 To resume:
 
