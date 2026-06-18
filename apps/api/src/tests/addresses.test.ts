@@ -142,4 +142,19 @@ describe("triage de direcciones — confirmación en lote", () => {
     expect(ids).not.toContain(okId);
     expect(ids).toEqual(expect.arrayContaining([mockId, noCoordsId]));
   });
+
+  // Phase E: vista previa de geocodificación para el despachador (paridad con el
+  // portal) — confianza/ambigüedad + cobertura por zona, sin crear el pedido.
+  it("/addresses/validate devuelve confianza, ambigüedad y cobertura por zona", async () => {
+    const res = await api("POST", "/addresses/validate", adminToken, {
+      addressRaw: "Cra 13 # 54-20, Chapinero",
+    });
+    expect(res.status).toBe(200);
+    expect(typeof res.body.confidence).toBe("number");
+    expect(typeof res.body.ambiguous).toBe("boolean");
+    expect(typeof res.body.knownAddress).toBe("boolean");
+    // Sin zonas definidas en este tenant → serviceable por defecto.
+    expect(res.body.hasZones).toBe(false);
+    expect(res.body.serviceable).toBe(true);
+  });
 });

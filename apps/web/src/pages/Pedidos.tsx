@@ -38,6 +38,15 @@ interface CustomPropDef {
   visibleToRecipient: boolean;
 }
 
+interface AddressCheck {
+  confidence: number;
+  ambiguous: boolean;
+  knownAddress: boolean;
+  source: string;
+  hasZones: boolean;
+  serviceable: boolean;
+}
+
 interface ClientOption {
   id: string;
   name: string;
@@ -157,6 +166,10 @@ export default function Pedidos() {
   // Campos personalizados del tenant (Tier 2 §9): se rellenan en el alta manual
   // y se mapean por nombre de columna en el import CSV.
   const [customProps, setCustomProps] = useState<CustomPropDef[]>([]);
+  // Vista previa de geocodificación en el alta manual (el moat como feature del
+  // despachador): avisa "dirección ambigua / fuera de zona" ANTES de crear.
+  const [addressCheck, setAddressCheck] = useState<AddressCheck | null>(null);
+  const [checkingAddress, setCheckingAddress] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
   const [fStatus, setFStatus] = useState("");
@@ -331,6 +344,23 @@ export default function Pedidos() {
     }
   }
 
+  async function validateAddress(addressRaw: string) {
+    if (addressRaw.trim().length < 5) {
+      setAddressCheck(null);
+      return;
+    }
+    setCheckingAddress(true);
+    try {
+      setAddressCheck(
+        await api<AddressCheck>("POST", "/addresses/validate", { addressRaw }),
+      );
+    } catch {
+      setAddressCheck(null);
+    } finally {
+      setCheckingAddress(false);
+    }
+  }
+
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -355,6 +385,7 @@ export default function Pedidos() {
         ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
       });
       setShowForm(false);
+      setAddressCheck(null);
       await load(visibleCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -453,8 +484,36 @@ export default function Pedidos() {
                   className={inputClass}
                   required
                   placeholder='Ej: "Cra 13 # 54-20" o "frente al colegio San José"'
+                  onBlur={(e) => void validateAddress(e.target.value)}
                 />
               </Field>
+              {checkingAddress && (
+                <p className="mt-1 text-xs text-navy/50">Verificando dirección…</p>
+              )}
+              {addressCheck && !checkingAddress && (
+                <p
+                  className={`mt-1 rounded px-2 py-1 text-xs ${
+                    addressCheck.knownAddress || !addressCheck.ambiguous
+                      ? "bg-success-bg text-success"
+                      : "bg-warning-bg text-warning"
+                  }`}
+                >
+                  {addressCheck.knownAddress
+                    ? "✅ Dirección conocida: ya fue confirmada en entregas anteriores."
+                    : addressCheck.ambiguous
+                      ? '⚠️ Dirección ambigua. Revisa la nomenclatura o agrega una referencia (ej: "frente al colegio…") para evitar una entrega fallida.'
+                      : "✅ Dirección verificada."}
+                </p>
+              )}
+              {addressCheck &&
+                !checkingAddress &&
+                addressCheck.hasZones &&
+                !addressCheck.serviceable && (
+                  <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
+                    ⚠️ Este destino está fuera de las zonas de cobertura. Puedes
+                    crear el pedido, pero confírmalo con el cliente.
+                  </p>
+                )}
             </div>
             <div className="sm:col-span-2">
               <Field label="Referencias de entrega">
