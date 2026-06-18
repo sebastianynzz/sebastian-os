@@ -88,7 +88,11 @@ async function dispatchToChannel(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // `event` conserva el nombre de plantilla por compatibilidad; los
+          // integradores nuevos deben usar `standardEvent` (catálogo
+          // NOTIFICATION_EVENTS), alineado con los webhooks de /developer.
           event: message.template,
+          standardEvent: message.event ?? null,
           orderId: message.orderId,
           message: message.renderedBody,
           data: message.payload,
