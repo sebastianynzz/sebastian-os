@@ -36,3 +36,29 @@ export async function checkServiceability(
     .map((z) => ({ id: z.id, name: z.name }));
   return { hasZones: zones.length > 0, covering };
 }
+
+/**
+ * Conductores asignados a las zonas que cubren cualquiera de los puntos dados
+ * (D5: la asignación prefiere los conductores de la zona). Determinista
+ * (`pointInPolygon`). Devuelve ids únicos; vacío si ninguna zona con conductores
+ * cubre los puntos. Tenant-scoped por el `tenantId`.
+ */
+export async function zoneDriverIdsForPoints(
+  tenantId: string,
+  points: LatLng[],
+): Promise<string[]> {
+  if (points.length === 0) return [];
+  const zones = await prisma.zone.findMany({
+    where: { tenantId },
+    select: { driverIds: true, geometry: true },
+  });
+  const ids = new Set<string>();
+  for (const z of zones) {
+    if (z.driverIds.length === 0) continue;
+    const pts = (z.geometry as { points?: LatLng[] } | null)?.points ?? [];
+    if (points.some((p) => pointInPolygon(p, pts))) {
+      for (const d of z.driverIds) ids.add(d);
+    }
+  }
+  return [...ids];
+}

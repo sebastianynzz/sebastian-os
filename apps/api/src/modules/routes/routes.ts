@@ -19,6 +19,7 @@ import {
   loadVisibleProperties,
   selectVisibleFields,
 } from "../../services/customProperties.js";
+import { zoneDriverIdsForPoints } from "../../services/zones.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
 const clientSelect = {
@@ -68,6 +69,37 @@ export default async function routesRoutes(app: FastifyInstance) {
     });
     if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
     return route;
+  });
+
+  /**
+   * Conductores sugeridos por zona (D5): los asignados a las zonas que cubren
+   * las paradas de entrega de la ruta. El despachador los prefiere al asignar,
+   * sin imponerlos (sigue pudiendo elegir a cualquiera). Tenant-scoped.
+   */
+  app.get("/:id/suggested-drivers", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: {
+        stops: {
+          where: { kind: "DELIVERY" },
+          select: { order: { select: { lat: true, lng: true } } },
+        },
+      },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    const points = route.stops
+      .map((s) => s.order)
+      .filter((o): o is { lat: number; lng: number } => o.lat != null && o.lng != null)
+      .map((o) => ({ lat: o.lat, lng: o.lng }));
+    const driverIds = await zoneDriverIdsForPoints(request.user.tenantId, points);
+    if (driverIds.length === 0) return { drivers: [] };
+    const drivers = await prisma.driver.findMany({
+      where: { id: { in: driverIds }, tenantId: request.user.tenantId, status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    return { drivers };
   });
 
   /** Despacho: asigna conductor y notifica a los clientes. */

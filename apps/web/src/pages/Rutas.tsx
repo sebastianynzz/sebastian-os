@@ -168,6 +168,8 @@ export default function Rutas() {
   // Manifiesto de carga (Tier 2 §11): bultos escaneados al cargar el vehículo.
   const [manifests, setManifests] = useState<Record<string, Manifest>>({});
   const [manifestOpen, setManifestOpen] = useState<Set<string>>(new Set());
+  // Conductores sugeridos por zona (D5): routeId → ids sugeridos.
+  const [suggested, setSuggested] = useState<Record<string, string[]>>({});
   const toast = useToast();
 
   // Conductores ya ocupados en rutas activas: no re-asignables (dedupe).
@@ -219,6 +221,22 @@ export default function Rutas() {
       setRoutes(r);
       setDrivers(d);
       setPendingOrders(p);
+      // Sugerencias de conductor por zona (D5) para las rutas por despachar.
+      const planned = r.filter((rt) => rt.status === "PLANNED" && !rt.driver);
+      const entries = await Promise.all(
+        planned.map(async (rt) => {
+          try {
+            const res = await api<{ drivers: { id: string }[] }>(
+              "GET",
+              `/routes/${rt.id}/suggested-drivers`,
+            );
+            return [rt.id, res.drivers.map((dr) => dr.id)] as const;
+          } catch {
+            return [rt.id, [] as string[]] as const;
+          }
+        }),
+      );
+      setSuggested(Object.fromEntries(entries));
     } finally {
       setLoading(false);
     }
@@ -308,13 +326,20 @@ export default function Rutas() {
                     }
                   >
                     <option value="">Asignar conductor…</option>
-                    {drivers
-                      .filter((d) => !assignedDriverIds.has(d.id))
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
+                    {(() => {
+                      const sug = new Set(suggested[r.id] ?? []);
+                      // Conductores de la zona primero, marcados como sugeridos.
+                      return drivers
+                        .filter((d) => !assignedDriverIds.has(d.id))
+                        .slice()
+                        .sort((a, b) => Number(sug.has(b.id)) - Number(sug.has(a.id)))
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                            {sug.has(d.id) ? " — sugerido (zona)" : ""}
+                          </option>
+                        ));
+                    })()}
                   </select>
                   <Button onClick={() => dispatch(r.id)} disabled={!assigning[r.id]}>
                     Despachar

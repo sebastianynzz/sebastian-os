@@ -207,3 +207,47 @@ describe("cobertura por zona al crear pedido (D5.3)", () => {
     expect(Array.isArray(res.body.coverageZones)).toBe(true);
   });
 });
+
+describe("conductores sugeridos por zona al despachar (D5)", () => {
+  let routeId: string;
+
+  beforeAll(async () => {
+    await api("POST", "/zones", adminToken, {
+      name: "Zona del conductor",
+      geometry: polygon,
+      driverIds: [driverId],
+    });
+    const vehicle = await api("POST", "/vehicles", adminToken, {
+      plate: "ZON1Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+    });
+    const order = await api("POST", "/orders", adminToken, {
+      customerName: "En zona",
+      customerPhone: "+573111111140",
+      addressRaw: "Centro",
+      lat: 4.65,
+      lng: -74.05,
+    });
+    const plan = await api("POST", "/optimization/plans", adminToken, {
+      date: "2026-06-14", // domingo: sin pico y placa
+      depot: { lat: 4.6486, lng: -74.0628 },
+      orderIds: [order.body.id],
+      vehicleIds: [vehicle.body.id],
+    });
+    routeId = plan.body.routes[0].id;
+  });
+
+  it("sugiere el conductor asignado a la zona que cubre las paradas", async () => {
+    const res = await api("GET", `/routes/${routeId}/suggested-drivers`, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.drivers.some((d: { id: string }) => d.id === driverId)).toBe(true);
+  });
+
+  it("404 para una ruta inexistente", async () => {
+    const res = await api("GET", "/routes/nope/suggested-drivers", adminToken);
+    expect(res.status).toBe(404);
+  });
+});
