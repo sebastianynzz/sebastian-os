@@ -154,4 +154,27 @@ describe("Conectores de ingesta (Tier 2 §8)", () => {
       (await api("POST", "/ingest/orders/shopify", undefined, {})).status,
     ).toBe(401);
   });
+
+  it("idempotente: reenviar el mismo pedido no lo duplica (reintentos de webhook)", async () => {
+    const payload = {
+      order_number: 5005,
+      shipping_address: {
+        name: "Idem Test",
+        address1: "Cl 100 # 11-22",
+        city: "Bogotá",
+        phone: "+573109999999",
+      },
+    };
+    const first = await api("POST", "/ingest/orders/shopify", writeKey, payload);
+    const second = await api("POST", "/ingest/orders/shopify", writeKey, payload);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    // El segundo POST devuelve el MISMO pedido (no crea otro): Shopify/VTEX/MELI
+    // reintentan sus webhooks; el externalRef del conector deduplica.
+    expect(second.body.id).toBe(first.body.id);
+    const count = await prisma.order.count({
+      where: { tenantId, externalRef: "5005" },
+    });
+    expect(count).toBe(1);
+  });
 });
