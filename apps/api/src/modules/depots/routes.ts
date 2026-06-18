@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { depotSchema } from "@moveos/shared";
+import { depotSchema, haversineKm } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 
@@ -19,6 +19,35 @@ export default async function depotsRoutes(app: FastifyInstance) {
       orderBy: [{ isMain: "desc" }, { createdAt: "asc" }],
     }),
   );
+
+  /**
+   * Depósito más cercano a un punto (D4 fast-follow): para sugerir el punto de
+   * salida al planificar según dónde están los pedidos. Determinista (haversine).
+   * Tenant-scoped; `{ depot: null }` si el tenant no tiene depósitos.
+   */
+  app.get("/nearest", async (request) => {
+    const q = z
+      .object({
+        lat: z.coerce.number().min(-90).max(90),
+        lng: z.coerce.number().min(-180).max(180),
+      })
+      .parse(request.query);
+    const depots = await prisma.depot.findMany({
+      where: { tenantId: request.user.tenantId },
+      select: { id: true, name: true, lat: true, lng: true, isMain: true },
+    });
+    if (depots.length === 0) return { depot: null };
+    let best = depots[0]!;
+    let bestKm = haversineKm(q, { lat: best.lat, lng: best.lng });
+    for (const d of depots.slice(1)) {
+      const km = haversineKm(q, { lat: d.lat, lng: d.lng });
+      if (km < bestKm) {
+        best = d;
+        bestKm = km;
+      }
+    }
+    return { depot: best, distanceKm: Math.round(bestKm * 10) / 10 };
+  });
 
   app.post("/", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     const input = depotSchema.parse(request.body);

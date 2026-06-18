@@ -112,6 +112,25 @@ export default function Planificacion() {
     for (const o of orders) m.set(o.id, o);
     return m;
   }, [orders, orderArchive]);
+
+  /** Elige el depósito más cercano al centroide de los pedidos seleccionados. */
+  async function pickNearestDepot() {
+    const pts = [...selectedOrders]
+      .map((id) => ordersById.get(id))
+      .filter((o): o is Order => !!o && o.lat != null && o.lng != null);
+    if (pts.length === 0) return;
+    const lat = pts.reduce((s, o) => s + (o.lat as number), 0) / pts.length;
+    const lng = pts.reduce((s, o) => s + (o.lng as number), 0) / pts.length;
+    try {
+      const res = await api<{ depot: { id: string } | null }>(
+        "GET",
+        `/depots/nearest?lat=${lat}&lng=${lng}`,
+      );
+      if (res.depot) setSelectedDepotId(res.depot.id);
+    } catch {
+      /* sin red: se mantiene el depósito actual */
+    }
+  }
   const vehiclesById = useMemo(
     () => new Map(vehicles.map((v) => [v.id, v])),
     [vehicles],
@@ -246,6 +265,17 @@ export default function Planificacion() {
                     </option>
                   ))}
                 </select>
+                {depots.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => void pickNearestDepot()}
+                    disabled={selectedOrders.size === 0}
+                    title="Elegir el depósito más cercano a los pedidos seleccionados"
+                    className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy hover:bg-niebla disabled:opacity-50"
+                  >
+                    📍 Más cercano
+                  </button>
+                )}
               </>
             )}
             <label className="sr-only" htmlFor="plan-objective">

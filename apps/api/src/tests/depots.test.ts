@@ -115,6 +115,18 @@ describe("Depósitos / multi-depot (D4)", () => {
     expect(mains[0]!.id).toBe(secondId);
   });
 
+  it("nearest devuelve el depósito más cercano al punto (D4 fast-follow)", async () => {
+    // Cerca de "Norte" (4.71, -74.07).
+    const near = await api("GET", "/depots/nearest?lat=4.705&lng=-74.069", adminToken);
+    expect(near.status).toBe(200);
+    expect(near.body.depot.id).toBe(secondId);
+    expect(typeof near.body.distanceKm).toBe("number");
+
+    // Cerca de "Central" (4.6486, -74.0628).
+    const central = await api("GET", "/depots/nearest?lat=4.65&lng=-74.062", adminToken);
+    expect(central.body.depot.id).toBe(mainId);
+  });
+
   it("el rol CLIENT del portal no puede crear depósitos (403)", async () => {
     const denied = await api("POST", "/depots", portalToken, {
       name: "X",
