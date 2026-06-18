@@ -4,6 +4,7 @@ import {
   DELIVERY_TYPES,
   DRIVER_STATUSES,
   FAIL_REASONS,
+  NAV_APPS,
   OPTIMIZATION_OBJECTIVES,
   PICKUP_TYPES,
   POD_REQ,
@@ -267,6 +268,35 @@ export const customPropertySchema = z.object({
   visibleToRecipient: z.boolean().default(false),
 });
 export type CustomPropertyInput = z.infer<typeof customPropertySchema>;
+
+// === Permisos de la app del conductor (Tier 2 §10) ===
+
+/**
+ * Política de permisos de la app del conductor: app de navegación preferida +
+ * qué puede hacer el conductor con las rutas. Singleton por tenant; la app del
+ * conductor la LEE y solo ADMIN la edita. `granular` deja espacio a banderas
+ * finas a futuro.
+ */
+export const driverPermissionPolicySchema = z.object({
+  navApp: z.enum(NAV_APPS).default("INTERNAL_GMAPS"),
+  allowEditDispatcherRoutes: z.boolean().default(false),
+  allowCreateRoutes: z.boolean().default(false),
+  allowEditStartedRoutes: z.boolean().default(false),
+  granular: z.record(z.string(), z.boolean()).optional(),
+});
+export type DriverPermissionPolicyInput = z.infer<
+  typeof driverPermissionPolicySchema
+>;
+
+/** Política por defecto (app del conductor "bloqueada": solo ejecuta su ruta). */
+export function defaultDriverPermissionPolicy(): DriverPermissionPolicyInput {
+  return {
+    navApp: "INTERNAL_GMAPS",
+    allowEditDispatcherRoutes: false,
+    allowCreateRoutes: false,
+    allowEditStartedRoutes: false,
+  };
+}
 
 // === Motor de notificaciones B2B (Tier 2) ===
 

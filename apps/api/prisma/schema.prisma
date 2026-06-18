@@ -74,6 +74,7 @@ model Tenant {
   webhooks      Webhook[]
   apiKeys       ApiKey[]
   customProperties CustomProperty[]
+  driverPermissionPolicy DriverPermissionPolicy?
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -627,6 +628,25 @@ model CustomProperty {
   updatedAt          DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+/// Política de permisos de la app del conductor (Tier 2 §10). Singleton por
+/// tenant (una fila): app de navegación preferida para los deeplinks (navApp) y
+/// qué puede hacer el conductor con las rutas — editar las del despachador,
+/// crear rutas ad-hoc, editar rutas ya iniciadas. `granular` deja espacio a
+/// banderas finas a futuro. Sin fila = valores por defecto (app bloqueada).
+/// La app del conductor LEE esta política; las mutaciones son solo de ADMIN.
+model DriverPermissionPolicy {
+  id                       String   @id @default(cuid())
+  tenantId                 String   @unique
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  navApp                   String   @default("INTERNAL_GMAPS") // INTERNAL_GMAPS | WAZE | GOOGLE
+  allowEditDispatcherRoutes Boolean @default(false)
+  allowCreateRoutes        Boolean  @default(false)
+  allowEditStartedRoutes   Boolean  @default(false)
+  granular                 Json?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 }
 
 /// Directorio de estaciones de carga (núcleo EV, roadmap P0.4b). Las redes

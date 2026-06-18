@@ -27,6 +27,7 @@ import {
   DELIVERY_TYPE_LABELS,
   PICKUP_TYPES,
   PICKUP_TYPE_LABELS,
+  type NavApp,
 } from "@moveos/shared";
 
 interface Stop {
@@ -302,6 +303,8 @@ const PULL_REFRESH_THRESHOLD = 70;
  * persiste y se aplica como clase `.dark` en <html> (variante Tailwind).
  */
 const THEME_KEY = "moveos-driver-theme";
+/** Cache de la app de navegación preferida (Tier 2 §10) para uso offline. */
+const NAV_APP_KEY = "moveos_driver_navapp";
 type Theme = "dark" | "light";
 function getInitialTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
@@ -319,6 +322,12 @@ export default function App() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
   const [route, setRoute] = useState<DriverRoute | null>(() => readCachedRoute());
+  // App de navegación preferida (Tier 2 §10): la fija el operador en
+  // "Permisos de conductor". Cacheada para que la app respete la preferencia
+  // también sin señal (offline-first).
+  const [navApp, setNavApp] = useState<NavApp>(
+    () => (localStorage.getItem(NAV_APP_KEY) as NavApp) ?? "INTERNAL_GMAPS",
+  );
   const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -389,6 +398,20 @@ export default function App() {
   useEffect(() => {
     void load();
   }, [load, authed]);
+
+  // Permisos de conductor (Tier 2 §10): leer la app de navegación preferida que
+  // fijó el operador. Sin señal se conserva el último valor cacheado.
+  useEffect(() => {
+    if (!authed) return;
+    void api<{ navApp: NavApp }>("GET", "/controls/driver-permissions")
+      .then((p) => {
+        setNavApp(p.navApp);
+        localStorage.setItem(NAV_APP_KEY, p.navApp);
+      })
+      .catch(() => {
+        /* offline: se mantiene la preferencia cacheada */
+      });
+  }, [authed]);
 
   // Re-secuenciación en vivo: refrescar la ruta cada 45 s mientras esté
   // activa, para absorber paradas insertadas sin que el conductor recargue.
@@ -706,6 +729,7 @@ export default function App() {
           <StopCard
             key={stop.id}
             stop={stop}
+            navApp={navApp}
             routeActive={route.status === "IN_PROGRESS"}
             isCurrent={stop.id === currentStopId}
             onAction={() => setActiveStop(stop)}
@@ -896,12 +920,14 @@ function Login({
 
 function StopCard({
   stop,
+  navApp,
   routeActive,
   isCurrent,
   onAction,
   onArrive,
 }: {
   stop: Stop;
+  navApp: NavApp;
   routeActive: boolean;
   isCurrent: boolean;
   onAction: () => void;
@@ -970,25 +996,37 @@ function StopCard({
         </a>
       </div>
 
-      {/* Navegación: deeplink a Waze / Google Maps — integrar, no construir. */}
+      {/* Navegación: deeplink a Waze / Google Maps — integrar, no construir. El
+          orden respeta la app preferida del operador (Tier 2 §10: navApp); ambas
+          quedan disponibles. WAZE → Waze primero; si no, Google Maps primero. */}
       {nav && !done && (
         <div className="mt-2 flex gap-2">
-          <a
-            href={nav.waze}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-sky-50 py-2 text-center text-xs font-bold text-info"
-          >
-            🧭 Waze
-          </a>
-          <a
-            href={nav.gmaps}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-success-bg py-2 text-center text-xs font-bold text-success"
-          >
-            🗺️ Maps
-          </a>
+          {(navApp === "WAZE"
+            ? (["waze", "gmaps"] as const)
+            : (["gmaps", "waze"] as const)
+          ).map((target) =>
+            target === "waze" ? (
+              <a
+                key="waze"
+                href={nav.waze}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-lg bg-sky-50 py-2 text-center text-xs font-bold text-info"
+              >
+                🧭 Waze
+              </a>
+            ) : (
+              <a
+                key="gmaps"
+                href={nav.gmaps}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-lg bg-success-bg py-2 text-center text-xs font-bold text-success"
+              >
+                🗺️ Maps
+              </a>
+            ),
+          )}
         </div>
       )}
 

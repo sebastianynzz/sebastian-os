@@ -262,6 +262,20 @@ export const POD_TYPES = ["PHOTO", "SIGNATURE", "OTP", "GEOFENCE"] as const;
 export type PodType = (typeof POD_TYPES)[number];
 
 /**
+ * App de navegación preferida para los deeplinks de la app del conductor
+ * (Tier 2 §10). INTERNAL_GMAPS = el destino por defecto de la app (enlace a
+ * Google Maps); WAZE / GOOGLE eligen explícitamente una app externa. Integramos
+ * deeplinks, nunca construimos navegación propia.
+ */
+export const NAV_APPS = ["INTERNAL_GMAPS", "WAZE", "GOOGLE"] as const;
+export type NavApp = (typeof NAV_APPS)[number];
+export const NAV_APP_LABELS: Record<NavApp, string> = {
+  INTERNAL_GMAPS: "Google Maps (por defecto)",
+  WAZE: "Waze",
+  GOOGLE: "Google Maps",
+};
+
+/**
  * Pruebas de entrega que el comercio cliente puede EXIGIR por configuración
  * (política POD configurable por cliente). Es el vocabulario de la política,
  * distinto de POD_TYPES (el registro de evidencia). Se limita a lo que la app

@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import {
   costConfigSchema,
   defaultPodPolicyConfig,
+  defaultDriverPermissionPolicy,
+  driverPermissionPolicySchema,
   messageTemplateSchema,
   podPolicyConfigSchema,
   trackingTierSchema,
@@ -146,4 +148,51 @@ export default async function controlsRoutes(app: FastifyInstance) {
     });
     return { event: row.event, enabled: row.enabled, body: row.body, isDefault: false };
   });
+
+  /**
+   * Permisos de la app del conductor (Tier 2 §10): app de navegación preferida
+   * (deeplinks) y qué puede hacer el conductor con las rutas. Sin fila = la
+   * política por defecto (app "bloqueada", solo ejecuta su ruta). La LEE
+   * cualquier usuario del tenant (la app del conductor la consulta); la edita
+   * solo ADMIN.
+   */
+  app.get("/driver-permissions", async (request) => {
+    const row = await prisma.driverPermissionPolicy.findUnique({
+      where: { tenantId: request.user.tenantId },
+    });
+    const base = defaultDriverPermissionPolicy();
+    return {
+      navApp: row?.navApp ?? base.navApp,
+      allowEditDispatcherRoutes:
+        row?.allowEditDispatcherRoutes ?? base.allowEditDispatcherRoutes,
+      allowCreateRoutes: row?.allowCreateRoutes ?? base.allowCreateRoutes,
+      allowEditStartedRoutes:
+        row?.allowEditStartedRoutes ?? base.allowEditStartedRoutes,
+      granular: (row?.granular as Record<string, boolean> | null) ?? undefined,
+    };
+  });
+
+  app.patch(
+    "/driver-permissions",
+    { preHandler: [requireRole("ADMIN")] },
+    async (request, reply) => {
+      const parsed = driverPermissionPolicySchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "Permisos de conductor inválidos" });
+      }
+      const data = parsed.data;
+      const row = await prisma.driverPermissionPolicy.upsert({
+        where: { tenantId: request.user.tenantId },
+        create: { tenantId: request.user.tenantId, ...data },
+        update: data,
+      });
+      return {
+        navApp: row.navApp,
+        allowEditDispatcherRoutes: row.allowEditDispatcherRoutes,
+        allowCreateRoutes: row.allowCreateRoutes,
+        allowEditStartedRoutes: row.allowEditStartedRoutes,
+        granular: (row.granular as Record<string, boolean> | null) ?? undefined,
+      };
+    },
+  );
 }
