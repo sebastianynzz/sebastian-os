@@ -29,6 +29,7 @@ interface RouteData {
   warnings: string[];
   vehicle: { plate: string; type: string; isElectric: boolean };
   driver: { id: string; name: string } | null;
+  depot: { id: string; name: string } | null;
   stops: {
     id: string;
     kind: "PICKUP" | "DELIVERY";
@@ -289,7 +290,7 @@ export default function Rutas() {
       {routes.map((r) => (
         <Card
           key={r.id}
-          title={`${r.date} · ${r.vehicle.plate} (${r.vehicle.type}${r.vehicle.isElectric ? " ⚡" : ""}) · ${r.totalDistanceKm} km`}
+          title={`${r.date} · ${r.vehicle.plate} (${r.vehicle.type}${r.vehicle.isElectric ? " ⚡" : ""}) · ${r.totalDistanceKm} km${r.depot ? ` · 🏭 ${r.depot.name}` : ""}`}
           actions={
             <div className="flex items-center gap-2">
               {r.driver ? (

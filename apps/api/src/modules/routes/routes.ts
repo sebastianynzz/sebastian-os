@@ -62,6 +62,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       include: {
         vehicle: true,
         driver: true,
+        depot: { select: { id: true, name: true } },
         stops: { orderBy: { sequence: "asc" }, include: { order: true, pod: true } },
       },
     });
