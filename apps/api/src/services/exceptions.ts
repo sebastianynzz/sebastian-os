@@ -13,6 +13,9 @@ import { toMinOfDayBogota } from "./routing.js";
 const LATE_THRESHOLD_MIN = 20;
 const STALE_PING_MIN = 15;
 const LOW_BATTERY_PCT = 25;
+// Anticipación con la que recordamos un documento por vencer (SOAT/tecno/licencia).
+const DOC_EXPIRY_SOON_DAYS = 30;
+const DAY_MS = 86_400_000;
 // Anticipación con la que avisamos un SLA "por vencer" (incumplimiento previsto)
 // antes de que la hora límite del servicio se cumpla.
 const SLA_PREDICT_LEAD_MIN = 30;
@@ -31,7 +34,8 @@ export interface ExceptionItem {
     | "LOW_BATTERY"
     | "FAILED_DELIVERY"
     | "SLA_BREACH"
-    | "ADDRESS_UNCONFIRMED";
+    | "ADDRESS_UNCONFIRMED"
+    | "DOC_EXPIRY";
   severity: ExceptionSeverity;
   title: string;
   detail: string;
@@ -260,6 +264,74 @@ export async function computeExceptions(tenantId: string): Promise<ExceptionItem
       refs: { count: unconfirmed },
       createdAt: new Date().toISOString(),
     });
+  }
+
+  // 6. Recordatorios de documentos por vencer / vencidos (Phase E): SOAT y
+  //    tecnomecánica de vehículos, licencia de conductores. Recordar a tiempo
+  //    evita despachar con papeles vencidos (riesgo operativo y legal). Vencido
+  //    = HIGH; por vencer (≤30 días) = MEDIUM. Sin acción (recordatorio).
+  const now = Date.now();
+  const soonCutoff = new Date(now + DOC_EXPIRY_SOON_DAYS * DAY_MS);
+  const pushDocExpiry = (
+    idKey: string,
+    label: string,
+    subject: string,
+    when: Date,
+    refs: Record<string, string | number | null>,
+  ) => {
+    const days = Math.round((when.getTime() - now) / DAY_MS);
+    const expired = when.getTime() < now;
+    items.push({
+      id: idKey,
+      type: "DOC_EXPIRY",
+      severity: expired ? "HIGH" : "MEDIUM",
+      title: `${label} ${expired ? "vencido" : "por vencer"} · ${subject}`,
+      detail: expired
+        ? `${label} venció hace ${Math.abs(days)} día(s) — renovar antes de despachar`
+        : `${label} vence en ${days} día(s) — programar la renovación`,
+      refs,
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  const vehicles = await prisma.vehicle.findMany({
+    where: {
+      tenantId,
+      OR: [
+        { soatExpiresAt: { not: null, lte: soonCutoff } },
+        { tecnoExpiresAt: { not: null, lte: soonCutoff } },
+      ],
+    },
+    select: { id: true, plate: true, soatExpiresAt: true, tecnoExpiresAt: true },
+  });
+  for (const v of vehicles) {
+    if (v.soatExpiresAt && v.soatExpiresAt <= soonCutoff) {
+      pushDocExpiry(`doc-vehicle-soat-${v.id}`, "SOAT", v.plate, v.soatExpiresAt, {
+        vehicleId: v.id,
+        plate: v.plate,
+      });
+    }
+    if (v.tecnoExpiresAt && v.tecnoExpiresAt <= soonCutoff) {
+      pushDocExpiry(
+        `doc-vehicle-tecno-${v.id}`,
+        "Tecnomecánica",
+        v.plate,
+        v.tecnoExpiresAt,
+        { vehicleId: v.id, plate: v.plate },
+      );
+    }
+  }
+
+  const drivers = await prisma.driver.findMany({
+    where: { tenantId, licenseExpiresAt: { not: null, lte: soonCutoff } },
+    select: { id: true, name: true, licenseExpiresAt: true },
+  });
+  for (const d of drivers) {
+    if (d.licenseExpiresAt) {
+      pushDocExpiry(`doc-driver-license-${d.id}`, "Licencia", d.name, d.licenseExpiresAt, {
+        driverId: d.id,
+      });
+    }
   }
 
   // Excluir las excepciones pospuestas por el despachador (aplazo vigente). La

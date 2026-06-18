@@ -63,6 +63,7 @@ const TYPE_ICONS: Record<string, string> = {
   FAILED_DELIVERY: "📦",
   SLA_BREACH: "⏳",
   ADDRESS_UNCONFIRMED: "📍",
+  DOC_EXPIRY: "📄",
 };
 const TYPE_LABELS: Record<string, string> = {
   PANIC: "Pánico",
@@ -73,6 +74,7 @@ const TYPE_LABELS: Record<string, string> = {
   FAILED_DELIVERY: "Entrega fallida",
   SLA_BREACH: "SLA",
   ADDRESS_UNCONFIRMED: "Dirección",
+  DOC_EXPIRY: "Documento",
 };
 // Etiqueta legible para la sección de pospuestas (a partir del prefijo del
 // `key` estable: alert-…, late-…, stale-…, soc-…, failed-…, triage-…).
@@ -84,6 +86,7 @@ const KEY_PREFIX_LABELS: Record<string, string> = {
   failed: "Entrega fallida",
   sla: "SLA en riesgo",
   triage: "Direcciones por confirmar",
+  doc: "Documento por vencer",
 };
 
 // Presets de aplazo ofrecidos en cada tarjeta.
