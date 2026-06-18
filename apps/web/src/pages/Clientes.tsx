@@ -62,6 +62,10 @@ export default function Clientes() {
   const toast = useToast();
   const [openClient, setOpenClient] = useState<string | null>(null);
   const [feed, setFeed] = useState<Record<string, Notification[]>>({});
+  // Prueba del canal de avisos de un cliente ya guardado (Phase E).
+  const [notifTest, setNotifTest] = useState<
+    Record<string, { testing?: boolean; ok?: boolean; channel?: string } | undefined>
+  >({});
   const [portalFor, setPortalFor] = useState<string | null>(null);
   const [portalMsg, setPortalMsg] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -91,6 +95,21 @@ export default function Clientes() {
 
   function markExhausted(id: string) {
     setFeedExhausted((s) => new Set(s).add(id));
+  }
+
+  async function testNotification(id: string) {
+    setNotifTest((t) => ({ ...t, [id]: { testing: true } }));
+    try {
+      const res = await api<{ ok: boolean; channel: string }>(
+        "POST",
+        `/clients/${id}/test-notification`,
+      );
+      setNotifTest((t) => ({ ...t, [id]: { ok: res.ok, channel: res.channel } }));
+      if (res.ok) toast.success(`Aviso de prueba enviado por ${res.channel}.`);
+    } catch (err) {
+      setNotifTest((t) => ({ ...t, [id]: { ok: false } }));
+      toast.error(err);
+    }
   }
 
   async function toggleFeed(id: string) {
@@ -358,13 +377,31 @@ export default function Clientes() {
                     )}
                   </td>
                   <td className="text-right">
-                    <button
-                      onClick={() => toggleFeed(c.id)}
-                      aria-expanded={openClient === c.id}
-                      className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
-                    >
-                      {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      {notifTest[c.id] && !notifTest[c.id]!.testing && (
+                        <span
+                          className={`text-xs ${notifTest[c.id]!.ok ? "text-success" : "text-danger"}`}
+                        >
+                          {notifTest[c.id]!.ok
+                            ? `✓ ${notifTest[c.id]!.channel}`
+                            : "✕ falló"}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => void testNotification(c.id)}
+                        disabled={notifTest[c.id]?.testing}
+                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:opacity-50"
+                      >
+                        {notifTest[c.id]?.testing ? "Enviando…" : "Probar aviso"}
+                      </button>
+                      <button
+                        onClick={() => toggleFeed(c.id)}
+                        aria-expanded={openClient === c.id}
+                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      >
+                        {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {portalFor === c.id && (

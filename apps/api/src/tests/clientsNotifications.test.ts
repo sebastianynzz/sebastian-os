@@ -91,3 +91,17 @@ describe("feed de avisos por cliente — paginación", () => {
     expect(res.body.length).toBeLessThanOrEqual(20);
   });
 });
+
+describe("prueba del canal de avisos del cliente (Phase E)", () => {
+  it("envía un aviso de prueba por el canal configurado (IN_APP → CONSOLE)", async () => {
+    const res = await api("POST", `/clients/${clientId}/test-notification`, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.channel).toBe("CONSOLE");
+  });
+
+  it("404 si el cliente no existe en el tenant", async () => {
+    const res = await api("POST", "/clients/noexiste/test-notification", adminToken);
+    expect(res.status).toBe(404);
+  });
+});

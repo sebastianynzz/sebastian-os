@@ -171,6 +171,27 @@ async function dispatchToChannel(
 }
 
 /**
+ * Envía una notificación de PRUEBA al canal configurado del negocio cliente
+ * (webhook/WhatsApp/email/in-app), sin pedido ni bitácora — solo para que el
+ * operador confirme que el canal funciona antes de depender de él. B2B: va al
+ * NEGOCIO, nunca al consumidor final.
+ */
+export async function sendTestNotification(
+  client: ClientTarget,
+): Promise<SendResult> {
+  const renderedBody =
+    "Notificación de prueba de MoveOS — tu canal de avisos está bien configurado.";
+  return dispatchToChannel(client, {
+    tenantId: "",
+    orderId: "test",
+    client,
+    template: "prueba",
+    payload: { mensaje: renderedBody },
+    renderedBody,
+  });
+}
+
+/**
  * Notifica al negocio cliente del envío. Si el pedido no tiene cliente
  * asociado, se registra como evento de bitácora pero no se envía nada
  * (el envío no pertenece a ningún negocio que deba enterarse).

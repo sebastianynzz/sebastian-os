@@ -8,6 +8,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
+import { sendTestNotification } from "../../services/notifications.js";
 
 /**
  * Negocios cliente del tenant (modelo B2B): las tiendas/distribuidores que
@@ -156,6 +157,37 @@ export default async function clientsRoutes(app: FastifyInstance) {
       } finally {
         clearTimeout(timeout);
       }
+    },
+  );
+
+  /**
+   * Prueba de notificación al canal configurado del negocio (Phase E): envía un
+   * mensaje de prueba por su canal (webhook/WhatsApp/email/in-app) para confirmar
+   * que funciona, sin pedido ni bitácora. B2B. Tenant-scoped.
+   */
+  app.post(
+    "/:id/test-notification",
+    { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
+    async (request, reply) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const client = await prisma.client.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          notifyChannel: true,
+          webhookUrl: true,
+        },
+      });
+      if (!client) return reply.code(404).send({ error: "Cliente no encontrado" });
+      const result = await sendTestNotification(client);
+      return reply.send({
+        ok: result.ok,
+        channel: result.channel,
+        recipient: result.recipient,
+      });
     },
   );
 
