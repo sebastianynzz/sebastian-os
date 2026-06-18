@@ -52,6 +52,8 @@ export default function Conductores() {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Depósito base del conductor (multi-depot, D4 fast-follow).
+  const [depots, setDepots] = useState<{ id: string; name: string }[]>([]);
   const toast = useToast();
 
   async function load() {
@@ -63,6 +65,9 @@ export default function Conductores() {
   }
   useEffect(() => {
     void load();
+    void api<{ id: string; name: string }[]>("GET", "/depots")
+      .then(setDepots)
+      .catch(() => {});
   }, []);
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
@@ -77,6 +82,7 @@ export default function Conductores() {
         email: data.get("email") || undefined,
         password: data.get("password") || undefined,
         licenseExpiresAt: license ? new Date(license).toISOString() : undefined,
+        depotId: data.get("depotId") || undefined,
       });
       setShowForm(false);
       await load();
@@ -146,6 +152,18 @@ export default function Conductores() {
             <Field label="Contraseña (opcional)">
               <input name="password" type="password" className={inputClass} minLength={8} />
             </Field>
+            {depots.length > 0 && (
+              <Field label="Depósito base (opcional)">
+                <select name="depotId" className={inputClass} defaultValue="">
+                  <option value="">— Sin depósito —</option>
+                  {depots.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
             <div className="sm:col-span-2">
               <Button type="submit">Crear conductor</Button>
             </div>

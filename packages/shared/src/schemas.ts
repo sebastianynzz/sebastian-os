@@ -159,18 +159,26 @@ export const createDriverSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(8).optional(),
   licenseExpiresAt: z.string().datetime().optional(),
+  /** Depósito base del conductor (multi-depot, D4). Validado tenant-scoped. */
+  depotId: z.string().nullish(),
 });
 
-/** Actualización de conductor: disponibilidad y/o vencimiento de licencia. */
+/** Actualización de conductor: disponibilidad, vencimiento de licencia, depósito. */
 export const updateDriverSchema = z
   .object({
     status: z.enum(DRIVER_STATUSES).optional(),
     // null limpia la fecha; ausente la deja igual.
     licenseExpiresAt: z.string().datetime().nullable().optional(),
+    // null desasigna el depósito; ausente lo deja igual.
+    depotId: z.string().nullable().optional(),
   })
-  .refine((d) => d.status !== undefined || d.licenseExpiresAt !== undefined, {
-    message: "Nada que actualizar",
-  });
+  .refine(
+    (d) =>
+      d.status !== undefined ||
+      d.licenseExpiresAt !== undefined ||
+      d.depotId !== undefined,
+    { message: "Nada que actualizar" },
+  );
 
 /** Vista guardada del panel: filtros (mapa string→string) con nombre por página. */
 export const createSavedViewSchema = z.object({
@@ -200,6 +208,8 @@ export const createVehicleSchema = z.object({
   soatExpiresAt: z.string().datetime().optional(),
   tecnoExpiresAt: z.string().datetime().optional(),
   status: z.enum(VEHICLE_STATUSES).optional(),
+  /** Depósito base del vehículo (multi-depot, D4). Validado tenant-scoped. */
+  homeDepotId: z.string().nullish(),
 });
 
 export const planRoutesSchema = z.object({

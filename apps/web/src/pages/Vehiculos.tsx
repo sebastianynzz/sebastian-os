@@ -81,6 +81,8 @@ export default function Vehiculos() {
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState<"ALL" | VehicleStatus>("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Depósito base del vehículo (multi-depot, D4 fast-follow).
+  const [depots, setDepots] = useState<{ id: string; name: string }[]>([]);
   const toast = useToast();
 
   // Estado del formulario, dirigido por la configuración seleccionada.
@@ -126,6 +128,9 @@ export default function Vehiculos() {
   }
   useEffect(() => {
     void load();
+    void api<{ id: string; name: string }[]>("GET", "/depots")
+      .then(setDepots)
+      .catch(() => {});
   }, []);
 
   async function patchVehicle(id: string, body: Record<string, unknown>) {
@@ -165,6 +170,7 @@ export default function Vehiculos() {
         isElectric: true,
         batteryKwh: batteryOption.batteryKwh,
         nominalRangeKm: batteryOption.rangeKm,
+        homeDepotId: data.get("homeDepotId") || undefined,
       });
       setShowForm(false);
       onTypeChange(VEHICLE_TYPES[0]); // reset
@@ -283,6 +289,19 @@ export default function Vehiculos() {
                 Plataforma abierta — se carga por peso y área (sin volumen
                 cerrado). Ideal para carga voluminosa o irregular.
               </div>
+            )}
+
+            {depots.length > 0 && (
+              <Field label="Depósito base (opcional)">
+                <select name="homeDepotId" className={inputClass} defaultValue="">
+                  <option value="">— Sin depósito —</option>
+                  {depots.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             )}
 
             <div className="sm:col-span-3">

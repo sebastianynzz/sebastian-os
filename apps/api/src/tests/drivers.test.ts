@@ -114,3 +114,37 @@ describe("conductores — licencia + disponibilidad", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("conductores — depósito base (multi-depot D4)", () => {
+  it("asigna un depósito del propio tenant al crear", async () => {
+    const depot = await api("POST", "/depots", adminToken, {
+      name: "Depósito A",
+      lat: 4.65,
+      lng: -74.06,
+    });
+    expect(depot.status).toBe(201);
+    const res = await api("POST", "/drivers", adminToken, {
+      name: "Conductor con depósito",
+      phone: "+573000000111",
+      documentId: "depo-aaa",
+      depotId: depot.body.id,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.depotId).toBe(depot.body.id);
+  });
+
+  it("AISLAMIENTO: rechaza un depósito de otro tenant (400)", async () => {
+    const depotB = await api("POST", "/depots", otherToken, {
+      name: "Depósito B",
+      lat: 6.2,
+      lng: -75.5,
+    });
+    const res = await api("POST", "/drivers", adminToken, {
+      name: "Conductor depósito ajeno",
+      phone: "+573000000112",
+      documentId: "depo-bbb",
+      depotId: depotB.body.id,
+    });
+    expect(res.status).toBe(400);
+  });
+});
