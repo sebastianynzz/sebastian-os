@@ -1,16 +1,15 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/charming-ritchie-d51s46` (pushed through `953ed8a`; the prior
+Branch: `claude/charming-ritchie-d51s46` (pushed through `29f2399`+; the prior
 `claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
 carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE. ALL of Tier-2 (§7 notifications, §8 developer platform
 core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
 scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
-billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (3
-items done — see "Phase E progress"). Full API suite green (52 files / 284 tests).
-Resume by continuing **Phase E — feature hardening (`docs/05`)**; see "What's
-left" (remaining Phase E sweep + deferred D4/D5 fast-follows + legacy webhook
-standardization + carry-over polish).
+billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (4
+items done) + **D4 multi-depot fast-follow DONE** (driver/vehicle home depot +
+route depot on Rutas). Full API suite green (54 files / 288 tests). Resume by
+continuing **Phase E — feature hardening (`docs/05`)**; see "What's left".
 
 To resume:
 
@@ -243,6 +242,14 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
   license within 30 days) as `DOC_EXPIRY` exceptions (expired HIGH / soon
   MEDIUM), snooze-able. exceptions.test.ts +2.
 
+**D4 multi-depot fast-follow — DONE** (`29f2399` + depot-on-Rutas): driver
+`depotId` / vehicle `homeDepotId` exposed end-to-end (shared schemas + API depot
+validation tenant-scoped + Conductores/Vehiculos "Depósito base" selectors;
+drivers/vehicles tests +2 each), and the route's depot now shows on Rutas
+(`/routes` includes depot). STILL DEFERRED for D4: global depot selector in the
+web header scoping views, nearest-depot auto-assignment. D5 (assignment prefers a
+zone's drivers + demand-heatmap) still deferred.
+
 ## What's left
 
 **Phase E — feature hardening (`docs/05`, IN PROGRESS) — the go-live bar:**
@@ -260,21 +267,12 @@ screen touched.
 webhook `event` field to NOTIFICATION_EVENTS (breaking; would need `b2b.test.ts`
 updated) — the new `/developer` webhooks already use the standard events.
 
-**Fast-follows (deferred):**
+**Fast-follows (still deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
-  Analítica (orders carry no depot → scope via the route's depot), a depot column
-  on Rutas, nearest-depot auto-assignment; expose `Vehicle.homeDepotId` /
-  `Driver.depotId` in their edit forms.
+  Analítica (orders carry no depot → scope via the route's depot), nearest-depot
+  auto-assignment. (Driver/vehicle home-depot + route depot on Rutas: DONE above.)
 - D5: **assignment prefers a zone's drivers** (optimizer hint), and tie the
   coverage signal into the demand-heatmap AI feature.
-
-**Tier 3 (docs/04 §12–14, later):** usage metering + feature-flag upsell;
-tenant-facing billing (invoices, plan/tax-ID); guided onboarding (depot setup →
-checklist → connect driver app via QR).
-
-**Phase E — feature hardening (docs/05, not started):** global typed-error
-toasts + retry, i18n sweep (admin/portal/Track), remaining Driver/Web/Admin
-stories, design tokens on every touched screen.
 
 **Carry-over polish:**
 - `--text-tertiary #8a99a8` on white is ~2.9:1 (fails AA for body text) — darken
