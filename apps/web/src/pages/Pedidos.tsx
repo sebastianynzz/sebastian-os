@@ -61,6 +61,7 @@ const EVENT_LABELS: Record<string, string> = {
   GEOCODED: "Dirección geocodificada",
   OUT_OF_ZONE: "Fuera de cobertura",
   ASSIGNED: "Asignado a ruta",
+  LOADED: "Cargado en el vehículo",
   DISPATCHED: "Despachado",
   IN_TRANSIT: "En camino",
   ARRIVED: "Conductor en el punto",

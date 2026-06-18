@@ -22,7 +22,8 @@ export type OrderEventType =
   | "RECOVERY_FLAGGED"
   | "RECOVERY_RESCHEDULED"
   | "SCANNED"
-  | "SCAN_MISMATCH";
+  | "SCAN_MISMATCH"
+  | "LOADED";
 
 export async function logOrderEvent(
   orderId: string,

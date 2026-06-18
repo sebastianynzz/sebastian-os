@@ -276,6 +276,19 @@ export const NAV_APP_LABELS: Record<NavApp, string> = {
 };
 
 /**
+ * Tipo de escaneo de paquete (Tier 2 §11): LOAD (verificación del manifiesto al
+ * cargar el vehículo en el depósito), PICKUP (recogida en origen) o DELIVER
+ * (confirmación en la entrega). Cadena de custodia depósito → puerta.
+ */
+export const SCAN_TYPES = ["LOAD", "PICKUP", "DELIVER"] as const;
+export type ScanType = (typeof SCAN_TYPES)[number];
+export const SCAN_TYPE_LABELS: Record<ScanType, string> = {
+  LOAD: "Carga",
+  PICKUP: "Recogida",
+  DELIVER: "Entrega",
+};
+
+/**
  * Pruebas de entrega que el comercio cliente puede EXIGIR por configuración
  * (política POD configurable por cliente). Es el vocabulario de la política,
  * distinto de POD_TYPES (el registro de evidencia). Se limita a lo que la app

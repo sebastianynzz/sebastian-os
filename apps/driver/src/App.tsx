@@ -334,6 +334,8 @@ export default function App() {
   const [pending, setPending] = useState(queueSize());
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
+  // Manifiesto de carga (Tier 2 §11): verificar bultos antes de salir.
+  const [loadSheet, setLoadSheet] = useState(false);
   const [starting, setStarting] = useState(false);
   // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
   const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
@@ -545,7 +547,8 @@ export default function App() {
 
   // Pull-to-refresh: tirar hacia abajo desde el tope recarga la ruta. Se
   // inhabilita con una hoja abierta para no robarle el gesto.
-  const overlayOpen = Boolean(activeStop) || sos !== "idle" || showChargers;
+  const overlayOpen =
+    Boolean(activeStop) || sos !== "idle" || showChargers || loadSheet;
   function onTouchStart(e: React.TouchEvent) {
     if (overlayOpen || refreshing || window.scrollY > 0) return;
     pullStart.current = e.touches[0]?.clientY ?? null;
@@ -713,6 +716,16 @@ export default function App() {
           />
         )}
 
+        {/* Cadena de custodia (Tier 2 §11): verificar la carga antes de salir. */}
+        {route && ["DISPATCHED", "IN_PROGRESS"].includes(route.status) && (
+          <button
+            onClick={() => setLoadSheet(true)}
+            className="w-full rounded-xl border border-navy/30 bg-white dark:bg-navy-700 py-3 text-sm font-bold text-navy dark:text-niebla shadow-sm"
+          >
+            📦 Verificar carga del vehículo
+          </button>
+        )}
+
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
@@ -759,6 +772,11 @@ export default function App() {
       {/* D8: cargador más cercano con deeplink (directorio de carga). */}
       {showChargers && (
         <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
+      )}
+
+      {/* Tier 2 §11: manifiesto de carga — escanear cada bulto antes de salir. */}
+      {loadSheet && route && (
+        <LoadManifestSheet routeId={route.id} onClose={() => setLoadSheet(false)} />
       )}
 
       {/* SOS: confirmar antes de enviar (evita falsas alarmas) y reenviar si
@@ -914,6 +932,145 @@ function Login({
           {busy ? "Ingresando…" : "Ingresar"}
         </button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Manifiesto de carga (Tier 2 §11): en el depósito, el conductor escanea cada
+ * bulto antes de salir. Muestra el progreso (cargados/total) y, por bulto, si ya
+ * fue verificado. El escaneo se encola offline (sirve sin señal); el manifiesto
+ * se refresca al volver la señal.
+ */
+function LoadManifestSheet({
+  routeId,
+  onClose,
+}: {
+  routeId: string;
+  onClose: () => void;
+}) {
+  const [manifest, setManifest] = useState<{
+    total: number;
+    loaded: number;
+    orders: {
+      orderId: string;
+      trackingNumber: string | null;
+      customerName: string;
+      loaded: boolean;
+    }[];
+  } | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setManifest(
+        await api<{
+          total: number;
+          loaded: number;
+          orders: {
+            orderId: string;
+            trackingNumber: string | null;
+            customerName: string;
+            loaded: boolean;
+          }[];
+        }>("GET", `/routes/${routeId}/manifest`),
+      );
+    } catch {
+      /* offline: el escaneo se encola; el manifiesto se refresca con señal */
+    }
+  }, [routeId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const trackingNumbers = (manifest?.orders ?? [])
+    .map((o) => o.trackingNumber)
+    .filter((t): t is string => Boolean(t));
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-end bg-black/60" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Manifiesto de carga"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">📦 Cargar vehículo</h2>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
+          >
+            ✕
+          </button>
+        </div>
+        {message && (
+          <p className="mb-2 rounded-lg bg-lima/30 px-3 py-2 text-xs font-medium text-navy">
+            {message}
+          </p>
+        )}
+        {manifest === null ? (
+          <p className="text-sm text-text-tertiary dark:text-sky/70">
+            Cargando manifiesto…
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm font-semibold">
+              {manifest.loaded} de {manifest.total} bultos cargados
+            </p>
+            <ul className="space-y-2">
+              {manifest.orders.map((o) => (
+                <li
+                  key={o.orderId}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-niebla dark:border-navy-900 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs font-bold">
+                      {o.trackingNumber ?? "—"}
+                    </div>
+                    <div className="truncate text-sm">{o.customerName}</div>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
+                      o.loaded
+                        ? "bg-success-bg text-success"
+                        : "bg-niebla text-navy/50 dark:bg-navy-900 dark:text-sky/60"
+                    }`}
+                  >
+                    {o.loaded ? "✓ Cargado" : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setScanOpen(true)}
+              className="mt-4 w-full rounded-xl bg-navy py-3 text-sm font-bold text-white"
+            >
+              📷 Escanear paquete
+            </button>
+          </>
+        )}
+      </div>
+      {scanOpen && (
+        <ScanSheet
+          endpoint={`/routes/${routeId}/load-scan`}
+          expectedAny={trackingNumbers}
+          onResult={(result) => {
+            setScanOpen(false);
+            setMessage(
+              result.match
+                ? `✓ ${result.code} cargado`
+                : `⚠️ ${result.code} no pertenece a esta ruta`,
+            );
+            void refresh();
+          }}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1552,7 +1709,7 @@ function StopActionSheet({
 
       {scanOpen && (
         <ScanSheet
-          stopId={stop.id}
+          endpoint={`/routes/stops/${stop.id}/scan`}
           expected={stop.order.trackingNumber}
           onResult={(result) => {
             setScan(result);

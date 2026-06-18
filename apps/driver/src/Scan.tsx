@@ -37,14 +37,18 @@ function getBarcodeDetector(): BarcodeDetectorLike | null {
 export type ScanResult = { match: boolean; code: string };
 
 export default function ScanSheet({
-  stopId,
-  expected,
+  endpoint,
+  expected = null,
+  expectedAny,
   onResult,
   onClose,
 }: {
-  stopId: string;
+  /** Endpoint al que se envía el código (escaneo de parada o de carga). */
+  endpoint: string;
   /** Guía esperada (MV-XXXXXXXX) — la trae la ruta, disponible offline. */
-  expected: string | null;
+  expected?: string | null;
+  /** Conjunto de guías válidas (carga: el bulto pertenece a la ruta). */
+  expectedAny?: string[];
   onResult: (result: ScanResult) => void;
   onClose: () => void;
 }) {
@@ -59,10 +63,11 @@ export default function ScanSheet({
     doneRef.current = true;
     const normalized = code.trim().toUpperCase();
     const match =
-      expected !== null && normalized === expected.trim().toUpperCase();
+      (expected !== null && normalized === expected.trim().toUpperCase()) ||
+      (expectedAny?.some((t) => t.trim().toUpperCase() === normalized) ?? false);
     // Cadena de custodia: el servidor re-verifica y escribe la bitácora;
     // sin señal queda en la cola offline.
-    void apiOrQueue(`/routes/stops/${stopId}/scan`, { code: normalized });
+    void apiOrQueue(endpoint, { code: normalized });
     onResult({ match, code: normalized });
   }
 

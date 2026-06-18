@@ -145,6 +145,17 @@ interface PendingOrder {
   addressRaw: string;
 }
 
+interface Manifest {
+  total: number;
+  loaded: number;
+  orders: {
+    orderId: string;
+    trackingNumber: string | null;
+    customerName: string;
+    loaded: boolean;
+  }[];
+}
+
 export default function Rutas() {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -153,6 +164,9 @@ export default function Rutas() {
   const [assigning, setAssigning] = useState<Record<string, string>>({});
   const [inserting, setInserting] = useState<Record<string, string>>({});
   const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
+  // Manifiesto de carga (Tier 2 §11): bultos escaneados al cargar el vehículo.
+  const [manifests, setManifests] = useState<Record<string, Manifest>>({});
+  const [manifestOpen, setManifestOpen] = useState<Set<string>>(new Set());
   const toast = useToast();
 
   // Conductores ya ocupados en rutas activas: no re-asignables (dedupe).
@@ -173,6 +187,25 @@ export default function Rutas() {
       else n.add(id);
       return n;
     });
+  }
+
+  /** Manifiesto de carga: se carga bajo demanda al abrirlo. */
+  async function toggleManifest(id: string) {
+    const willOpen = !manifestOpen.has(id);
+    setManifestOpen((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+    if (willOpen) {
+      try {
+        const m = await api<Manifest>("GET", `/routes/${id}/manifest`);
+        setManifests((prev) => ({ ...prev, [id]: m }));
+      } catch (err) {
+        toast.error(err);
+      }
+    }
   }
 
   async function load() {
@@ -357,13 +390,60 @@ export default function Rutas() {
           </table>
           </div>
 
-          <button
-            onClick={() => toggleMap(r.id)}
-            className="mt-2 text-xs font-medium text-navy underline hover:text-navy/70"
-          >
-            {mapOpen.has(r.id) ? "Ocultar mapa" : "Ver mapa de la ruta"}
-          </button>
+          <div className="mt-2 flex flex-wrap gap-4">
+            <button
+              onClick={() => toggleMap(r.id)}
+              className="text-xs font-medium text-navy underline hover:text-navy/70"
+            >
+              {mapOpen.has(r.id) ? "Ocultar mapa" : "Ver mapa de la ruta"}
+            </button>
+            <button
+              onClick={() => void toggleManifest(r.id)}
+              className="text-xs font-medium text-navy underline hover:text-navy/70"
+            >
+              {manifestOpen.has(r.id) ? "Ocultar manifiesto" : "Manifiesto de carga"}
+            </button>
+          </div>
           {mapOpen.has(r.id) && <RouteMap stops={r.stops} />}
+          {/* Manifiesto de carga (Tier 2 §11): cadena de custodia depósito → puerta. */}
+          {manifestOpen.has(r.id) && (
+            <div className="mt-2 rounded-lg border border-niebla p-3">
+              {!manifests[r.id] ? (
+                <p className="text-xs text-navy/50">Cargando manifiesto…</p>
+              ) : (
+                <>
+                  <div className="mb-2 text-xs font-semibold uppercase text-navy/50">
+                    Manifiesto · {manifests[r.id]!.loaded} de {manifests[r.id]!.total}{" "}
+                    bultos cargados
+                  </div>
+                  <ul className="space-y-1 text-sm">
+                    {manifests[r.id]!.orders.map((o) => (
+                      <li
+                        key={o.orderId}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono text-xs text-navy/60">
+                            {o.trackingNumber ?? "—"}
+                          </span>{" "}
+                          · {o.customerName}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            o.loaded
+                              ? "bg-success-bg text-success"
+                              : "bg-niebla text-navy/50"
+                          }`}
+                        >
+                          {o.loaded ? "✓ Cargado" : "Pendiente"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Inserción express: pedidos pendientes a una ruta activa. */}
           {["PLANNED", "DISPATCHED", "IN_PROGRESS"].includes(r.status) &&

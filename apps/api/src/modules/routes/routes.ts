@@ -256,7 +256,138 @@ export default async function routesRoutes(app: FastifyInstance) {
         ? `Paquete escaneado en ${stop.kind === "PICKUP" ? "recogida" : "entrega"}`
         : `Escaneo no coincide con la guía: ${scanned}`,
     );
+    // Cadena de custodia (Tier 2 §11): persistir el escaneo (PICKUP/DELIVER).
+    await prisma.scanEvent.create({
+      data: {
+        tenantId: request.user.tenantId,
+        orderId: stop.orderId,
+        routeId: stop.routeId,
+        type: stop.kind === "PICKUP" ? "PICKUP" : "DELIVER",
+        barcode: scanned,
+        matched: match,
+      },
+    });
     return { match };
+  });
+
+  /**
+   * Verificación del manifiesto al cargar el vehículo (Tier 2 §11): en el
+   * depósito, el conductor escanea cada bulto ANTES de salir. El servidor
+   * verifica el código contra los pedidos de la ruta, registra el escaneo (LOAD)
+   * y, si coincide, deja un evento "LOADED" en la bitácora — cadena de custodia
+   * depósito → puerta. Idempotente: re-escanear el mismo bulto no duplica el
+   * "cargado". Tenant-scoped; el conductor solo escanea su propia ruta.
+   */
+  app.post("/:id/load-scan", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const { code } = z
+      .object({ code: z.string().trim().min(3).max(64) })
+      .parse(request.body);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: { stops: { select: { orderId: true, order: { select: { trackingNumber: true } } } } },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    if (request.user.role === "DRIVER" && route.driverId !== request.user.driverId) {
+      return reply.code(403).send({ error: "Ruta de otro conductor" });
+    }
+
+    const scanned = code.toUpperCase();
+    // Pedidos distintos de la ruta (un pedido con recogida tiene 2 paradas).
+    const byTracking = new Map<string, string>(); // trackingNumber → orderId
+    for (const s of route.stops) {
+      const t = s.order.trackingNumber?.toUpperCase();
+      if (t) byTracking.set(t, s.orderId);
+    }
+    const orderId = byTracking.get(scanned) ?? null;
+    const matched = orderId !== null;
+
+    await prisma.scanEvent.create({
+      data: {
+        tenantId: request.user.tenantId,
+        orderId,
+        routeId: route.id,
+        type: "LOAD",
+        barcode: scanned,
+        matched,
+      },
+    });
+    if (matched && orderId) {
+      // Solo dejamos un "LOADED" por pedido (no duplicar al re-escanear).
+      const already = await prisma.orderEvent.findFirst({
+        where: { orderId, type: "LOADED" },
+        select: { id: true },
+      });
+      if (!already) {
+        await logOrderEvent(orderId, "LOADED", "Bulto cargado en el vehículo");
+      }
+    }
+    return {
+      match: matched,
+      orderId,
+      trackingNumber: matched ? scanned : null,
+    };
+  });
+
+  /**
+   * Manifiesto de carga (Tier 2 §11): por pedido de la ruta, si ya fue escaneado
+   * al cargar (LOAD coincidente). Alimenta la pantalla "Cargar vehículo" del
+   * conductor y el manifiesto en Rutas. Tenant-scoped (el conductor, su ruta).
+   */
+  app.get("/:id/manifest", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: {
+        stops: {
+          orderBy: { sequence: "asc" },
+          select: {
+            orderId: true,
+            order: { select: { trackingNumber: true, customerName: true } },
+          },
+        },
+        scanEvents: {
+          where: { type: "LOAD", matched: true },
+          orderBy: { scannedAt: "desc" },
+          select: { orderId: true, scannedAt: true },
+        },
+      },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    if (request.user.role === "DRIVER" && route.driverId !== request.user.driverId) {
+      return reply.code(403).send({ error: "Ruta de otro conductor" });
+    }
+
+    const loadedAt = new Map<string, Date>();
+    for (const e of route.scanEvents) {
+      if (e.orderId && !loadedAt.has(e.orderId)) loadedAt.set(e.orderId, e.scannedAt);
+    }
+    // Pedidos distintos de la ruta, preservando el orden de las paradas.
+    const seen = new Set<string>();
+    const orders: {
+      orderId: string;
+      trackingNumber: string | null;
+      customerName: string;
+      loaded: boolean;
+      scannedAt: string | null;
+    }[] = [];
+    for (const s of route.stops) {
+      if (seen.has(s.orderId)) continue;
+      seen.add(s.orderId);
+      const at = loadedAt.get(s.orderId);
+      orders.push({
+        orderId: s.orderId,
+        trackingNumber: s.order.trackingNumber,
+        customerName: s.order.customerName,
+        loaded: Boolean(at),
+        scannedAt: at ? at.toISOString() : null,
+      });
+    }
+    return {
+      total: orders.length,
+      loaded: orders.filter((o) => o.loaded).length,
+      orders,
+    };
   });
 
   app.post("/stops/:stopId/arrive", async (request, reply) => {
