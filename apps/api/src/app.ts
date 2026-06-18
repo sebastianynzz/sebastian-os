@@ -41,6 +41,7 @@ import zonesRoutes from "./modules/zones/routes.js";
 import developerRoutes from "./modules/developer/routes.js";
 import ingestRoutes from "./modules/ingest/routes.js";
 import customPropertiesRoutes from "./modules/customProperties/routes.js";
+import usageRoutes from "./modules/usage/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -154,6 +155,8 @@ export async function buildApp() {
   // Propiedades personalizadas de parada (Tier 2 §9): campos extra por pedido,
   // con visibilidad por conductor/destinatario. Núcleo B2B, tope por plan.
   await app.register(customPropertiesRoutes, { prefix: "/custom-properties" });
+  // Medición de uso + upsell (Tier 3 §12): uso del mes vs límites del plan.
+  await app.register(usageRoutes, { prefix: "/usage" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

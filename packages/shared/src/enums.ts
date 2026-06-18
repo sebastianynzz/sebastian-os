@@ -233,6 +233,32 @@ export function customPropertyCap(plan: string): number {
   return CUSTOM_PROPERTY_CAPS[plan as TenantPlan] ?? CUSTOM_PROPERTY_CAPS.FREE;
 }
 
+/**
+ * Límites de uso por plan (Tier 3 §12): medición de uso + upsell por feature.
+ * `-1` = ilimitado. `ordersPerMonth` mide la carga operativa (pedidos creados en
+ * el mes, día Bogotá); `customProperties` reusa el tope de campos; `drivers`
+ * acota la flota. La medición es informativa (no bloquea la operación): al
+ * acercarse o superar el límite se muestra un banner de upsell.
+ */
+export interface PlanLimits {
+  ordersPerMonth: number;
+  customProperties: number;
+  drivers: number;
+}
+export const PLAN_LIMITS: Record<TenantPlan, PlanLimits> = {
+  FREE: { ordersPerMonth: 500, customProperties: CUSTOM_PROPERTY_CAPS.FREE, drivers: 3 },
+  PRO: { ordersPerMonth: 5000, customProperties: CUSTOM_PROPERTY_CAPS.PRO, drivers: 25 },
+  ENTERPRISE: {
+    ordersPerMonth: -1,
+    customProperties: CUSTOM_PROPERTY_CAPS.ENTERPRISE,
+    drivers: -1,
+  },
+};
+/** Límites de uso de un plan (fallback al de FREE si no existe). */
+export function planLimits(plan: string): PlanLimits {
+  return PLAN_LIMITS[plan as TenantPlan] ?? PLAN_LIMITS.FREE;
+}
+
 export const TENANT_OPERATOR_TYPES = [
   "SELF_SERVE",
   "SUB_OPERATOR",

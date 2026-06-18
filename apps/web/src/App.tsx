@@ -37,6 +37,7 @@ import ControlesNotificaciones from "./pages/ControlesNotificaciones";
 import ControlesIntegraciones from "./pages/ControlesIntegraciones";
 import ControlesCampos from "./pages/ControlesCampos";
 import ControlesPermisos from "./pages/ControlesPermisos";
+import ControlesUso from "./pages/ControlesUso";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -84,6 +85,8 @@ const NAV_ITEMS: {
   { to: "/controles/campos", label: "Campos personalizados", roles: ["ADMIN"] },
   // Permisos de la app del conductor (Tier 2 §10): navegación + edición de rutas, solo ADMIN.
   { to: "/controles/permisos-conductor", label: "Permisos de conductor", roles: ["ADMIN"] },
+  // Uso y plan (Tier 3 §12): consumo del mes vs límites del plan + upsell, solo ADMIN.
+  { to: "/controles/uso", label: "Uso y plan", roles: ["ADMIN"] },
   // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
   { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
@@ -251,6 +254,7 @@ export default function App() {
           <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
           <Route path="/controles/campos" element={<ControlesCampos />} />
           <Route path="/controles/permisos-conductor" element={<ControlesPermisos />} />
+          <Route path="/controles/uso" element={<ControlesUso />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
