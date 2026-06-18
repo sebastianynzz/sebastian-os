@@ -9,7 +9,7 @@ import {
   type ApiKeyScope,
   type NotificationEvent,
 } from "@moveos/shared";
-import { api } from "../api";
+import { api, BASE_URL } from "../api";
 import { useToast } from "../toast";
 import {
   Badge,
@@ -346,6 +346,33 @@ export default function ControlesIntegraciones() {
               ))}
             </div>
           )}
+        </div>
+      </Card>
+
+      {/* Conectores (Tier 2 §8): order-ingestion desde donde vende el cliente. */}
+      <Card title="Conectores de pedidos">
+        <p className="text-sm text-navy/70">
+          Conecta tu tienda o marketplace para que sus pedidos entren a MoveOS.
+          Configura el webhook de la plataforma apuntando a la URL del conector y
+          autentícalo con una API key con permiso <code>orders:write</code>.
+        </p>
+        <div className="mt-3 space-y-2">
+          {[
+            ["Shopify", "shopify"],
+            ["VTEX", "vtex"],
+            ["Mercado Libre", "mercadolibre"],
+            ["Zapier / genérico", "zapier"],
+          ].map(([label, source]) => (
+            <div
+              key={source}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-niebla p-3"
+            >
+              <span className="font-medium text-navy">{label}</span>
+              <code className="rounded bg-niebla px-2 py-1 text-xs text-navy">
+                POST {BASE_URL}/ingest/orders/{source}
+              </code>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

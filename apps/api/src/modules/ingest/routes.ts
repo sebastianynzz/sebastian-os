@@ -1,7 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 import { createOrderSchema, type ApiKeyScope } from "@moveos/shared";
 import { createOrder } from "../../services/orders.js";
 import { verifyApiKey, type ApiKeyAuth } from "../../services/apiKeys.js";
+import { CONNECTOR_SOURCES, normalizeOrder } from "../../services/connectors.js";
 
 /**
  * Ingesta por API key (plataforma de desarrolladores, Tier 2 §8): endpoints que
@@ -44,6 +46,32 @@ export default async function ingestRoutes(app: FastifyInstance) {
         id: order.id,
         trackingNumber: order.trackingNumber,
         status: order.status,
+      });
+    },
+  );
+
+  /**
+   * Ingesta por conector (Tier 2 §8): un sistema externo (Shopify, VTEX, Mercado
+   * Libre, Zapier) envía SU formato de pedido y el conector lo normaliza al
+   * formato de createOrder. Misma autenticación por API key + scope orders:write.
+   * Order-ingestion es el desbloqueo de escala: pedidos entran desde donde vende
+   * el cliente.
+   */
+  app.post(
+    "/orders/:source",
+    { preHandler: [requireApiScope("orders:write")] },
+    async (request, reply) => {
+      const { source } = z
+        .object({ source: z.enum(CONNECTOR_SOURCES) })
+        .parse(request.params);
+      const normalized = normalizeOrder(source, request.body);
+      const input = createOrderSchema.parse(normalized);
+      const order = await createOrder(request.apiAuth!.tenantId, input);
+      return reply.code(201).send({
+        id: order.id,
+        trackingNumber: order.trackingNumber,
+        status: order.status,
+        source,
       });
     },
   );
