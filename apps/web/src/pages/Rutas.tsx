@@ -274,7 +274,21 @@ export default function Rutas() {
       setInserting((s) => ({ ...s, [routeId]: "" }));
       await load();
     } catch (err) {
-      const isConflict = err instanceof ApiError && err.status === 409;
+      const status = err instanceof ApiError ? err.status : 0;
+      // 422 INSERTION_INFEASIBLE: el pedido no cabe en esta ruta sin romper
+      // ventanas/capacidad/autonomía — reintentar es inútil; se sugiere una
+      // alternativa accionable en vez de un botón de reintento.
+      if (status === 422) {
+        toast.error(
+          new Error(
+            `${(err as ApiError).message} — replanifica o prueba con otra ruta.`,
+          ),
+        );
+        return;
+      }
+      // 409 conflicto de transición (otro despachador tomó la ruta): recargar,
+      // sin reintentar (volvería a chocar).
+      const isConflict = status === 409;
       toast.error(err, isConflict ? undefined : { retry: () => void insertOrder(routeId) });
       if (isConflict) await load();
     }
