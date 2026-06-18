@@ -1,14 +1,16 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/charming-ritchie-d51s46` (pushed through `5954172`; the prior
+Branch: `claude/charming-ritchie-d51s46` (pushed through `953ed8a`; the prior
 `claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
 carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE. ALL of Tier-2 (§7 notifications, §8 developer platform
 core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
 scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
-billing, §14 guided onboarding) COMPLETE.** Resume at **Phase E — feature
-hardening (`docs/05`)**; see "What's left" (Phase E + deferred D4/D5 fast-follows
-+ legacy webhook standardization + carry-over polish).
+billing, §14 guided onboarding) COMPLETE. Phase E hardening IN PROGRESS** (3
+items done — see "Phase E progress"). Full API suite green (52 files / 284 tests).
+Resume by continuing **Phase E — feature hardening (`docs/05`)**; see "What's
+left" (remaining Phase E sweep + deferred D4/D5 fast-follows + legacy webhook
+standardization + carry-over polish).
 
 To resume:
 
@@ -230,9 +232,20 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
 
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
+**Phase E progress (hardening, `docs/05`) — STARTED:**
+- Web/Pedidos (`ccb0387`): live geocode preview on the dispatcher single-create
+  (`/addresses/validate` now also returns knownAddress + zone coverage; same
+  banners as the portal). addresses.test.ts +1.
+- Web/Clientes (`eb2756e`): "Probar aviso" — test a saved client's configured
+  channel (`notifications.sendTestNotification` + `POST /clients/:id/test-
+  notification`). clientsNotifications.test.ts +2.
+- Cockpit (`953ed8a`): document-expiry reminders (vehicle SOAT/tecno + driver
+  license within 30 days) as `DOC_EXPIRY` exceptions (expired HIGH / soon
+  MEDIUM), snooze-able. exceptions.test.ts +2.
+
 ## What's left
 
-**Phase E — feature hardening (`docs/05`, not started) — the go-live bar:**
+**Phase E — feature hardening (`docs/05`, IN PROGRESS) — the go-live bar:**
 Cross-cutting first (Part 4): global typed-error toasts + retry (partly present
 via `toast.error(err,{retry})`), i18n sweep for admin/portal/Track, realtime SSE
 reconnect + 60 s fallback poll everywhere, states (loading/empty/error) on every
