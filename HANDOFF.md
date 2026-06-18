@@ -1,12 +1,14 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/charming-ritchie-d51s46` (pushed through `6d46c9f`; the prior
+Branch: `claude/charming-ritchie-d51s46` (pushed through `5954172`; the prior
 `claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
 carries the same ledger and continues from `e4e687c`).
-**Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notifications) + §8 (developer platform
-core) + §9 (custom stop properties) + §10 (driver permissions layer) COMPLETE.**
-Resume at **Tier-2 §11 (barcode scanning at load-out + delivery)**; see "What's
-left". §8 connectors + fast-follows noted there.
+**Tier-1 (D1–D6) COMPLETE. ALL of Tier-2 (§7 notifications, §8 developer platform
+core + connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
+scanning) COMPLETE. ALL of Tier-3 (§12 usage metering + upsell, §13 tenant
+billing, §14 guided onboarding) COMPLETE.** Resume at **Phase E — feature
+hardening (`docs/05`)**; see "What's left" (Phase E + deferred D4/D5 fast-follows
++ legacy webhook standardization + carry-over polish).
 
 To resume:
 
@@ -22,7 +24,7 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 ## Kickoff prompt (paste as the first message of a fresh session)
 
 > Continue the MoveOS go-live build on branch `claude/charming-ritchie-d51s46`
-> (already checked out, pushed through `6d46c9f`). First read, in order:
+> (already checked out, pushed through `5954172`). First read, in order:
 > `CLAUDE.md`, `HANDOFF.md` (this file — esp. "What's left", "Environment notes",
 > "Protocol"), and the specs `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
 > (uploads don't carry across sessions — read them from the repo).
@@ -34,19 +36,18 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 > triggers and explains, confirm-before-mutate on every mutation; design tokens
 > only (no hardcoded hex).
 >
-> State of play: Phases A/B/C done; **Phase D Tier-1 (D1–D6) COMPLETE**; **Tier-2
-> §7 (notification engine: tracking-privacy tiers + per-event B2B templates),
-> §8 (developer platform core: signed webhooks + API keys + order ingestion + UI),
-> §9 (custom stop properties), and §10 (driver permissions layer) COMPLETE.**
-> Full API suite green (45 files / 260 tests).
+> State of play: Phases A/B/C done; **Phase D Tier-1 (D1–D6) COMPLETE**; **ALL of
+> Tier-2 (§7 notifications, §8 developer platform core + Shopify/VTEX/MELI/Zapier
+> connectors, §9 custom stop properties, §10 driver permissions, §11 barcode
+> scanning) and ALL of Tier-3 (§12 usage metering + upsell, §13 tenant billing,
+> §14 guided onboarding) COMPLETE.** Full API suite green (50 files / 279 tests).
 >
-> **START AT Tier-2 §11 — barcode scanning at load-out + delivery** (docs/04 §11):
-> `ScanEvent { tenantId; orderId; type (LOAD|DELIVER|PICKUP); barcode; scannedAt }`
-> — the driver app already scans at pickup/delivery (`/routes/stops/:id/scan`
-> emits SCANNED/SCAN_MISMATCH order events); §11 adds the LOAD (load-out manifest
-> verification at the depot) use plus a persisted ScanEvent chain-of-custody and a
-> loading manifest on Rutas. Then §8 connectors / Tier 3 / Phase E hardening (see
-> "What's left").
+> **START AT Phase E — feature hardening** (`docs/05`): cross-cutting items first
+> (global typed-error toasts + retry, i18n sweep for admin/portal/Track, realtime
+> reconnect + 60 s fallback poll everywhere), then the remaining Driver/Web/Admin
+> per-feature stories (`docs/05` Parts 1–3). Apply design tokens to every screen
+> touched. Also open: deferred D4/D5 fast-follows + legacy per-client webhook
+> `event` standardization + carry-over polish (see "What's left").
 >
 > Working agreement (per chunk): bring Postgres up first (commands under
 > "Environment notes"); before coding list the files you'll touch + a 3–5 line
@@ -193,22 +194,58 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
   policy the (follow-on) driver route create/edit flows will consume.
 - e2e `driverPermissions.test.ts` (7). Full API suite green: 45 files / 260 tests.
 
+**Tier-2 §11 barcode scanning COMPLETE** (`fb39d42`, 1 commit):
+- `ScanEvent` model (tenantId, orderId?, routeId?, type LOAD|PICKUP|DELIVER,
+  barcode, matched; migration `20260628000000`, FKs SET NULL). Shared `SCAN_TYPES`
+  + labels; `LOADED` order-event type.
+- Stop scan now persists a ScanEvent (PICKUP/DELIVER). New `POST
+  /routes/:id/load-scan` verifies a barcode against the route's orders → LOAD
+  ScanEvent + (once per order) `LOADED` bitácora. `GET /routes/:id/manifest` =
+  per-order loaded status. Driver: "Verificar carga del vehículo" sheet (ScanSheet
+  generalized to `endpoint`+`expectedAny`, offline-safe). Web Rutas: "Manifiesto
+  de carga" panel; Pedidos bitácora shows LOADED.
+- e2e `scanEvents.test.ts` (5). Full API suite green: 46 files / 265 tests.
+
+**Tier-2 §8 connectors COMPLETE** (`5954172`, 1 commit):
+- `services/connectors.ts` normalizers (Shopify / VTEX / Mercado Libre / Zapier)
+  → createOrder; `POST /ingest/orders/:source` (same API-key + `orders:write`).
+  Web Integraciones gains a "Conectores de pedidos" card with each ingest URL.
+  e2e `connectors.test.ts` (6). Full API suite green: 50 files / 279 tests.
+- STILL OPEN: standardizing the *legacy* per-client webhook `event` field to
+  NOTIFICATION_EVENTS (breaking; would need `b2b.test.ts` updated) — the
+  `/developer` webhooks already use the standard events.
+
+**Tier-3 (docs/04 §12–14) COMPLETE:**
+- §12 usage metering + upsell (`57b1e1d`): shared `PLAN_LIMITS` + `GET /usage`
+  (Bogotá-month orders + custom-properties + drivers vs plan limits); Controles ›
+  Uso y plan (meters + upsell banner). e2e `usage.test.ts` (2).
+- §13 tenant billing (`a578a6e`): Tenant billing columns + `Invoice` model
+  (migration `20260629000000`); `GET/PATCH /controls/billing` + platform
+  `POST/GET /platform/tenants/:id/invoices`; Controles › Facturación. **No
+  payments in-app** (platform issues; settled out-of-band). e2e `billing.test.ts`
+  (4).
+- §14 guided onboarding (`634deae`): `GET /onboarding/checklist` (steps from real
+  tenant state); Controles › Primeros pasos (progress + step links + connect-
+  driver card). e2e `onboarding.test.ts` (2).
+
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**Tier 2 (docs/04 §11), build next:**
-1. **Barcode scanning** (§11) at load-out + delivery — `ScanEvent { tenantId;
-   orderId; type (LOAD|DELIVER|PICKUP); barcode; scannedAt }`. The driver app
-   already scans at pickup/delivery (`/routes/stops/:id/scan` → SCANNED/
-   SCAN_MISMATCH order events); §11 adds the LOAD (depot manifest verification)
-   use + a persisted ScanEvent chain-of-custody + a loading manifest on Rutas.
+**Phase E — feature hardening (`docs/05`, not started) — the go-live bar:**
+Cross-cutting first (Part 4): global typed-error toasts + retry (partly present
+via `toast.error(err,{retry})`), i18n sweep for admin/portal/Track, realtime SSE
+reconnect + 60 s fallback poll everywhere, states (loading/empty/error) on every
+list/detail/form, a11y + responsive, perf (pagination/virtualization). Then the
+per-feature stories: Driver (Part 1 — PWA auto-update toast, offline-queue polish,
+deliver/fail/pin-fix), Web (Part 2 — Pedidos/Planificación first, then Rutas/
+MapaEnVivo, then Excepciones/Direcciones/Copiloto), Admin (Part 3 — TenantDetail/
+Flota first, then Métricas/Auditoría/flywheel). Apply design tokens on every
+screen touched.
 
-**§8 connectors (deferred):** Shopify/Zapier + VTEX/Mercado Libre adapters build
-ON the webhooks+API-keys+ingestion core above (App settings › Integrations).
-Also: standardizing the *legacy* per-client webhook `event` field to
-NOTIFICATION_EVENTS is still open (breaking; would need b2b.test.ts updated) —
-the new /developer webhooks already use the standard events.
+**Legacy webhook standardization (deferred):** standardize the *legacy* per-client
+webhook `event` field to NOTIFICATION_EVENTS (breaking; would need `b2b.test.ts`
+updated) — the new `/developer` webhooks already use the standard events.
 
 **Fast-follows (deferred):**
 - D4: global **depot selector in the web header** scoping Pedidos/Rutas/Mapa/
