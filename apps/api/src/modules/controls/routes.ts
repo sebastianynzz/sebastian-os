@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
+  billingProfileSchema,
   costConfigSchema,
   defaultPodPolicyConfig,
   defaultDriverPermissionPolicy,
@@ -195,4 +196,47 @@ export default async function controlsRoutes(app: FastifyInstance) {
       };
     },
   );
+
+  /**
+   * Facturación de la suscripción SaaS (Tier 3 §13): datos fiscales del tenant +
+   * historial de facturas (las emite la plataforma). MoveOS NO procesa pagos en
+   * la app (sin COD): es una vista de cuenta. Lectura para cualquier usuario del
+   * tenant; el perfil lo edita ADMIN. Tenant-scoped.
+   */
+  app.get("/billing", async (request) => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: {
+        legalName: true,
+        nit: true,
+        billingEmail: true,
+        billingAddress: true,
+        plan: true,
+      },
+    });
+    const invoices = await prisma.invoice.findMany({
+      where: { tenantId: request.user.tenantId },
+      orderBy: { issuedAt: "desc" },
+    });
+    return { profile: tenant, invoices };
+  });
+
+  app.patch("/billing", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    const parsed = billingProfileSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Datos de facturación inválidos" });
+    }
+    const updated = await prisma.tenant.update({
+      where: { id: request.user.tenantId },
+      data: parsed.data,
+      select: {
+        legalName: true,
+        nit: true,
+        billingEmail: true,
+        billingAddress: true,
+        plan: true,
+      },
+    });
+    return updated;
+  });
 }

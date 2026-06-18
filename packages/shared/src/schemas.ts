@@ -4,6 +4,7 @@ import {
   DELIVERY_TYPES,
   DRIVER_STATUSES,
   FAIL_REASONS,
+  INVOICE_STATUSES,
   NAV_APPS,
   OPTIMIZATION_OBJECTIVES,
   PICKUP_TYPES,
@@ -297,6 +298,28 @@ export function defaultDriverPermissionPolicy(): DriverPermissionPolicyInput {
     allowEditStartedRoutes: false,
   };
 }
+
+// === Facturación de la suscripción SaaS (Tier 3 §13) ===
+
+/** Datos fiscales/facturación del tenant. El tenant los mantiene; sin pagos. */
+export const billingProfileSchema = z.object({
+  legalName: z.string().max(160).nullish(),
+  nit: z.string().max(40).nullish(),
+  billingEmail: z.string().email().nullish(),
+  billingAddress: z.string().max(200).nullish(),
+});
+export type BillingProfileInput = z.infer<typeof billingProfileSchema>;
+
+/** Emisión de una factura por el operador de plataforma (no procesa pagos). */
+export const issueInvoiceSchema = z.object({
+  number: z.string().min(1).max(40),
+  periodMonth: z.string().regex(/^\d{4}-\d{2}$/),
+  amountCop: z.number().int().nonnegative(),
+  status: z.enum(INVOICE_STATUSES).default("ISSUED"),
+  dueAt: z.string().datetime().nullish(),
+  notes: z.string().max(300).nullish(),
+});
+export type IssueInvoiceInput = z.infer<typeof issueInvoiceSchema>;
 
 // === Motor de notificaciones B2B (Tier 2) ===
 

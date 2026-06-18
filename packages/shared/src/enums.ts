@@ -218,6 +218,20 @@ export const TENANT_PLANS = ["FREE", "PRO", "ENTERPRISE"] as const;
 export type TenantPlan = (typeof TENANT_PLANS)[number];
 
 /**
+ * Estado de una factura de suscripción SaaS (Tier 3 §13). Informativo: lo
+ * gestiona el operador de plataforma. MoveOS no procesa pagos en la app (sin
+ * COD); la liquidación ocurre por fuera.
+ */
+export const INVOICE_STATUSES = ["DRAFT", "ISSUED", "PAID", "VOID"] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  DRAFT: "Borrador",
+  ISSUED: "Emitida",
+  PAID: "Pagada",
+  VOID: "Anulada",
+};
+
+/**
  * Tope de propiedades personalizadas de parada por plan (Tier 2 §9). Al llegar
  * al tope, la creación devuelve 409 con un mensaje de upsell — el gancho de
  * "mejora tu plan" del que vive la medición de uso (Tier 3). Núcleo B2B

@@ -28,6 +28,12 @@ model Tenant {
   id        String   @id @default(cuid())
   name      String
   nit       String?
+  // Perfil de facturación de la SUSCRIPCIÓN SaaS del tenant (Tier 3 §13). No es
+  // un medio de pago ni COD: MoveOS no procesa pagos en la app. La plataforma
+  // emite las facturas; el tenant las ve y mantiene sus datos fiscales.
+  legalName      String?
+  billingEmail   String?
+  billingAddress String?
   city      String   @default("Bogotá")
   status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
   plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
@@ -76,6 +82,7 @@ model Tenant {
   customProperties CustomProperty[]
   driverPermissionPolicy DriverPermissionPolicy?
   scanEvents    ScanEvent[]
+  invoices      Invoice[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -650,6 +657,26 @@ model DriverPermissionPolicy {
   granular                 Json?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+}
+
+/// Factura de la SUSCRIPCIÓN SaaS de un tenant (Tier 3 §13). La EMITE el operador
+/// de plataforma; el tenant la ve (historial) en su vista de facturación. MoveOS
+/// no procesa pagos en la app: `status` es informativo (lo gestiona la
+/// plataforma) y la liquidación ocurre por fuera. Sin COD. Tenant-scoped.
+model Invoice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String
+  periodMonth String // "YYYY-MM"
+  amountCop   Int
+  status      String   @default("ISSUED") // DRAFT | ISSUED | PAID | VOID
+  issuedAt    DateTime @default(now())
+  dueAt       DateTime?
+  notes       String?
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
 }
 
 /// Escaneo de paquete (Tier 2 §11): cadena de custodia depósito → puerta. Un
