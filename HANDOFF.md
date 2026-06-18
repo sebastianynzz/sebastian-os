@@ -1,11 +1,12 @@
 # MoveOS — Session Handoff
 
-Branch: `claude/charming-ritchie-d51s46` (pushed through `fafd685`; the prior
+Branch: `claude/charming-ritchie-d51s46` (pushed through `6d46c9f`; the prior
 `claude/pensive-hypatia-otcrfu` name in older notes is stale — this branch
 carries the same ledger and continues from `e4e687c`).
 **Tier-1 (D1–D6) COMPLETE; Tier-2 §7 (notifications) + §8 (developer platform
-core) + §9 (custom stop properties) COMPLETE.** Resume at **Tier-2 §10 (driver
-permissions layer)**; see "What's left". §8 connectors + fast-follows noted there.
+core) + §9 (custom stop properties) + §10 (driver permissions layer) COMPLETE.**
+Resume at **Tier-2 §11 (barcode scanning at load-out + delivery)**; see "What's
+left". §8 connectors + fast-follows noted there.
 
 To resume:
 
@@ -21,7 +22,7 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 ## Kickoff prompt (paste as the first message of a fresh session)
 
 > Continue the MoveOS go-live build on branch `claude/charming-ritchie-d51s46`
-> (already checked out, pushed through `fafd685`). First read, in order:
+> (already checked out, pushed through `6d46c9f`). First read, in order:
 > `CLAUDE.md`, `HANDOFF.md` (this file — esp. "What's left", "Environment notes",
 > "Protocol"), and the specs `docs/00_START_HERE.md` … `docs/05_feature_refinement.md`
 > (uploads don't carry across sessions — read them from the repo).
@@ -36,15 +37,16 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 > State of play: Phases A/B/C done; **Phase D Tier-1 (D1–D6) COMPLETE**; **Tier-2
 > §7 (notification engine: tracking-privacy tiers + per-event B2B templates),
 > §8 (developer platform core: signed webhooks + API keys + order ingestion + UI),
-> and §9 (custom stop properties) COMPLETE.** Full API suite green (44 files /
-> 253 tests).
+> §9 (custom stop properties), and §10 (driver permissions layer) COMPLETE.**
+> Full API suite green (45 files / 260 tests).
 >
-> **START AT Tier-2 §10 — driver permissions layer** (docs/04 §10):
-> `DriverPermissionPolicy` (navApp INTERNAL_GMAPS|WAZE|GOOGLE,
-> allowEditDispatcherRoutes, allowCreateRoutes, allowEditStartedRoutes, granular
-> Json); Controles › Permisos de conductor (ADMIN); the driver app reads the
-> policy (unlocks driver-created routes for ad-hoc work). Then §11 barcode; then
-> §8 connectors / Tier 3 / Phase E hardening (see "What's left").
+> **START AT Tier-2 §11 — barcode scanning at load-out + delivery** (docs/04 §11):
+> `ScanEvent { tenantId; orderId; type (LOAD|DELIVER|PICKUP); barcode; scannedAt }`
+> — the driver app already scans at pickup/delivery (`/routes/stops/:id/scan`
+> emits SCANNED/SCAN_MISMATCH order events); §11 adds the LOAD (load-out manifest
+> verification at the depot) use plus a persisted ScanEvent chain-of-custody and a
+> loading manifest on Rutas. Then §8 connectors / Tier 3 / Phase E hardening (see
+> "What's left").
 >
 > Working agreement (per chunk): bring Postgres up first (commands under
 > "Environment notes"); before coding list the files you'll touch + a 3–5 line
@@ -178,15 +180,29 @@ Services/SLA, multi-depot, delivery zones, cost/failure analytics.
   expanded-row display), client portal form, driver StopCard, Track page.
 - e2e `customProperties.test.ts` (9). Full API suite green: 44 files / 253 tests.
 
+**Tier-2 §10 driver permissions layer COMPLETE** (`6d46c9f`, 1 commit):
+- `DriverPermissionPolicy` (singleton per tenant: `navApp` INTERNAL_GMAPS|WAZE|
+  GOOGLE + `allowEditDispatcherRoutes`/`allowCreateRoutes`/`allowEditStartedRoutes`
+  + `granular Json`; migration `20260627000000`). Shared `NAV_APPS` + labels,
+  `driverPermissionPolicySchema`, `defaultDriverPermissionPolicy`.
+- `/controls/driver-permissions` GET (any tenant user — the driver app reads it;
+  no row → defaults) + PATCH (ADMIN upsert). Tenant-scoped.
+- Web: Controles › Permisos de conductor (ADMIN). Driver app: applies `navApp` to
+  the StopCard nav deeplinks (preferred app first; both stay available), cached
+  in localStorage for offline. The route-permission flags are the configured
+  policy the (follow-on) driver route create/edit flows will consume.
+- e2e `driverPermissions.test.ts` (7). Full API suite green: 45 files / 260 tests.
+
 (Phases B vehicle types + C AI optimization were completed by prior sessions.)
 
 ## What's left
 
-**Tier 2 (docs/04 §10–11), build in order:**
-1. **Driver permissions layer** (§10) — `DriverPermissionPolicy` (nav app, edit/
-   create-routes); driver app reads it.
-2. **Barcode scanning** (§11) at load-out + delivery (`ScanEvent` — partly
-   modeled: SCANNED/SCAN_MISMATCH order events already exist).
+**Tier 2 (docs/04 §11), build next:**
+1. **Barcode scanning** (§11) at load-out + delivery — `ScanEvent { tenantId;
+   orderId; type (LOAD|DELIVER|PICKUP); barcode; scannedAt }`. The driver app
+   already scans at pickup/delivery (`/routes/stops/:id/scan` → SCANNED/
+   SCAN_MISMATCH order events); §11 adds the LOAD (depot manifest verification)
+   use + a persisted ScanEvent chain-of-custody + a loading manifest on Rutas.
 
 **§8 connectors (deferred):** Shopify/Zapier + VTEX/Mercado Libre adapters build
 ON the webhooks+API-keys+ingestion core above (App settings › Integrations).
