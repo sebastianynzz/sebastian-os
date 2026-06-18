@@ -39,6 +39,7 @@ import ControlesCampos from "./pages/ControlesCampos";
 import ControlesPermisos from "./pages/ControlesPermisos";
 import ControlesUso from "./pages/ControlesUso";
 import ControlesFacturacion from "./pages/ControlesFacturacion";
+import ControlesOnboarding from "./pages/ControlesOnboarding";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -68,6 +69,8 @@ const NAV_ITEMS: {
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
+  // Primeros pasos (onboarding guiado): checklist del tenant, solo ADMIN.
+  { to: "/controles/primeros-pasos", label: "Primeros pasos", roles: ["ADMIN"] },
   // Servicios (promesas de entrega + SLA): catálogo de tenant, solo ADMIN.
   { to: "/controles/servicios", label: "Servicios", roles: ["ADMIN"] },
   // Depósitos (multi-depot): centros de salida/regreso de rutas, solo ADMIN.
@@ -259,6 +262,7 @@ export default function App() {
           <Route path="/controles/permisos-conductor" element={<ControlesPermisos />} />
           <Route path="/controles/uso" element={<ControlesUso />} />
           <Route path="/controles/facturacion" element={<ControlesFacturacion />} />
+          <Route path="/controles/primeros-pasos" element={<ControlesOnboarding />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />

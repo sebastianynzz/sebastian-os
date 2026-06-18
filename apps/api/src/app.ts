@@ -42,6 +42,7 @@ import developerRoutes from "./modules/developer/routes.js";
 import ingestRoutes from "./modules/ingest/routes.js";
 import customPropertiesRoutes from "./modules/customProperties/routes.js";
 import usageRoutes from "./modules/usage/routes.js";
+import onboardingRoutes from "./modules/onboarding/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -157,6 +158,8 @@ export async function buildApp() {
   await app.register(customPropertiesRoutes, { prefix: "/custom-properties" });
   // Medición de uso + upsell (Tier 3 §12): uso del mes vs límites del plan.
   await app.register(usageRoutes, { prefix: "/usage" });
+  // Onboarding guiado (Tier 3 §14): checklist de primeros pasos del tenant.
+  await app.register(onboardingRoutes, { prefix: "/onboarding" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });
