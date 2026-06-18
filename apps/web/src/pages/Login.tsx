@@ -29,7 +29,7 @@ export default function Login() {
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg"
       >
         <h1 className="text-3xl font-bold text-navy">
-          move<span className="text-lima">.</span>
+          <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
         </h1>
         <p className="mb-6 mt-1 text-sm text-navy/60">
           Plataforma modular de última milla
@@ -54,7 +54,7 @@ export default function Login() {
             />
           </Field>
           {error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}

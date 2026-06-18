@@ -1,13 +1,25 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { failStopSchema, submitPodSchema, haversineKm } from "@moveos/shared";
+import {
+  failStopSchema,
+  submitPodSchema,
+  haversineKm,
+  resolvePodReq,
+  type PodPolicyConfig,
+} from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
+import { emitWebhookEvent } from "../../services/webhooks.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import {
+  loadVisibleProperties,
+  selectVisibleFields,
+} from "../../services/customProperties.js";
+import { zoneDriverIdsForPoints } from "../../services/zones.js";
 
 /** Selección de campos del cliente necesarios para notificar (B2B). */
 const clientSelect = {
@@ -51,11 +63,43 @@ export default async function routesRoutes(app: FastifyInstance) {
       include: {
         vehicle: true,
         driver: true,
+        depot: { select: { id: true, name: true } },
         stops: { orderBy: { sequence: "asc" }, include: { order: true, pod: true } },
       },
     });
     if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
     return route;
+  });
+
+  /**
+   * Conductores sugeridos por zona (D5): los asignados a las zonas que cubren
+   * las paradas de entrega de la ruta. El despachador los prefiere al asignar,
+   * sin imponerlos (sigue pudiendo elegir a cualquiera). Tenant-scoped.
+   */
+  app.get("/:id/suggested-drivers", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: {
+        stops: {
+          where: { kind: "DELIVERY" },
+          select: { order: { select: { lat: true, lng: true } } },
+        },
+      },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    const points = route.stops
+      .map((s) => s.order)
+      .filter((o): o is { lat: number; lng: number } => o.lat != null && o.lng != null)
+      .map((o) => ({ lat: o.lat, lng: o.lng }));
+    const driverIds = await zoneDriverIdsForPoints(request.user.tenantId, points);
+    if (driverIds.length === 0) return { drivers: [] };
+    const drivers = await prisma.driver.findMany({
+      where: { id: { in: driverIds }, tenantId: request.user.tenantId, status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    return { drivers };
   });
 
   /** Despacho: asigna conductor y notifica a los clientes. */
@@ -126,6 +170,7 @@ export default async function routesRoutes(app: FastifyInstance) {
           orderId: stop.orderId,
           client: stop.order.client,
           template: "envio_en_reparto",
+          event: "OUT_FOR_DELIVERY",
           payload: {
             guia: stop.order.trackingNumber,
             destinatario: stop.order.customerName,
@@ -133,6 +178,11 @@ export default async function routesRoutes(app: FastifyInstance) {
             conductor: driver.name,
             rastreo: publicTrackingUrl(stop.order.trackingToken),
           },
+        });
+        await emitWebhookEvent(request.user.tenantId, "OUT_FOR_DELIVERY", {
+          orderId: stop.orderId,
+          guia: stop.order.trackingNumber,
+          etaMin: stop.etaMin,
         });
       }
       return updated;
@@ -198,7 +248,22 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: "desc" },
     });
-    return route ?? null;
+    if (!route) return null;
+    // Propiedades personalizadas visibles para el conductor (Tier 2 §9): se
+    // adjuntan ya etiquetadas por parada y NUNCA se envía el JSON crudo — un
+    // campo no visible para el conductor no debe llegar a la app.
+    const props = await loadVisibleProperties(request.user.tenantId, "driver");
+    return {
+      ...route,
+      stops: route.stops.map((s) => ({
+        ...s,
+        order: {
+          ...s.order,
+          customFields: undefined,
+          customProperties: selectVisibleFields(s.order.customFields, props, "driver"),
+        },
+      })),
+    };
   });
 
   /**
@@ -224,7 +289,138 @@ export default async function routesRoutes(app: FastifyInstance) {
         ? `Paquete escaneado en ${stop.kind === "PICKUP" ? "recogida" : "entrega"}`
         : `Escaneo no coincide con la guía: ${scanned}`,
     );
+    // Cadena de custodia (Tier 2 §11): persistir el escaneo (PICKUP/DELIVER).
+    await prisma.scanEvent.create({
+      data: {
+        tenantId: request.user.tenantId,
+        orderId: stop.orderId,
+        routeId: stop.routeId,
+        type: stop.kind === "PICKUP" ? "PICKUP" : "DELIVER",
+        barcode: scanned,
+        matched: match,
+      },
+    });
     return { match };
+  });
+
+  /**
+   * Verificación del manifiesto al cargar el vehículo (Tier 2 §11): en el
+   * depósito, el conductor escanea cada bulto ANTES de salir. El servidor
+   * verifica el código contra los pedidos de la ruta, registra el escaneo (LOAD)
+   * y, si coincide, deja un evento "LOADED" en la bitácora — cadena de custodia
+   * depósito → puerta. Idempotente: re-escanear el mismo bulto no duplica el
+   * "cargado". Tenant-scoped; el conductor solo escanea su propia ruta.
+   */
+  app.post("/:id/load-scan", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const { code } = z
+      .object({ code: z.string().trim().min(3).max(64) })
+      .parse(request.body);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: { stops: { select: { orderId: true, order: { select: { trackingNumber: true } } } } },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    if (request.user.role === "DRIVER" && route.driverId !== request.user.driverId) {
+      return reply.code(403).send({ error: "Ruta de otro conductor" });
+    }
+
+    const scanned = code.toUpperCase();
+    // Pedidos distintos de la ruta (un pedido con recogida tiene 2 paradas).
+    const byTracking = new Map<string, string>(); // trackingNumber → orderId
+    for (const s of route.stops) {
+      const t = s.order.trackingNumber?.toUpperCase();
+      if (t) byTracking.set(t, s.orderId);
+    }
+    const orderId = byTracking.get(scanned) ?? null;
+    const matched = orderId !== null;
+
+    await prisma.scanEvent.create({
+      data: {
+        tenantId: request.user.tenantId,
+        orderId,
+        routeId: route.id,
+        type: "LOAD",
+        barcode: scanned,
+        matched,
+      },
+    });
+    if (matched && orderId) {
+      // Solo dejamos un "LOADED" por pedido (no duplicar al re-escanear).
+      const already = await prisma.orderEvent.findFirst({
+        where: { orderId, type: "LOADED" },
+        select: { id: true },
+      });
+      if (!already) {
+        await logOrderEvent(orderId, "LOADED", "Bulto cargado en el vehículo");
+      }
+    }
+    return {
+      match: matched,
+      orderId,
+      trackingNumber: matched ? scanned : null,
+    };
+  });
+
+  /**
+   * Manifiesto de carga (Tier 2 §11): por pedido de la ruta, si ya fue escaneado
+   * al cargar (LOAD coincidente). Alimenta la pantalla "Cargar vehículo" del
+   * conductor y el manifiesto en Rutas. Tenant-scoped (el conductor, su ruta).
+   */
+  app.get("/:id/manifest", async (request, reply) => {
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const route = await prisma.route.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+      include: {
+        stops: {
+          orderBy: { sequence: "asc" },
+          select: {
+            orderId: true,
+            order: { select: { trackingNumber: true, customerName: true } },
+          },
+        },
+        scanEvents: {
+          where: { type: "LOAD", matched: true },
+          orderBy: { scannedAt: "desc" },
+          select: { orderId: true, scannedAt: true },
+        },
+      },
+    });
+    if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
+    if (request.user.role === "DRIVER" && route.driverId !== request.user.driverId) {
+      return reply.code(403).send({ error: "Ruta de otro conductor" });
+    }
+
+    const loadedAt = new Map<string, Date>();
+    for (const e of route.scanEvents) {
+      if (e.orderId && !loadedAt.has(e.orderId)) loadedAt.set(e.orderId, e.scannedAt);
+    }
+    // Pedidos distintos de la ruta, preservando el orden de las paradas.
+    const seen = new Set<string>();
+    const orders: {
+      orderId: string;
+      trackingNumber: string | null;
+      customerName: string;
+      loaded: boolean;
+      scannedAt: string | null;
+    }[] = [];
+    for (const s of route.stops) {
+      if (seen.has(s.orderId)) continue;
+      seen.add(s.orderId);
+      const at = loadedAt.get(s.orderId);
+      orders.push({
+        orderId: s.orderId,
+        trackingNumber: s.order.trackingNumber,
+        customerName: s.order.customerName,
+        loaded: Boolean(at),
+        scannedAt: at ? at.toISOString() : null,
+      });
+    }
+    return {
+      total: orders.length,
+      loaded: orders.filter((o) => o.loaded).length,
+      orders,
+    };
   });
 
   app.post("/stops/:stopId/arrive", async (request, reply) => {
@@ -265,25 +461,48 @@ export default async function routesRoutes(app: FastifyInstance) {
     const isPickup = stop.kind === "PICKUP";
     const now = new Date();
 
-    // Política POD configurable por cliente (FUENTE DE VERDAD = servidor): el
-    // comercio puede exigir foto y/o nombre de quien recibe para aceptar la
-    // entrega. Solo aplica a entregas (la recogida es en su propia bodega). El
-    // conductor también lo valida en el dispositivo, pero aquí no se puede
-    // saltar — ni siquiera reproducido desde la cola offline.
+    // Política POD (FUENTE DE VERDAD = servidor; no se puede saltar, ni siquiera
+    // reproducida desde la cola offline). Dos capas que se combinan:
+    //  1) Política por TIPO de parada (D2): el despachador define, por tipo de
+    //     entrega/recogida, si la firma y la foto son obligatorias.
+    //  2) Política por CLIENTE (existente): el comercio puede exigir foto y/o
+    //     nombre de quien recibe (solo entregas).
+    const policyRow = await prisma.podPolicy.findUnique({
+      where: { tenantId_scope: { tenantId, scope: "TEAM_DEFAULT" } },
+    });
+    const podReq = resolvePodReq(
+      (policyRow?.config as PodPolicyConfig | null) ?? null,
+      isPickup ? "PICKUP" : "DELIVERY",
+      isPickup ? input.pickupType : input.deliveryType,
+    );
+    const hasPhoto = input.types.includes("PHOTO") || Boolean(input.photoUrl);
+    const hasSignature =
+      input.types.includes("SIGNATURE") || Boolean(input.signatureUrl);
+
+    const missing: string[] = [];
+    if (podReq.photo === "MANDATORY" && !hasPhoto) {
+      missing.push("una foto de evidencia");
+    }
+    if (podReq.signature === "MANDATORY" && !hasSignature) {
+      missing.push("la firma de quien recibe");
+    }
     if (!isPickup) {
       const required = order.client?.podRequired ?? [];
-      const missing: string[] = [];
-      if (required.includes("PHOTO") && !input.types.includes("PHOTO")) {
+      if (
+        required.includes("PHOTO") &&
+        !hasPhoto &&
+        !missing.includes("una foto de evidencia")
+      ) {
         missing.push("una foto de evidencia");
       }
       if (required.includes("RECEIVER_NAME") && !input.receivedBy?.trim()) {
         missing.push("el nombre de quien recibe");
       }
-      if (missing.length > 0) {
-        return reply.code(422).send({
-          error: `Este cliente exige ${missing.join(" y ")} para confirmar la entrega.`,
-        });
-      }
+    }
+    if (missing.length > 0) {
+      return reply.code(422).send({
+        error: `Se requiere ${missing.join(" y ")} para confirmar esta parada.`,
+      });
     }
 
     // Geocerca: validar contra el punto correcto (recogida vs entrega).
@@ -305,6 +524,7 @@ export default async function routesRoutes(app: FastifyInstance) {
           pod: {
             create: {
               types: input.types,
+              deliveryType: isPickup ? input.pickupType : input.deliveryType,
               photoUrl: input.photoUrl,
               signatureUrl: input.signatureUrl,
               receivedBy: input.receivedBy,
@@ -355,6 +575,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       orderId: order.id,
       client: order.client,
       template: "envio_entregado",
+      event: "DELIVERED",
       payload: {
         guia: order.trackingNumber,
         destinatario: order.customerName,
@@ -362,6 +583,11 @@ export default async function routesRoutes(app: FastifyInstance) {
         geocercaOk: geofenceOk,
         rastreo: publicTrackingUrl(order.trackingToken),
       },
+    });
+    await emitWebhookEvent(tenantId, "DELIVERED", {
+      orderId: order.id,
+      guia: order.trackingNumber,
+      destinatario: order.customerName,
     });
 
     await maybeCompleteRoute(stop.route.id);
@@ -421,11 +647,17 @@ export default async function routesRoutes(app: FastifyInstance) {
       orderId: stop.orderId,
       client: stop.order.client,
       template: "envio_fallido",
+      event: "FAILED",
       payload: {
         guia: stop.order.trackingNumber,
         destinatario: stop.order.customerName,
         motivo: input.reason,
       },
+    });
+    await emitWebhookEvent(request.user.tenantId, "FAILED", {
+      orderId: stop.orderId,
+      guia: stop.order.trackingNumber,
+      motivo: input.reason,
     });
 
     await maybeCompleteRoute(stop.route.id);

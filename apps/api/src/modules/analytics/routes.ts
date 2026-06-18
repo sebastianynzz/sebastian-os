@@ -11,6 +11,9 @@ import {
   MONTH_RE,
   tenantGreenReport,
 } from "../../services/greenReport.js";
+import { tenantSlaReport } from "../../services/slaReport.js";
+import { tenantFailureReport } from "../../services/failureReport.js";
+import { tenantCostReport } from "../../services/costReport.js";
 
 /** Módulo Analítica Pro: KPIs operativos y financieros. */
 export default async function analyticsRoutes(app: FastifyInstance) {
@@ -96,6 +99,49 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       request.user.tenantId,
       query.month ?? currentMonth(),
     );
+  });
+
+  /**
+   * Cumplimiento de SLA por negocio cliente: para los pedidos con un Service en
+   * el rango (por defecto 30 días), cuántos se entregaron a tiempo, cuántos
+   * incumplieron y cuántos siguen en curso. Base del seguimiento de SLA y de la
+   * facturación B2B. La hora límite es determinista (`slaDueAt`).
+   */
+  app.get("/sla-report", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+    return tenantSlaReport(request.user.tenantId, range.from, range.to);
+  });
+
+  /**
+   * Análisis de fallos: pedidos fallidos/rechazados del rango agregados por
+   * motivo estandarizado y por día. DIRECCION_ERRADA enlaza con el grafo de
+   * direcciones (moat). Por defecto 30 días Bogotá.
+   */
+  app.get("/failures", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+    return tenantFailureReport(request.user.tenantId, range.from, range.to);
+  });
+
+  /**
+   * Costo por entrega ENERGÍA-NATIVO (D6): horas de ruta × costo/hora del
+   * conductor + kWh × tarifa de energía, dividido entre las entregas del rango.
+   * La unidad de costo es la energía, nunca el combustible. Por defecto 30 días.
+   */
+  app.get("/cost", async (request, reply) => {
+    const query = z
+      .object({ from: z.string().optional(), to: z.string().optional() })
+      .parse(request.query);
+    const range = parseRange(query.from, query.to);
+    if ("error" in range) return reply.code(400).send({ error: range.error });
+    return tenantCostReport(request.user.tenantId, range.from, range.to);
   });
 
   app.get("/notifications", async (request) => {

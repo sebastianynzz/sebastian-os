@@ -34,6 +34,15 @@ import portalRoutes from "./modules/portal/routes.js";
 import pushRoutes from "./modules/push/routes.js";
 import realtimeRoutes from "./modules/realtime/routes.js";
 import savedViewsRoutes from "./modules/savedViews/routes.js";
+import controlsRoutes from "./modules/controls/routes.js";
+import servicesRoutes from "./modules/services/routes.js";
+import depotsRoutes from "./modules/depots/routes.js";
+import zonesRoutes from "./modules/zones/routes.js";
+import developerRoutes from "./modules/developer/routes.js";
+import ingestRoutes from "./modules/ingest/routes.js";
+import customPropertiesRoutes from "./modules/customProperties/routes.js";
+import usageRoutes from "./modules/usage/routes.js";
+import onboardingRoutes from "./modules/onboarding/routes.js";
 import { closeAllStreams } from "./services/realtime.js";
 
 /**
@@ -132,6 +141,25 @@ export async function buildApp() {
   await app.register(evRoutes, { prefix: "/ev" });
   // Web Push (VAPID): avisos instantáneos a conductor y despachador.
   await app.register(pushRoutes, { prefix: "/push" });
+  // Controles del tenant (núcleo): política POD configurable por tipo.
+  await app.register(controlsRoutes, { prefix: "/controls" });
+  // Catálogo de servicios / SLA (núcleo B2B): base de facturación y SLA.
+  await app.register(servicesRoutes, { prefix: "/services" });
+  // Depósitos / multi-depot (núcleo): salida y regreso de rutas por depósito.
+  await app.register(depotsRoutes, { prefix: "/depots" });
+  // Zonas de entrega (núcleo): polígonos geográficos + conductores asignados.
+  await app.register(zonesRoutes, { prefix: "/zones" });
+  // Plataforma de desarrolladores (Tier 2): webhooks del tenant por evento.
+  await app.register(developerRoutes, { prefix: "/developer" });
+  // Ingesta por API key (Tier 2): creación de pedidos desde sistemas externos.
+  await app.register(ingestRoutes, { prefix: "/ingest" });
+  // Propiedades personalizadas de parada (Tier 2 §9): campos extra por pedido,
+  // con visibilidad por conductor/destinatario. Núcleo B2B, tope por plan.
+  await app.register(customPropertiesRoutes, { prefix: "/custom-properties" });
+  // Medición de uso + upsell (Tier 3 §12): uso del mes vs límites del plan.
+  await app.register(usageRoutes, { prefix: "/usage" });
+  // Onboarding guiado (Tier 3 §14): checklist de primeros pasos del tenant.
+  await app.register(onboardingRoutes, { prefix: "/onboarding" });
 
   // Portal de clientes (rol CLIENT): el negocio crea y sigue SUS envíos.
   await app.register(portalRoutes, { prefix: "/portal" });

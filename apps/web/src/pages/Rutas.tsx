@@ -29,6 +29,7 @@ interface RouteData {
   warnings: string[];
   vehicle: { plate: string; type: string; isElectric: boolean };
   driver: { id: string; name: string } | null;
+  depot: { id: string; name: string } | null;
   stops: {
     id: string;
     kind: "PICKUP" | "DELIVERY";
@@ -65,7 +66,7 @@ function stopCoords(s: Stop): [number, number] | null {
 }
 
 function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
-  const color = kind === "PICKUP" ? "#5b8def" : "#16a34a";
+  const color = kind === "PICKUP" ? "#3a5169" : "#5a6b18";
   return L.divIcon({
     className: "",
     html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)">${n}</div>`,
@@ -75,7 +76,7 @@ function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
 }
 const depotIcon = L.divIcon({
   className: "",
-  html: `<div style="width:14px;height:14px;background:#1b365d;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
+  html: `<div style="width:14px;height:14px;background:#233955;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
@@ -117,7 +118,7 @@ function RouteMap({ stops }: { stops: Stop[] }) {
         </Marker>
         <Polyline
           positions={line}
-          pathOptions={{ color: "#1b365d", weight: 3, opacity: 0.5, dashArray: "6 6" }}
+          pathOptions={{ color: "#233955", weight: 3, opacity: 0.5, dashArray: "6 6" }}
         />
         {pts.map(({ s, c }) => (
           <Marker key={s.id} position={c} icon={seqIcon(s.sequence, s.kind)}>
@@ -145,6 +146,17 @@ interface PendingOrder {
   addressRaw: string;
 }
 
+interface Manifest {
+  total: number;
+  loaded: number;
+  orders: {
+    orderId: string;
+    trackingNumber: string | null;
+    customerName: string;
+    loaded: boolean;
+  }[];
+}
+
 export default function Rutas() {
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -153,6 +165,11 @@ export default function Rutas() {
   const [assigning, setAssigning] = useState<Record<string, string>>({});
   const [inserting, setInserting] = useState<Record<string, string>>({});
   const [mapOpen, setMapOpen] = useState<Set<string>>(new Set());
+  // Manifiesto de carga (Tier 2 §11): bultos escaneados al cargar el vehículo.
+  const [manifests, setManifests] = useState<Record<string, Manifest>>({});
+  const [manifestOpen, setManifestOpen] = useState<Set<string>>(new Set());
+  // Conductores sugeridos por zona (D5): routeId → ids sugeridos.
+  const [suggested, setSuggested] = useState<Record<string, string[]>>({});
   const toast = useToast();
 
   // Conductores ya ocupados en rutas activas: no re-asignables (dedupe).
@@ -175,6 +192,25 @@ export default function Rutas() {
     });
   }
 
+  /** Manifiesto de carga: se carga bajo demanda al abrirlo. */
+  async function toggleManifest(id: string) {
+    const willOpen = !manifestOpen.has(id);
+    setManifestOpen((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+    if (willOpen) {
+      try {
+        const m = await api<Manifest>("GET", `/routes/${id}/manifest`);
+        setManifests((prev) => ({ ...prev, [id]: m }));
+      } catch (err) {
+        toast.error(err);
+      }
+    }
+  }
+
   async function load() {
     try {
       const [r, d, p] = await Promise.all([
@@ -185,6 +221,22 @@ export default function Rutas() {
       setRoutes(r);
       setDrivers(d);
       setPendingOrders(p);
+      // Sugerencias de conductor por zona (D5) para las rutas por despachar.
+      const planned = r.filter((rt) => rt.status === "PLANNED" && !rt.driver);
+      const entries = await Promise.all(
+        planned.map(async (rt) => {
+          try {
+            const res = await api<{ drivers: { id: string }[] }>(
+              "GET",
+              `/routes/${rt.id}/suggested-drivers`,
+            );
+            return [rt.id, res.drivers.map((dr) => dr.id)] as const;
+          } catch {
+            return [rt.id, [] as string[]] as const;
+          }
+        }),
+      );
+      setSuggested(Object.fromEntries(entries));
     } finally {
       setLoading(false);
     }
@@ -222,7 +274,21 @@ export default function Rutas() {
       setInserting((s) => ({ ...s, [routeId]: "" }));
       await load();
     } catch (err) {
-      const isConflict = err instanceof ApiError && err.status === 409;
+      const status = err instanceof ApiError ? err.status : 0;
+      // 422 INSERTION_INFEASIBLE: el pedido no cabe en esta ruta sin romper
+      // ventanas/capacidad/autonomía — reintentar es inútil; se sugiere una
+      // alternativa accionable en vez de un botón de reintento.
+      if (status === 422) {
+        toast.error(
+          new Error(
+            `${(err as ApiError).message} — replanifica o prueba con otra ruta.`,
+          ),
+        );
+        return;
+      }
+      // 409 conflicto de transición (otro despachador tomó la ruta): recargar,
+      // sin reintentar (volvería a chocar).
+      const isConflict = status === 409;
       toast.error(err, isConflict ? undefined : { retry: () => void insertOrder(routeId) });
       if (isConflict) await load();
     }
@@ -239,10 +305,11 @@ export default function Rutas() {
       {!loading && routes.length === 0 && (
         <Card>
           <EmptyState
+            phrase="Última milla con máxima eficiencia."
             action={
               <Link
                 to="/planificacion"
-                className="rounded-lg bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                className="rounded-md bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
               >
                 Ir a Planificación
               </Link>
@@ -255,7 +322,7 @@ export default function Rutas() {
       {routes.map((r) => (
         <Card
           key={r.id}
-          title={`${r.date} · ${r.vehicle.plate} (${r.vehicle.type}${r.vehicle.isElectric ? " ⚡" : ""}) · ${r.totalDistanceKm} km`}
+          title={`${r.date} · ${r.vehicle.plate} (${r.vehicle.type}${r.vehicle.isElectric ? " ⚡" : ""}) · ${r.totalDistanceKm} km${r.depot ? ` · 🏭 ${r.depot.name}` : ""}`}
           actions={
             <div className="flex items-center gap-2">
               {r.driver ? (
@@ -273,13 +340,20 @@ export default function Rutas() {
                     }
                   >
                     <option value="">Asignar conductor…</option>
-                    {drivers
-                      .filter((d) => !assignedDriverIds.has(d.id))
-                      .map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
+                    {(() => {
+                      const sug = new Set(suggested[r.id] ?? []);
+                      // Conductores de la zona primero, marcados como sugeridos.
+                      return drivers
+                        .filter((d) => !assignedDriverIds.has(d.id))
+                        .slice()
+                        .sort((a, b) => Number(sug.has(b.id)) - Number(sug.has(a.id)))
+                        .map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                            {sug.has(d.id) ? " — sugerido (zona)" : ""}
+                          </option>
+                        ));
+                    })()}
                   </select>
                   <Button onClick={() => dispatch(r.id)} disabled={!assigning[r.id]}>
                     Despachar
@@ -356,13 +430,60 @@ export default function Rutas() {
           </table>
           </div>
 
-          <button
-            onClick={() => toggleMap(r.id)}
-            className="mt-2 text-xs font-medium text-navy underline hover:text-navy/70"
-          >
-            {mapOpen.has(r.id) ? "Ocultar mapa" : "Ver mapa de la ruta"}
-          </button>
+          <div className="mt-2 flex flex-wrap gap-4">
+            <button
+              onClick={() => toggleMap(r.id)}
+              className="text-xs font-medium text-navy underline hover:text-navy/70"
+            >
+              {mapOpen.has(r.id) ? "Ocultar mapa" : "Ver mapa de la ruta"}
+            </button>
+            <button
+              onClick={() => void toggleManifest(r.id)}
+              className="text-xs font-medium text-navy underline hover:text-navy/70"
+            >
+              {manifestOpen.has(r.id) ? "Ocultar manifiesto" : "Manifiesto de carga"}
+            </button>
+          </div>
           {mapOpen.has(r.id) && <RouteMap stops={r.stops} />}
+          {/* Manifiesto de carga (Tier 2 §11): cadena de custodia depósito → puerta. */}
+          {manifestOpen.has(r.id) && (
+            <div className="mt-2 rounded-lg border border-niebla p-3">
+              {!manifests[r.id] ? (
+                <p className="text-xs text-navy/50">Cargando manifiesto…</p>
+              ) : (
+                <>
+                  <div className="mb-2 text-xs font-semibold uppercase text-navy/50">
+                    Manifiesto · {manifests[r.id]!.loaded} de {manifests[r.id]!.total}{" "}
+                    bultos cargados
+                  </div>
+                  <ul className="space-y-1 text-sm">
+                    {manifests[r.id]!.orders.map((o) => (
+                      <li
+                        key={o.orderId}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono text-xs text-navy/60">
+                            {o.trackingNumber ?? "—"}
+                          </span>{" "}
+                          · {o.customerName}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                            o.loaded
+                              ? "bg-success-bg text-success"
+                              : "bg-niebla text-navy/50"
+                          }`}
+                        >
+                          {o.loaded ? "✓ Cargado" : "Pendiente"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Inserción express: pedidos pendientes a una ruta activa. */}
           {["PLANNED", "DISPATCHED", "IN_PROGRESS"].includes(r.status) &&

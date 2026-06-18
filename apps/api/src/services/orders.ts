@@ -7,6 +7,7 @@ import {
   logOrderEvents,
 } from "./orderEvents.js";
 import { emitOrderUpdate } from "./realtime.js";
+import { checkServiceability } from "./zones.js";
 
 /**
  * Alta de un pedido (compartida por el dashboard del tenant y el portal de
@@ -75,10 +76,43 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     }
   }
 
+  // Validar que el servicio (promesa SLA, si se indica) pertenezca al tenant —
+  // evita asignar un serviceId de otro tenant (aislamiento) y rompe el FK.
+  if (input.serviceId) {
+    const service = await prisma.service.findFirst({
+      where: { id: input.serviceId, tenantId },
+      select: { id: true },
+    });
+    if (!service) {
+      throw Object.assign(new Error("Servicio no encontrado"), { statusCode: 400 });
+    }
+  }
+
+  // Propiedades personalizadas (Tier 2 §9): conservar solo los valores cuyas
+  // claves son propiedades EXISTENTES del tenant (corta claves ajenas/erróneas
+  // y aísla por tenant); las desconocidas se ignoran para no tumbar imports/API.
+  let customFields: Record<string, string> | undefined;
+  if (input.customFields && Object.keys(input.customFields).length > 0) {
+    const props = await prisma.customProperty.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    const known = new Set(props.map((p) => p.id));
+    const filtered: Record<string, string> = {};
+    for (const [key, value] of Object.entries(input.customFields)) {
+      if (known.has(key) && value != null && String(value).trim() !== "") {
+        filtered[key] = String(value).trim();
+      }
+    }
+    if (Object.keys(filtered).length > 0) customFields = filtered;
+  }
+
   const order = await prisma.order.create({
     data: {
       tenantId,
       clientId: input.clientId,
+      serviceId: input.serviceId,
+      customFields,
       trackingNumber: generateTrackingNumber(),
       trackingToken: generateTrackingToken(),
       externalRef: input.externalRef,
@@ -109,6 +143,23 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     { orderId: order.id, type: "CREATED", details: `Guía ${order.trackingNumber}` },
     { orderId: order.id, type: "GEOCODED", details: `Fuente: ${geocodeSource}` },
   ]);
+
+  // Cobertura por zona (D5): si el tenant definió zonas y el destino cae fuera
+  // de todas, se registra en la bitácora. NO bloquea (B2B: solo se avisa); los
+  // tenants sin zonas no se ven afectados.
+  if (lat !== undefined && lng !== undefined) {
+    const { hasZones, covering } = await checkServiceability(tenantId, { lat, lng });
+    if (hasZones && covering.length === 0) {
+      await logOrderEvents([
+        {
+          orderId: order.id,
+          type: "OUT_OF_ZONE",
+          details: "Destino fuera de las zonas de cobertura",
+        },
+      ]);
+    }
+  }
+
   emitOrderUpdate(tenantId, order);
   return order;
 }

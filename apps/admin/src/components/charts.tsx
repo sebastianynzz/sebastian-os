@@ -16,7 +16,7 @@ const W = 600;
 const H = 200;
 const PAD_TOP = 12;
 
-const DEFAULT_COLORS = ["#d0de81", "#a2b2c8"]; // lima, cielo
+const DEFAULT_COLORS = ["#cfdd80", "#a7b6c4"]; // lima, cielo
 
 export function TrendChart({
   days,
@@ -81,7 +81,7 @@ export function TrendChart({
             {idx === 0 && s.fill !== "none" && n > 1 && (
               <polygon
                 points={`0,${H} ${toPoints(s.values)} ${W},${H}`}
-                fill={s.fill ?? "#d0de81"}
+                fill={s.fill ?? "#cfdd80"}
                 fillOpacity={0.2}
               />
             )}

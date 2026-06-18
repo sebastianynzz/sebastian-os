@@ -78,14 +78,14 @@ export default function RouteMap({
     if (pending.length > 1) {
       L.polyline(
         pending.map((s) => [s.lat, s.lng] as [number, number]),
-        { color: "#1b365d", weight: 3, opacity: 0.7, dashArray: "6 6" },
+        { color: "#233955", weight: 3, opacity: 0.7, dashArray: "6 6" },
       ).addTo(overlay);
     }
     for (const stop of stops) {
       const marker = L.circleMarker([stop.lat, stop.lng], {
         radius: 11,
-        color: stop.done ? "#94a3b8" : stop.isPickup ? "#0ea5e9" : "#1b365d",
-        fillColor: stop.done ? "#cbd5e1" : stop.isPickup ? "#bae6fd" : "#c6d92e",
+        color: stop.done ? "#8a99a8" : stop.isPickup ? "#3a5169" : "#233955",
+        fillColor: stop.done ? "#d6dade" : stop.isPickup ? "#eef2f5" : "#cfdd80",
         fillOpacity: 0.95,
         weight: 2,
       }).addTo(overlay);
@@ -113,7 +113,7 @@ export default function RouteMap({
         driverMarkerRef.current = L.circleMarker([pos.lat, pos.lng], {
           radius: 7,
           color: "#ffffff",
-          fillColor: "#16a34a",
+          fillColor: "#5a6b18",
           fillOpacity: 1,
           weight: 2,
         }).addTo(map);

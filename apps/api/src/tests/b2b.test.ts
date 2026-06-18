@@ -160,11 +160,13 @@ describe("notificaciones B2B (al negocio cliente)", () => {
 
     // El webhook del NEGOCIO recibió la confirmación de entrega.
     const delivered = received.find(
-      (m): m is { event: string; data: { destinatario: string } } =>
+      (m): m is { event: string; standardEvent: string; data: { destinatario: string } } =>
         typeof m === "object" && m !== null && (m as { event?: string }).event === "envio_entregado",
     );
     expect(delivered).toBeDefined();
     expect(delivered!.data.destinatario).toBe("Consumidor Final");
+    // Campo estandarizado (no rompe `event`): catálogo NOTIFICATION_EVENTS.
+    expect(delivered!.standardEvent).toBe("DELIVERED");
 
     // Quedó registrado en el feed de notificaciones del cliente.
     const feed = await api("GET", `/clients/${clientId}/notifications`, adminToken);

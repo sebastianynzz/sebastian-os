@@ -79,5 +79,15 @@ export function co2BaselineKgForKm(type: VehicleType, km: number): number {
   return VEHICLE_EMISSIONS[type].iceKgPerKm * km;
 }
 
+/**
+ * Energía eléctrica (kWh) consumida por un EV del tipo dado en `km`. Base del
+ * costo energético por entrega (D6): la unidad de costo de MoveOS es la energía,
+ * no el combustible (restricción dura 1.7).
+ */
+export function evKwhForKm(type: VehicleType, km: number): number {
+  const profile = VEHICLE_EMISSIONS[type];
+  return profile ? profile.evKwhPerKm * km : 0;
+}
+
 /** Absorción anual aproximada de un árbol urbano (kg CO₂/año). */
 export const TREE_ABSORPTION_KG_PER_YEAR = 21;

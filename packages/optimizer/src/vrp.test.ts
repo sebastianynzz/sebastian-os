@@ -391,4 +391,39 @@ describe("planRoutes (VRP)", () => {
     // Verificación de sanidad: la distancia es finita y razonable (< 60 km).
     expect(result.routes[0]!.totalDistanceKm).toBeLessThan(60);
   });
+
+  it("estrategia de optimización: FEWEST_DRIVERS empaca, EQUALIZE/ASSIGN reparten", () => {
+    const orders = [
+      order("o1", 4.66, -74.05),
+      order("o2", 4.63, -74.07),
+      order("o3", 4.67, -74.06),
+      order("o4", 4.62, -74.08),
+    ];
+    // Dos EV con capacidad de sobra (EV → exentos de pico y placa).
+    const vehicles: OptimizableVehicle[] = [
+      { ...lightEv("m1", "ABC12D"), isElectric: true, capacityKg: 100 },
+      { ...lightEv("m2", "XYZ34F"), isElectric: true, capacityKg: 100 },
+    ];
+    const base = { date: ODD_DAY, city: "Bogotá", depot: DEPOT, orders } as const;
+
+    // Menos conductores: todo cabe en un vehículo → una sola ruta.
+    const fewest = planRoutes({ ...base, vehicles, objective: "FEWEST_DRIVERS" });
+    expect(fewest.unassigned).toHaveLength(0);
+    expect(fewest.routes).toHaveLength(1);
+
+    // Igualar carga: reparte en los dos vehículos, 2 paradas cada uno.
+    const equalize = planRoutes({ ...base, vehicles, objective: "EQUALIZE_WORKLOAD" });
+    expect(equalize.unassigned).toHaveLength(0);
+    expect(equalize.routes).toHaveLength(2);
+    for (const r of equalize.routes) expect(r.stops).toHaveLength(2);
+
+    // Usar todos los seleccionados: abre ambos vehículos.
+    const assignAll = planRoutes({ ...base, vehicles, objective: "ASSIGN_TO_SELECTED" });
+    expect(assignAll.unassigned).toHaveLength(0);
+    expect(assignAll.routes).toHaveLength(2);
+
+    // Por defecto (sin objective = BALANCE) asigna todo de forma factible.
+    const def = planRoutes({ ...base, vehicles });
+    expect(def.unassigned).toHaveLength(0);
+  });
 });

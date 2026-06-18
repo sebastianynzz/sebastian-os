@@ -32,7 +32,7 @@ export default async function optimizationRoutes(app: FastifyInstance) {
 
       const created = await persistPlan(
         tenantId,
-        { date: input.date, depot: input.depot },
+        { date: input.date, depot: outcome.depot, depotId: outcome.depotId },
         outcome.result,
         outcome.dbVehicles,
       );

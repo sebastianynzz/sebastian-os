@@ -117,3 +117,41 @@ describe("vehículos — disponibilidad operativa", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("vehículos — depósito base (multi-depot D4)", () => {
+  it("asigna un depósito del propio tenant al crear", async () => {
+    const depot = await api("POST", "/depots", adminToken, {
+      name: "Depósito V-A",
+      lat: 4.65,
+      lng: -74.06,
+    });
+    expect(depot.status).toBe(201);
+    const res = await api("POST", "/vehicles", adminToken, {
+      plate: "VDP1Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+      homeDepotId: depot.body.id,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.homeDepotId).toBe(depot.body.id);
+  });
+
+  it("AISLAMIENTO: rechaza un depósito de otro tenant (400)", async () => {
+    const depotB = await api("POST", "/depots", otherToken, {
+      name: "Depósito V-B",
+      lat: 6.2,
+      lng: -75.5,
+    });
+    const res = await api("POST", "/vehicles", adminToken, {
+      plate: "VDP2Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+      homeDepotId: depotB.body.id,
+    });
+    expect(res.status).toBe(400);
+  });
+});

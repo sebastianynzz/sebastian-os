@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
+import {
+  OPTIMIZATION_OBJECTIVES,
+  OPTIMIZATION_OBJECTIVE_LABELS,
+  type OptimizationObjective,
+} from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
 import { Button, Card, PageHeader, formatEta } from "../components/ui";
@@ -45,15 +50,26 @@ interface PlanResponse {
   unassigned: { orderId: string; reason: string }[];
   excludedVehicles: { vehicleId: string; reason: string }[];
 }
+interface Depot {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  isMain: boolean;
+}
 
-const DEPOT = { lat: 4.6486, lng: -74.0628 }; // demo: Chapinero
+// Depósito de respaldo (Chapinero) cuando el tenant aún no creó ninguno.
+const DEPOT = { lat: 4.6486, lng: -74.0628 };
 
 export default function Planificacion() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [depots, setDepots] = useState<Depot[]>([]);
+  const [selectedDepotId, setSelectedDepotId] = useState<string>("");
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [objective, setObjective] = useState<OptimizationObjective>("BALANCE");
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [orderFilter, setOrderFilter] = useState("");
@@ -64,16 +80,27 @@ export default function Planificacion() {
 
   useEffect(() => {
     void (async () => {
-      const [o, v] = await Promise.all([
+      const [o, v, d] = await Promise.all([
         api<Order[]>("GET", "/orders?status=GEOCODED"),
         api<Vehicle[]>("GET", "/vehicles"),
+        api<Depot[]>("GET", "/depots").catch(() => [] as Depot[]),
       ]);
       setOrders(o);
       setVehicles(v);
+      setDepots(d);
+      // Por defecto el principal (el listado viene con el principal primero).
+      if (d.length > 0) setSelectedDepotId(d[0]!.id);
       setSelectedOrders(new Set(o.map((x) => x.id)));
       setSelectedVehicles(new Set(v.map((x) => x.id)));
     })();
   }, []);
+
+  // Depósito efectivo del plan: el seleccionado, o el de respaldo si el tenant
+  // aún no creó depósitos. Sus coordenadas mandan en el optimizador y el mapa.
+  const activeDepot = useMemo(() => {
+    const d = depots.find((x) => x.id === selectedDepotId);
+    return d ? { lat: d.lat, lng: d.lng } : DEPOT;
+  }, [depots, selectedDepotId]);
 
   // Índice acumulado: los pedidos recién planificados dejan de estar en
   // estado GEOCODED, pero sus datos deben seguir visibles en las rutas.
@@ -85,6 +112,25 @@ export default function Planificacion() {
     for (const o of orders) m.set(o.id, o);
     return m;
   }, [orders, orderArchive]);
+
+  /** Elige el depósito más cercano al centroide de los pedidos seleccionados. */
+  async function pickNearestDepot() {
+    const pts = [...selectedOrders]
+      .map((id) => ordersById.get(id))
+      .filter((o): o is Order => !!o && o.lat != null && o.lng != null);
+    if (pts.length === 0) return;
+    const lat = pts.reduce((s, o) => s + (o.lat as number), 0) / pts.length;
+    const lng = pts.reduce((s, o) => s + (o.lng as number), 0) / pts.length;
+    try {
+      const res = await api<{ depot: { id: string } | null }>(
+        "GET",
+        `/depots/nearest?lat=${lat}&lng=${lng}`,
+      );
+      if (res.depot) setSelectedDepotId(res.depot.id);
+    } catch {
+      /* sin red: se mantiene el depósito actual */
+    }
+  }
   const vehiclesById = useMemo(
     () => new Map(vehicles.map((v) => [v.id, v])),
     [vehicles],
@@ -123,9 +169,11 @@ export default function Planificacion() {
     try {
       const res = await api<PlanResponse>("POST", "/optimization/plans", {
         date,
-        depot: DEPOT,
+        depot: activeDepot,
+        depotId: selectedDepotId || undefined,
         orderIds: [...selectedOrders],
         vehicleIds: [...selectedVehicles],
+        objective,
       });
       setOrderArchive((prev) => {
         const next = new Map(prev);
@@ -198,6 +246,54 @@ export default function Planificacion() {
           ventanas horarias y autonomía de vehículos eléctricos."
         actions={
           <>
+            {depots.length > 0 && (
+              <>
+                <label className="sr-only" htmlFor="plan-depot">
+                  Depósito
+                </label>
+                <select
+                  id="plan-depot"
+                  value={selectedDepotId}
+                  onChange={(e) => setSelectedDepotId(e.target.value)}
+                  title="Depósito de salida y regreso de las rutas"
+                  className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25"
+                >
+                  {depots.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                      {d.isMain ? " (principal)" : ""}
+                    </option>
+                  ))}
+                </select>
+                {depots.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => void pickNearestDepot()}
+                    disabled={selectedOrders.size === 0}
+                    title="Elegir el depósito más cercano a los pedidos seleccionados"
+                    className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy hover:bg-niebla disabled:opacity-50"
+                  >
+                    📍 Más cercano
+                  </button>
+                )}
+              </>
+            )}
+            <label className="sr-only" htmlFor="plan-objective">
+              Estrategia de optimización
+            </label>
+            <select
+              id="plan-objective"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value as OptimizationObjective)}
+              title="Estrategia de optimización (aplica solo a rutas nuevas)"
+              className="rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25"
+            >
+              {OPTIMIZATION_OBJECTIVES.map((o) => (
+                <option key={o} value={o}>
+                  {OPTIMIZATION_OBJECTIVE_LABELS[o]}
+                </option>
+              ))}
+            </select>
             <label className="sr-only" htmlFor="plan-date">
               Fecha del plan
             </label>
@@ -215,6 +311,11 @@ export default function Planificacion() {
         }
       />
 
+      <p className="text-xs text-text-tertiary">
+        La estrategia de optimización aplica solo a las rutas nuevas que generes
+        ahora; no reorganiza rutas ya creadas.
+      </p>
+
       {/* Optimización con IA: el LLM dispara y explica; el solver hace la
           matemática. optimize_routes muta (confirmar antes de crear rutas);
           optimize_load y pick_vehicle son asesores (solo recomiendan). */}
@@ -225,7 +326,7 @@ export default function Planificacion() {
             orderIds: [...selectedOrders],
             vehicleIds: [...selectedVehicles],
             date,
-            params: { depot: DEPOT },
+            params: { depot: activeDepot, depotId: selectedDepotId || undefined },
           }}
           disabled={selectedOrders.size === 0 || selectedVehicles.size === 0}
           onApplied={() => {
@@ -315,7 +416,7 @@ export default function Planificacion() {
                 <span>
                   {v.plate} · {v.type} · {v.capacityKg} kg
                   {v.isElectric && (
-                    <span className="ml-1 text-xs font-medium text-emerald-600">
+                    <span className="ml-1 text-xs font-medium text-success">
                       ⚡ {v.socPercent != null ? `${v.socPercent}%` : "EV"}
                     </span>
                   )}
@@ -332,13 +433,16 @@ export default function Planificacion() {
 
         <Card title="Paso 3 · Optimiza (mapa de la operación)">
           <MapContainer
-            center={[DEPOT.lat, DEPOT.lng]}
+            key={`${activeDepot.lat},${activeDepot.lng}`}
+            center={[activeDepot.lat, activeDepot.lng]}
             zoom={12}
             style={{ height: 280 }}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <Marker position={[DEPOT.lat, DEPOT.lng]} icon={markerIcon}>
-              <Popup>Depósito</Popup>
+            <Marker position={[activeDepot.lat, activeDepot.lng]} icon={markerIcon}>
+              <Popup>
+                {depots.find((d) => d.id === selectedDepotId)?.name ?? "Depósito"}
+              </Popup>
             </Marker>
             {orders
               .filter((o) => o.lat !== null && o.lng !== null)
@@ -361,7 +465,7 @@ export default function Planificacion() {
           {plan.excludedVehicles.length > 0 && (
             <Card title="Vehículos excluidos">
               {plan.excludedVehicles.map((e) => (
-                <p key={e.vehicleId} className="text-sm text-amber-700">
+                <p key={e.vehicleId} className="text-sm text-warning">
                   {vehiclesById.get(e.vehicleId)?.plate ?? e.vehicleId}: {e.reason}
                 </p>
               ))}
@@ -370,7 +474,7 @@ export default function Planificacion() {
           {plan.unassigned.length > 0 && (
             <Card title="Pedidos sin asignar">
               {plan.unassigned.map((u) => (
-                <p key={u.orderId} className="text-sm text-red-700">
+                <p key={u.orderId} className="text-sm text-danger">
                   {ordersById.get(u.orderId)?.customerName ?? u.orderId}: {u.reason}
                 </p>
               ))}
@@ -395,7 +499,7 @@ export default function Planificacion() {
                   title={`Ruta ${vehiclesById.get(r.vehicleId)?.plate ?? r.vehicleId} — ${r.totalDistanceKm} km · ${Math.round(r.totalDurationMin / 60)}h ${r.totalDurationMin % 60}m`}
                 >
                   {r.warnings.map((w) => (
-                    <p key={w} className="mb-1 text-xs text-amber-600">⚠ {w}</p>
+                    <p key={w} className="mb-1 text-xs text-warning">⚠ {w}</p>
                   ))}
                   {/* Orden de visita ajustable con ▲▼ antes de despachar; las ETAs
                       se recalculan en el servidor al guardar. */}

@@ -43,9 +43,9 @@ function severityOf(type: string): Severity {
 }
 const SEV_RANK: Record<Severity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
 const SEV_COLOR: Record<Severity, string> = {
-  CRITICAL: "#dc2626",
-  HIGH: "#f59e0b",
-  MEDIUM: "#0ea5e9",
+  CRITICAL: "#a32d2d",
+  HIGH: "#8a5a12",
+  MEDIUM: "#3a5169",
 };
 const SEVERITIES: Severity[] = ["CRITICAL", "HIGH", "MEDIUM"];
 const SEV_LABELS: Record<Severity, string> = {
@@ -219,7 +219,7 @@ export default function Seguridad() {
         actions={
           <div className="flex items-center gap-2">
             {openCount > 0 && (
-              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+              <span className="rounded-full bg-danger-bg px-3 py-1 text-xs font-semibold text-danger">
                 {openCount} abiertas
               </span>
             )}
@@ -280,7 +280,7 @@ export default function Seguridad() {
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-700">No se pudieron cargar las alertas.</span>
+            <span className="text-danger">No se pudieron cargar las alertas.</span>
             <Button variant="secondary" onClick={() => void load()}>
               Reintentar
             </Button>

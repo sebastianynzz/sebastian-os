@@ -27,6 +27,19 @@ import Track from "./pages/Track";
 import Excepciones from "./pages/Excepciones";
 import Direcciones from "./pages/Direcciones";
 import Copilot from "./pages/Copilot";
+import ControlesPod from "./pages/ControlesPod";
+import ControlesServicios from "./pages/ControlesServicios";
+import ControlesDepots from "./pages/ControlesDepots";
+import ControlesZonas from "./pages/ControlesZonas";
+import ControlesCostos from "./pages/ControlesCostos";
+import ControlesSeguimiento from "./pages/ControlesSeguimiento";
+import ControlesNotificaciones from "./pages/ControlesNotificaciones";
+import ControlesIntegraciones from "./pages/ControlesIntegraciones";
+import ControlesCampos from "./pages/ControlesCampos";
+import ControlesPermisos from "./pages/ControlesPermisos";
+import ControlesUso from "./pages/ControlesUso";
+import ControlesFacturacion from "./pages/ControlesFacturacion";
+import ControlesOnboarding from "./pages/ControlesOnboarding";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -56,6 +69,32 @@ const NAV_ITEMS: {
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
+  // Primeros pasos (onboarding guiado): checklist del tenant, solo ADMIN.
+  { to: "/controles/primeros-pasos", label: "Primeros pasos", roles: ["ADMIN"] },
+  // Servicios (promesas de entrega + SLA): catálogo de tenant, solo ADMIN.
+  { to: "/controles/servicios", label: "Servicios", roles: ["ADMIN"] },
+  // Depósitos (multi-depot): centros de salida/regreso de rutas, solo ADMIN.
+  { to: "/controles/depositos", label: "Depósitos", roles: ["ADMIN"] },
+  // Zonas de entrega: polígonos + conductores asignados, solo ADMIN.
+  { to: "/controles/zonas", label: "Zonas", roles: ["ADMIN"] },
+  // Costos (energía-nativo): parámetros del costo por entrega, solo ADMIN.
+  { to: "/controles/costos", label: "Costos", roles: ["ADMIN"] },
+  // Seguimiento público (privacidad del rastreo B2B), solo ADMIN.
+  { to: "/controles/seguimiento", label: "Seguimiento", roles: ["ADMIN"] },
+  // Notificaciones B2B por evento (motor de notificaciones), solo ADMIN.
+  { to: "/controles/notificaciones", label: "Notificaciones", roles: ["ADMIN"] },
+  // Integraciones (webhooks + API keys, plataforma de desarrolladores), solo ADMIN.
+  { to: "/controles/integraciones", label: "Integraciones", roles: ["ADMIN"] },
+  // Campos personalizados de parada (Tier 2 §9): datos extra por pedido, solo ADMIN.
+  { to: "/controles/campos", label: "Campos personalizados", roles: ["ADMIN"] },
+  // Permisos de la app del conductor (Tier 2 §10): navegación + edición de rutas, solo ADMIN.
+  { to: "/controles/permisos-conductor", label: "Permisos de conductor", roles: ["ADMIN"] },
+  // Uso y plan (Tier 3 §12): consumo del mes vs límites del plan + upsell, solo ADMIN.
+  { to: "/controles/uso", label: "Uso y plan", roles: ["ADMIN"] },
+  // Facturación (Tier 3 §13): datos fiscales + historial de facturas, solo ADMIN.
+  { to: "/controles/facturacion", label: "Facturación", roles: ["ADMIN"] },
+  // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
+  { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
   { to: "/modulos", label: "Módulos", roles: ["ADMIN"] },
 ];
@@ -100,7 +139,7 @@ function Shell() {
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
           <div className="min-w-0">
             <div className="text-xl font-bold text-white">
-              move<span className="text-lima">.</span>
+              <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
             </div>
             <div className="mt-1 truncate text-xs text-cielo">
               {isClient ? "Portal de clientes" : session.tenant.name}
@@ -149,7 +188,7 @@ function Shell() {
         {getImpersonatedBy() && (
           <div
             role="status"
-            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-bg px-4 py-2 text-sm text-warning"
           >
             <span>
               🛟 Sesión de soporte: actuando como <b>{session.user.email}</b>{" "}
@@ -212,6 +251,19 @@ export default function App() {
           <Route path="/analitica" element={<Analitica />} />
           <Route path="/sostenibilidad" element={<Sostenibilidad />} />
           <Route path="/modulos" element={<Modulos />} />
+          <Route path="/controles/servicios" element={<ControlesServicios />} />
+          <Route path="/controles/depositos" element={<ControlesDepots />} />
+          <Route path="/controles/zonas" element={<ControlesZonas />} />
+          <Route path="/controles/costos" element={<ControlesCostos />} />
+          <Route path="/controles/seguimiento" element={<ControlesSeguimiento />} />
+          <Route path="/controles/notificaciones" element={<ControlesNotificaciones />} />
+          <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
+          <Route path="/controles/campos" element={<ControlesCampos />} />
+          <Route path="/controles/permisos-conductor" element={<ControlesPermisos />} />
+          <Route path="/controles/uso" element={<ControlesUso />} />
+          <Route path="/controles/facturacion" element={<ControlesFacturacion />} />
+          <Route path="/controles/primeros-pasos" element={<ControlesOnboarding />} />
+          <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
           <Route path="/portal/envios" element={<PortalPedidos />} />

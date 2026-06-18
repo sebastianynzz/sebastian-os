@@ -4,6 +4,15 @@ import { createVehicleSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 
+/** Verifica que un depósito pertenezca al tenant (aislamiento multi-depot). */
+async function depotInTenant(tenantId: string, depotId: string): Promise<boolean> {
+  const depot = await prisma.depot.findFirst({
+    where: { id: depotId, tenantId },
+    select: { id: true },
+  });
+  return Boolean(depot);
+}
+
 export default async function vehiclesRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
 
@@ -19,6 +28,12 @@ export default async function vehiclesRoutes(app: FastifyInstance) {
     { preHandler: [requireRole("ADMIN", "DISPATCHER")] },
     async (request, reply) => {
       const input = createVehicleSchema.parse(request.body);
+      if (
+        input.homeDepotId &&
+        !(await depotInTenant(request.user.tenantId, input.homeDepotId))
+      ) {
+        return reply.code(400).send({ error: "Depósito no encontrado" });
+      }
       const vehicle = await prisma.vehicle.create({
         data: {
           tenantId: request.user.tenantId,
@@ -32,6 +47,7 @@ export default async function vehiclesRoutes(app: FastifyInstance) {
           status: input.status ?? undefined,
           soatExpiresAt: input.soatExpiresAt ? new Date(input.soatExpiresAt) : undefined,
           tecnoExpiresAt: input.tecnoExpiresAt ? new Date(input.tecnoExpiresAt) : undefined,
+          homeDepotId: input.homeDepotId ?? undefined,
         },
       });
       return reply.code(201).send(vehicle);
@@ -64,6 +80,12 @@ export default async function vehiclesRoutes(app: FastifyInstance) {
         where: { id, tenantId: request.user.tenantId },
       });
       if (!existing) return reply.code(404).send({ error: "Vehículo no encontrado" });
+      if (
+        body.homeDepotId != null &&
+        !(await depotInTenant(request.user.tenantId, body.homeDepotId))
+      ) {
+        return reply.code(400).send({ error: "Depósito no encontrado" });
+      }
       return prisma.vehicle.update({
         where: { id },
         data: {

@@ -10,6 +10,7 @@ import {
 } from "../../services/geocoding.js";
 import { logOrderEvent } from "../../services/orderEvents.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import { checkServiceability } from "../../services/zones.js";
 
 /**
  * Inteligencia de direcciones (núcleo, no es módulo de pago): la cola de
@@ -71,10 +72,19 @@ export default async function addressesRoutes(app: FastifyInstance) {
       body.addressRaw,
       body.city ?? tenant.city,
     );
+    // Cobertura por zona (D5): mismo aviso que el portal — el despachador ve si
+    // el destino cae fuera de las zonas ANTES de crear el pedido (no bloquea).
+    const svc = await checkServiceability(request.user.tenantId, {
+      lat: geo.lat,
+      lng: geo.lng,
+    });
     return {
       ...geo,
       normalized: normalizeAddress(body.addressRaw),
       ambiguous: geo.confidence < LOW_CONFIDENCE_THRESHOLD,
+      knownAddress: geo.source === "ADDRESS_PIN",
+      hasZones: svc.hasZones,
+      serviceable: !svc.hasZones || svc.covering.length > 0,
     };
   });
 

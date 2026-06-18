@@ -34,6 +34,7 @@ export type RunPlanOutcome =
       distanceModel: string;
       planDate: Date;
       depot: LatLng;
+      depotId: string | null;
       date: string;
     };
 
@@ -76,6 +77,20 @@ export async function runPlan(
     (id) => !dbOrders.some((o) => o.id === id),
   );
 
+  // Multi-depot (D4): si llega depotId, sus coordenadas mandan y la ruta queda
+  // enlazada a ese depósito; sin depotId se usa `input.depot` (compatibilidad).
+  let depot: LatLng = input.depot;
+  let depotId: string | null = null;
+  if (input.depotId) {
+    const dep = await prisma.depot.findFirst({
+      where: { id: input.depotId, tenantId },
+      select: { id: true, lat: true, lng: true },
+    });
+    if (!dep) return { ok: false, error: "Depósito no encontrado" };
+    depot = { lat: dep.lat, lng: dep.lng };
+    depotId = dep.id;
+  }
+
   const orders: OptimizableOrder[] = dbOrders
     .filter((o) => o.lat !== null && o.lng !== null)
     .map((o) => ({
@@ -116,7 +131,7 @@ export async function runPlan(
   const [yy, mm, dd] = input.date.split("-").map(Number);
   const planDate = new Date(yy!, mm! - 1, dd!);
 
-  const points: LatLng[] = [input.depot];
+  const points: LatLng[] = [depot];
   for (const o of orders) {
     points.push(o.location);
     if (o.pickupLocation) points.push(o.pickupLocation);
@@ -126,9 +141,10 @@ export async function runPlan(
   const result = solveVrp({
     date: planDate,
     city: tenant.city,
-    depot: input.depot,
+    depot,
     orders,
     vehicles,
+    objective: input.objective,
     travel,
   });
 
@@ -139,7 +155,8 @@ export async function runPlan(
     skippedOrderIds,
     distanceModel,
     planDate,
-    depot: input.depot,
+    depot,
+    depotId,
     date: input.date,
   };
 }
@@ -151,7 +168,7 @@ export async function runPlan(
  */
 export async function persistPlan(
   tenantId: string,
-  args: { date: string; depot: LatLng },
+  args: { date: string; depot: LatLng; depotId?: string | null },
   result: PlanResult,
   dbVehicles: PlanVehicleRef[],
 ) {
@@ -162,6 +179,7 @@ export async function persistPlan(
         tenantId,
         date: args.date,
         vehicleId: route.vehicleId,
+        depotId: args.depotId ?? null,
         depotLat: args.depot.lat,
         depotLng: args.depot.lng,
         departureMin: 8 * 60,

@@ -23,6 +23,18 @@ interface PortalMe {
   tenant: { name: string; city: string };
 }
 
+interface ServiceOption {
+  id: string;
+  name: string;
+  identifier: string;
+  completionDeadlineMin: number;
+}
+
+interface CustomPropOption {
+  id: string;
+  name: string;
+}
+
 interface CreatedOrder {
   trackingNumber: string | null;
   trackingUrl: string | null;
@@ -33,10 +45,16 @@ interface AddressCheck {
   ambiguous: boolean;
   knownAddress: boolean;
   source: string;
+  hasZones: boolean;
+  serviceable: boolean;
+  coverageZones: string[];
 }
 
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  // Campos personalizados del operador (Tier 2 §9) que el negocio rellena.
+  const [customProps, setCustomProps] = useState<CustomPropOption[]>([]);
   const [pickupMode, setPickupMode] = useState<"REGISTERED" | "CUSTOM" | "NONE">("REGISTERED");
   const toast = useToast();
   const [created, setCreated] = useState<CreatedOrder | null>(null);
@@ -70,6 +88,12 @@ export default function PortalNuevoEnvio() {
       setMe(m);
       if (!m.pickupAddressRaw) setPickupMode("CUSTOM");
     });
+    void api<ServiceOption[]>("GET", "/portal/services")
+      .then(setServices)
+      .catch(() => {});
+    void api<CustomPropOption[]>("GET", "/portal/custom-properties")
+      .then(setCustomProps)
+      .catch(() => {});
   }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -78,6 +102,12 @@ export default function PortalNuevoEnvio() {
     setBusy(true);
     const form = e.currentTarget;
     const data = new FormData(form);
+    // Campos personalizados (Tier 2 §9): inputs nombrados cf:<id>.
+    const customFields: Record<string, string> = {};
+    for (const p of customProps) {
+      const v = data.get(`cf:${p.id}`);
+      if (typeof v === "string" && v.trim() !== "") customFields[p.id] = v.trim();
+    }
     try {
       const order = await api<CreatedOrder>("POST", "/portal/orders", {
         customerName: data.get("customerName"),
@@ -85,7 +115,9 @@ export default function PortalNuevoEnvio() {
         addressRaw: data.get("addressRaw"),
         addressNotes: data.get("addressNotes") || undefined,
         externalRef: data.get("externalRef") || undefined,
+        serviceId: data.get("serviceId") || undefined,
         weightKg: data.get("weightKg") ? Number(data.get("weightKg")) : undefined,
+        ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
         pickupMode,
         pickupAddressRaw:
           pickupMode === "CUSTOM" ? data.get("pickupAddressRaw") : undefined,
@@ -156,10 +188,10 @@ export default function PortalNuevoEnvio() {
               <p
                 className={`mt-1 rounded px-2 py-1 text-xs ${
                   addressCheck.knownAddress
-                    ? "bg-emerald-50 text-emerald-700"
+                    ? "bg-success-bg text-success"
                     : addressCheck.ambiguous
-                      ? "bg-amber-50 text-amber-800"
-                      : "bg-emerald-50 text-emerald-700"
+                      ? "bg-warning-bg text-warning"
+                      : "bg-success-bg text-success"
                 }`}
               >
                 {addressCheck.knownAddress
@@ -167,6 +199,14 @@ export default function PortalNuevoEnvio() {
                   : addressCheck.ambiguous
                     ? "⚠️ Esta dirección es ambigua. Revisa la nomenclatura o agrega una referencia (ej: \"frente al colegio…\") para evitar una entrega fallida."
                     : "✅ Dirección verificada."}
+              </p>
+            )}
+            {/* Cobertura por zona (D5): aviso B2B cuando el destino cae fuera de
+                las zonas del operador. No bloquea el envío. */}
+            {addressCheck && !checkingAddress && addressCheck.hasZones && !addressCheck.serviceable && (
+              <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
+                ⚠️ Este destino está fuera de las zonas de cobertura de tu operador.
+                Puedes crear el envío, pero confírmalo con ellos.
               </p>
             )}
           </div>
@@ -192,6 +232,34 @@ export default function PortalNuevoEnvio() {
               <input name="externalRef" className={inputClass} placeholder="# pedido interno" />
             </Field>
           </div>
+
+          {services.length > 0 && (
+            <div className="sm:col-span-2">
+              <Field label="Servicio (opcional)">
+                <select name="serviceId" className={inputClass} defaultValue="">
+                  <option value="">— El operador asigna —</option>
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.identifier})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          )}
+
+          {customProps.length > 0 && (
+            <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
+                Datos adicionales
+              </div>
+              {customProps.map((p) => (
+                <Field key={p.id} label={p.name}>
+                  <input name={`cf:${p.id}`} className={inputClass} />
+                </Field>
+              ))}
+            </div>
+          )}
 
           <div className="sm:col-span-2 space-y-2 rounded-lg border border-niebla p-3">
             <div className="text-xs font-semibold uppercase text-navy/50">

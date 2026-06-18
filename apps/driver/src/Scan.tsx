@@ -37,14 +37,18 @@ function getBarcodeDetector(): BarcodeDetectorLike | null {
 export type ScanResult = { match: boolean; code: string };
 
 export default function ScanSheet({
-  stopId,
-  expected,
+  endpoint,
+  expected = null,
+  expectedAny,
   onResult,
   onClose,
 }: {
-  stopId: string;
+  /** Endpoint al que se envía el código (escaneo de parada o de carga). */
+  endpoint: string;
   /** Guía esperada (MV-XXXXXXXX) — la trae la ruta, disponible offline. */
-  expected: string | null;
+  expected?: string | null;
+  /** Conjunto de guías válidas (carga: el bulto pertenece a la ruta). */
+  expectedAny?: string[];
   onResult: (result: ScanResult) => void;
   onClose: () => void;
 }) {
@@ -59,10 +63,11 @@ export default function ScanSheet({
     doneRef.current = true;
     const normalized = code.trim().toUpperCase();
     const match =
-      expected !== null && normalized === expected.trim().toUpperCase();
+      (expected !== null && normalized === expected.trim().toUpperCase()) ||
+      (expectedAny?.some((t) => t.trim().toUpperCase() === normalized) ?? false);
     // Cadena de custodia: el servidor re-verifica y escribe la bitácora;
     // sin señal queda en la cola offline.
-    void apiOrQueue(`/routes/stops/${stopId}/scan`, { code: normalized });
+    void apiOrQueue(endpoint, { code: normalized });
     onResult({ match, code: normalized });
   }
 
@@ -123,7 +128,7 @@ export default function ScanSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Escanear paquete"
-        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -131,13 +136,13 @@ export default function ScanSheet({
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
           >
             ✕
           </button>
         </div>
         {expected && (
-          <p className="mb-2 text-xs text-slate-500">
+          <p className="mb-2 text-xs text-text-tertiary dark:text-sky/70">
             Guía esperada: <span className="font-mono font-bold">{expected}</span>
           </p>
         )}
@@ -149,7 +154,7 @@ export default function ScanSheet({
             className="h-56 w-full rounded-xl bg-black object-cover"
           />
         ) : (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
             Este dispositivo no soporta escaneo con cámara — ingresa la guía
             del paquete manualmente.
           </p>

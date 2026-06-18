@@ -42,8 +42,8 @@ interface Snoozed {
 }
 
 const SEVERITY_STYLES: Record<Severity, string> = {
-  CRITICAL: "border-l-4 border-red-600 bg-red-50",
-  HIGH: "border-l-4 border-amber-500 bg-amber-50",
+  CRITICAL: "border-l-4 border-danger bg-danger-bg",
+  HIGH: "border-l-4 border-warning bg-warning-bg",
   MEDIUM: "border-l-4 border-cielo bg-white",
 };
 
@@ -61,7 +61,9 @@ const TYPE_ICONS: Record<string, string> = {
   VEHICLE_STALE: "📡",
   LOW_BATTERY: "🔋",
   FAILED_DELIVERY: "📦",
+  SLA_BREACH: "⏳",
   ADDRESS_UNCONFIRMED: "📍",
+  DOC_EXPIRY: "📄",
 };
 const TYPE_LABELS: Record<string, string> = {
   PANIC: "Pánico",
@@ -70,7 +72,9 @@ const TYPE_LABELS: Record<string, string> = {
   VEHICLE_STALE: "Sin señal",
   LOW_BATTERY: "Batería baja",
   FAILED_DELIVERY: "Entrega fallida",
+  SLA_BREACH: "SLA",
   ADDRESS_UNCONFIRMED: "Dirección",
+  DOC_EXPIRY: "Documento",
 };
 // Etiqueta legible para la sección de pospuestas (a partir del prefijo del
 // `key` estable: alert-…, late-…, stale-…, soc-…, failed-…, triage-…).
@@ -80,7 +84,9 @@ const KEY_PREFIX_LABELS: Record<string, string> = {
   stale: "Vehículo sin señal",
   soc: "Batería baja",
   failed: "Entrega fallida",
+  sla: "SLA en riesgo",
   triage: "Direcciones por confirmar",
+  doc: "Documento por vencer",
 };
 
 // Presets de aplazo ofrecidos en cada tarjeta.
@@ -230,7 +236,9 @@ export default function Excepciones() {
 
       {items.length === 0 && snoozed.length === 0 ? (
         <Card>
-          <EmptyState>✅ Operación sana: no hay excepciones abiertas.</EmptyState>
+          <EmptyState phrase="El motor limpio de tu negocio.">
+            ✅ Operación sana: no hay excepciones abiertas.
+          </EmptyState>
         </Card>
       ) : (
         <>

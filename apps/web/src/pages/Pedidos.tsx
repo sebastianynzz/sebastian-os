@@ -26,12 +26,36 @@ interface Order {
   weightKg: number;
   geocodeSource: string | null;
   client: { id: string; name: string } | null;
+  service: { id: string; name: string; identifier: string } | null;
+  customFields: Record<string, string> | null;
   createdAt: string;
+}
+
+interface CustomPropDef {
+  id: string;
+  name: string;
+  visibleToDriver: boolean;
+  visibleToRecipient: boolean;
+}
+
+interface AddressCheck {
+  confidence: number;
+  ambiguous: boolean;
+  knownAddress: boolean;
+  source: string;
+  hasZones: boolean;
+  serviceable: boolean;
 }
 
 interface ClientOption {
   id: string;
   name: string;
+}
+
+interface ServiceOption {
+  id: string;
+  name: string;
+  identifier: string;
 }
 
 interface OrderEvent {
@@ -44,7 +68,9 @@ interface OrderEvent {
 const EVENT_LABELS: Record<string, string> = {
   CREATED: "Pedido creado",
   GEOCODED: "Dirección geocodificada",
+  OUT_OF_ZONE: "Fuera de cobertura",
   ASSIGNED: "Asignado a ruta",
+  LOADED: "Cargado en el vehículo",
   DISPATCHED: "Despachado",
   IN_TRANSIT: "En camino",
   ARRIVED: "Conductor en el punto",
@@ -72,10 +98,17 @@ const STATUS_ES: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
-const CSV_TEMPLATE =
-  "customerName,customerPhone,addressRaw,addressNotes,weightKg\n" +
-  'Laura Martínez,+573101000001,"Cra 13 # 54-20, Chapinero",Portón verde,2\n' +
-  'Pedro Sánchez,+573101000002,"Cl 72 # 10-34",,1.2\n';
+/** Plantilla CSV — incluye una columna por cada campo personalizado del tenant. */
+function buildCsvTemplate(props: CustomPropDef[]): string {
+  const extra = props.map((p) => p.name);
+  const header = ["customerName", "customerPhone", "addressRaw", "addressNotes", "weightKg", ...extra];
+  const blanks = extra.map(() => "");
+  const rows = [
+    ["Laura Martínez", "+573101000001", '"Cra 13 # 54-20, Chapinero"', "Portón verde", "2", ...blanks],
+    ["Pedro Sánchez", "+573101000002", '"Cl 72 # 10-34"', "", "1.2", ...blanks],
+  ];
+  return [header, ...rows].map((r) => r.join(",")).join("\n") + "\n";
+}
 
 /** Parser CSV mínimo con soporte de comillas (suficiente para la plantilla). */
 function parseCsv(text: string): Record<string, string>[] {
@@ -129,10 +162,19 @@ export default function Pedidos() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [events, setEvents] = useState<Record<string, OrderEvent[]>>({});
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  // Campos personalizados del tenant (Tier 2 §9): se rellenan en el alta manual
+  // y se mapean por nombre de columna en el import CSV.
+  const [customProps, setCustomProps] = useState<CustomPropDef[]>([]);
+  // Vista previa de geocodificación en el alta manual (el moat como feature del
+  // despachador): avisa "dirección ambigua / fuera de zona" ANTES de crear.
+  const [addressCheck, setAddressCheck] = useState<AddressCheck | null>(null);
+  const [checkingAddress, setCheckingAddress] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // Filtros (cliente sobre la ventana cargada) + vistas guardadas.
   const [fStatus, setFStatus] = useState("");
   const [fClientId, setFClientId] = useState("");
+  const [fServiceId, setFServiceId] = useState("");
   const [fQ, setFQ] = useState("");
   const [views, setViews] = useState<SavedView[]>([]);
 
@@ -142,18 +184,23 @@ export default function Pedidos() {
       (o) =>
         (!fStatus || o.status === fStatus) &&
         (!fClientId || o.client?.id === fClientId) &&
+        (!fServiceId ||
+          (fServiceId === "__none__"
+            ? !o.service
+            : o.service?.id === fServiceId)) &&
         (!q ||
           (o.trackingNumber ?? "").toLowerCase().includes(q) ||
           o.customerName.toLowerCase().includes(q) ||
           o.addressRaw.toLowerCase().includes(q)),
     );
-  }, [orders, fStatus, fClientId, fQ]);
+  }, [orders, fStatus, fClientId, fServiceId, fQ]);
 
-  const activeFilters = Boolean(fStatus || fClientId || fQ.trim());
+  const activeFilters = Boolean(fStatus || fClientId || fServiceId || fQ.trim());
 
   function clearFilters() {
     setFStatus("");
     setFClientId("");
+    setFServiceId("");
     setFQ("");
   }
 
@@ -163,6 +210,7 @@ export default function Pedidos() {
   function applyView(v: SavedView) {
     setFStatus(v.filters.status ?? "");
     setFClientId(v.filters.clientId ?? "");
+    setFServiceId(v.filters.serviceId ?? "");
     setFQ(v.filters.q ?? "");
   }
   async function saveCurrentView() {
@@ -171,6 +219,7 @@ export default function Pedidos() {
     const filters: Record<string, string> = {};
     if (fStatus) filters.status = fStatus;
     if (fClientId) filters.clientId = fClientId;
+    if (fServiceId) filters.serviceId = fServiceId;
     if (fQ.trim()) filters.q = fQ.trim();
     try {
       await api("POST", "/saved-views", { page: "pedidos", name, filters });
@@ -211,6 +260,10 @@ export default function Pedidos() {
   });
   useEffect(() => {
     void api<ClientOption[]>("GET", "/clients").then(setClients);
+    void api<ServiceOption[]>("GET", "/services").then(setServices).catch(() => {});
+    void api<{ items: CustomPropDef[] }>("GET", "/custom-properties")
+      .then((r) => setCustomProps(r.items))
+      .catch(() => {});
     void loadViews();
   }, []);
 
@@ -225,7 +278,9 @@ export default function Pedidos() {
   }
 
   function downloadTemplate() {
-    const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([buildCsvTemplate(customProps)], {
+      type: "text/csv;charset=utf-8",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "plantilla_pedidos_move.csv";
@@ -240,13 +295,27 @@ export default function Pedidos() {
     try {
       const rows = parseCsv(await file.text());
       if (rows.length === 0) throw new Error("El archivo no tiene filas de datos");
-      const payload = rows.map((r) => ({
-        customerName: r.customerName,
-        customerPhone: r.customerPhone,
-        addressRaw: r.addressRaw,
-        addressNotes: r.addressNotes || undefined,
-        weightKg: r.weightKg ? Number(r.weightKg) : undefined,
-      }));
+      const payload = rows.map((r) => {
+        // Campos personalizados (Tier 2 §9): cada columna del CSV cuyo encabezado
+        // coincide (sin distinguir mayúsculas) con un campo del tenant se mapea a
+        // su id; el API ignora las claves desconocidas.
+        const customFields: Record<string, string> = {};
+        for (const p of customProps) {
+          const col = Object.keys(r).find(
+            (h) => h.trim().toLowerCase() === p.name.trim().toLowerCase(),
+          );
+          const val = col ? r[col] : undefined;
+          if (val && val.trim() !== "") customFields[p.id] = val.trim();
+        }
+        return {
+          customerName: r.customerName,
+          customerPhone: r.customerPhone,
+          addressRaw: r.addressRaw,
+          addressNotes: r.addressNotes || undefined,
+          weightKg: r.weightKg ? Number(r.weightKg) : undefined,
+          ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
+        };
+      });
       const res = await api<{
         created: number;
         failed: number;
@@ -275,13 +344,37 @@ export default function Pedidos() {
     }
   }
 
+  async function validateAddress(addressRaw: string) {
+    if (addressRaw.trim().length < 5) {
+      setAddressCheck(null);
+      return;
+    }
+    setCheckingAddress(true);
+    try {
+      setAddressCheck(
+        await api<AddressCheck>("POST", "/addresses/validate", { addressRaw }),
+      );
+    } catch {
+      setAddressCheck(null);
+    } finally {
+      setCheckingAddress(false);
+    }
+  }
+
   async function onCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const data = new FormData(e.currentTarget);
+    // Campos personalizados (Tier 2 §9): inputs nombrados cf:<id>.
+    const customFields: Record<string, string> = {};
+    for (const p of customProps) {
+      const v = data.get(`cf:${p.id}`);
+      if (typeof v === "string" && v.trim() !== "") customFields[p.id] = v.trim();
+    }
     try {
       await api("POST", "/orders", {
         clientId: data.get("clientId") || undefined,
+        serviceId: data.get("serviceId") || undefined,
         customerName: data.get("customerName"),
         customerPhone: data.get("customerPhone"),
         addressRaw: data.get("addressRaw"),
@@ -289,8 +382,10 @@ export default function Pedidos() {
         weightKg: Number(data.get("weightKg") || 1),
         pickupAddressRaw: data.get("pickupAddressRaw") || undefined,
         pickupNotes: data.get("pickupNotes") || undefined,
+        ...(Object.keys(customFields).length > 0 ? { customFields } : {}),
       });
       setShowForm(false);
+      setAddressCheck(null);
       await load(visibleCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -338,7 +433,7 @@ export default function Pedidos() {
       )}
 
       {importFailures.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning">
           <div className="mb-1 flex items-center justify-between">
             <span className="font-semibold">
               Filas con error en el import ({importFailures.length})
@@ -389,8 +484,36 @@ export default function Pedidos() {
                   className={inputClass}
                   required
                   placeholder='Ej: "Cra 13 # 54-20" o "frente al colegio San José"'
+                  onBlur={(e) => void validateAddress(e.target.value)}
                 />
               </Field>
+              {checkingAddress && (
+                <p className="mt-1 text-xs text-navy/50">Verificando dirección…</p>
+              )}
+              {addressCheck && !checkingAddress && (
+                <p
+                  className={`mt-1 rounded px-2 py-1 text-xs ${
+                    addressCheck.knownAddress || !addressCheck.ambiguous
+                      ? "bg-success-bg text-success"
+                      : "bg-warning-bg text-warning"
+                  }`}
+                >
+                  {addressCheck.knownAddress
+                    ? "✅ Dirección conocida: ya fue confirmada en entregas anteriores."
+                    : addressCheck.ambiguous
+                      ? '⚠️ Dirección ambigua. Revisa la nomenclatura o agrega una referencia (ej: "frente al colegio…") para evitar una entrega fallida.'
+                      : "✅ Dirección verificada."}
+                </p>
+              )}
+              {addressCheck &&
+                !checkingAddress &&
+                addressCheck.hasZones &&
+                !addressCheck.serviceable && (
+                  <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
+                    ⚠️ Este destino está fuera de las zonas de cobertura. Puedes
+                    crear el pedido, pero confírmalo con el cliente.
+                  </p>
+                )}
             </div>
             <div className="sm:col-span-2">
               <Field label="Referencias de entrega">
@@ -400,7 +523,37 @@ export default function Pedidos() {
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
-            <div />
+            <Field label="Servicio (promesa de entrega · SLA)">
+              <select name="serviceId" className={inputClass} defaultValue="">
+                <option value="">— Sin servicio —</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.identifier})
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {customProps.length > 0 && (
+              <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
+                <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
+                  Datos personalizados
+                </div>
+                {customProps.map((p) => (
+                  <Field
+                    key={p.id}
+                    label={`${p.name}${
+                      p.visibleToRecipient
+                        ? " (visible al destinatario)"
+                        : p.visibleToDriver
+                          ? " (visible al conductor)"
+                          : ""
+                    }`}
+                  >
+                    <input name={`cf:${p.id}`} className={inputClass} />
+                  </Field>
+                ))}
+              </div>
+            )}
             <div className="sm:col-span-2">
               <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
                 <input
@@ -446,6 +599,18 @@ export default function Pedidos() {
               ))}
             </select>
           </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-navy/70">Servicio</span>
+            <select className={inputClass} value={fServiceId} onChange={(e) => setFServiceId(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="__none__">Sin servicio</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="min-w-[12rem] flex-1 text-sm">
             <span className="mb-1 block font-medium text-navy/70">Buscar</span>
             <input
@@ -476,7 +641,7 @@ export default function Pedidos() {
               <button
                 onClick={() => void deleteView(v.id)}
                 aria-label={`Borrar vista ${v.name}`}
-                className="text-navy/40 hover:text-red-600"
+                className="text-navy/40 hover:text-danger"
               >
                 ×
               </button>
@@ -499,6 +664,7 @@ export default function Pedidos() {
             <tr className={theadRowClass}>
               <th className="py-2">Guía</th>
               <th>Negocio cliente</th>
+              <th>Servicio</th>
               <th>Destinatario</th>
               <th>Dirección</th>
               <th>Peso</th>
@@ -537,6 +703,13 @@ export default function Pedidos() {
                     {o.trackingNumber ?? "—"}
                   </td>
                   <td className="text-sm">{o.client?.name ?? "—"}</td>
+                  <td className="text-sm">
+                    {o.service ? (
+                      <span title={o.service.name}>{o.service.identifier}</span>
+                    ) : (
+                      <span className="text-navy/40">—</span>
+                    )}
+                  </td>
                   <td>
                     <div className="font-medium">{o.customerName}</div>
                     <div className="text-xs text-navy/50">{o.customerPhone}</div>
@@ -549,7 +722,28 @@ export default function Pedidos() {
                 </tr>
                 {expanded === o.id && (
                   <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
+                      {customProps.length > 0 &&
+                        o.customFields &&
+                        customProps.some((p) => o.customFields?.[p.id]) && (
+                          <div className="mb-3">
+                            <div className="text-xs font-semibold uppercase text-navy/50">
+                              Datos personalizados
+                            </div>
+                            <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                              {customProps
+                                .filter((p) => o.customFields?.[p.id])
+                                .map((p) => (
+                                  <div key={p.id} className="flex gap-1">
+                                    <dt className="text-navy/50">{p.name}:</dt>
+                                    <dd className="font-medium">
+                                      {o.customFields?.[p.id]}
+                                    </dd>
+                                  </div>
+                                ))}
+                            </dl>
+                          </div>
+                        )}
                       <div className="text-xs font-semibold uppercase text-navy/50">
                         Bitácora del pedido
                       </div>
@@ -582,8 +776,9 @@ export default function Pedidos() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <EmptyState
+                    phrase="Entregas rápidas, operaciones inteligentes."
                     action={
                       <Button onClick={() => setShowForm(true)}>Nuevo pedido</Button>
                     }
@@ -595,7 +790,7 @@ export default function Pedidos() {
             )}
             {orders.length > 0 && shown.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-navy/40">
+                <td colSpan={7} className="py-6 text-center text-navy/40">
                   Ningún pedido coincide con los filtros.
                 </td>
               </tr>

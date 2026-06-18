@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import platformAuthRoutes from "./auth.js";
 import platformTenantsRoutes from "./tenants.js";
 import platformTenantUsersRoutes from "./users.js";
+import platformBillingRoutes from "./billing.js";
 import platformMetricsRoutes from "./metrics.js";
 import platformAuditRoutes from "./audit.js";
 import platformFlywheelRoutes from "./flywheel.js";
@@ -20,6 +21,9 @@ export default async function platformRoutes(app: FastifyInstance) {
     await protectedApp.register(platformTenantsRoutes, { prefix: "/tenants" });
     await protectedApp.register(platformTenantUsersRoutes, {
       prefix: "/tenants/:id/users",
+    });
+    await protectedApp.register(platformBillingRoutes, {
+      prefix: "/tenants/:id/invoices",
     });
     await protectedApp.register(platformMetricsRoutes, { prefix: "/metrics" });
     await protectedApp.register(platformAuditRoutes, { prefix: "/audit" });

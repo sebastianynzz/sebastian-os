@@ -11,6 +11,13 @@ import "./styles.css";
 // cachea los tiles de la ruta; cada deploy llega en la siguiente carga.
 registerServiceWorker();
 
+// Tema conductor: aplica la preferencia (default OSCURO, "dark-first") antes del
+// render para evitar parpadeo claro→oscuro.
+document.documentElement.classList.toggle(
+  "dark",
+  localStorage.getItem("moveos-driver-theme") !== "light",
+);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary area="root">

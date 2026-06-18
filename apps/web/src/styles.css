@@ -2,21 +2,123 @@
 @import "leaflet/dist/leaflet.css";
 
 /*
- * Paleta de marca Move (manual de identidad, sección 4):
- *  - Azul Marino  Pantone 534 C — color base, información clave y contraste
- *  - Azul Cielo   Pantone 537 C — apoyo visual, áreas secundarias
- *  - Verde Limón  Pantone 373 C — SOLO acento (íconos, resaltados, envolventes)
- *  - Blanco/Niebla White C      — fondos y áreas de descanso
- * Jerarquía 30/30/30/10: navy, blanco, cielo, lima.
- * Tipografía: azul sobre fondo claro, blanca sobre fondo oscuro.
+ * Sistema de diseño MoveOS — Manual de Identidad de Marca v2.0.
+ * PASO A1 (fundación): tokens de color, estados semánticos, radios, sombras y
+ * stack tipográfico. Esta es la única fuente de verdad de la paleta; los
+ * componentes consumen tokens (sin hex codificado a mano).
+ *
+ * Paleta de marca (los únicos colores de marca):
+ *  - Azul Marino  #233955 — PRIMARIO: cabeceras, barras laterales, texto y botones primarios.
+ *  - Blanco/Niebla #F3F3F3 — LIENZO (fondo de página).
+ *  - Verde Limón  #CFDD80 — ACENTO: reservado para EV / carga / sustentabilidad y CTAs clave.
+ *  - Azul Cielo   #A7B6C4 — SECUNDARIO: texto atenuado sobre navy, info y bordes.
+ *
+ * Regla de contraste: el limón es claro — nunca texto limón sobre blanco. El
+ * limón es relleno/acento (barras de carga, cifras EV/CO₂, badges de éxito, un
+ * CTA) SIEMPRE con texto navy. El navy es el caballo de batalla del texto.
  */
 @theme {
-  --color-navy: #1b365d;
-  --color-cielo: #a2b2c8;
-  --color-lima: #d0de81;
-  --color-niebla: #f2f3f4;
+  /* Azul Marino (primario) */
+  --color-navy: #233955;
+  --color-navy-700: #1b2c43;
+  --color-navy-900: #152334;
+
+  /* Lienzo y superficies */
+  --color-canvas: #f3f3f3;
+  --color-surface: #ffffff;
+  --color-niebla: #f3f3f3; /* alias histórico de canvas */
+  --color-navydeep: #152334; /* alias histórico de navy-900 (panel admin) */
+
+  /* Verde Limón (acento EV / sustentabilidad) */
+  --color-lima: #cfdd80;
+  --color-lime: #cfdd80; /* alias por nombre de spec */
+  --color-lime-ink: #4b5320; /* texto sobre limón cuando no se usa navy */
+
+  /* Azul Cielo (secundario) */
+  --color-cielo: #a7b6c4;
+  --color-sky: #a7b6c4; /* alias por nombre de spec */
+  --color-sky-50: #eef2f5;
+
+  /* Texto */
+  --color-text-primary: #233955;
+  --color-text-secondary: #5b6b7d;
+  --color-text-tertiary: #8a99a8;
+
+  /* Bordes */
+  --color-border: #e6e6e4;
+  --color-border-strong: #d6dade;
+
+  /* Estados semánticos (la marca no tiene rojo/ámbar funcional;
+     se añaden tonos accesibles y atenuados). success = familia limón. */
+  --color-success: #5a6b18;
+  --color-success-bg: #eef1e3;
+  --color-info: #3a5169;
+  --color-info-bg: #eef2f5;
+  --color-warning: #8a5a12;
+  --color-warning-bg: #f7efe0;
+  --color-danger: #a32d2d;
+  --color-danger-bg: #fdecec;
+
+  /* Radios */
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Sombra suave de marca */
+  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
+
+  /* Tipografía. Stack: Aileron (pendiente de self-host) → Inter → sistema.
+     Usar 400 y 500 en producto; reservar Light (300) para grandes titulares. */
+  --font-sans: "Aileron", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/*
+ * Tokens en :root con los nombres EXACTOS de la spec, para CSS plano / estilos
+ * en línea que aún no migran a utilidades Tailwind (se barren en A3).
+ */
+:root {
+  --navy: #233955;
+  --navy-700: #1b2c43;
+  --navy-900: #152334;
+  --canvas: #f3f3f3;
+  --surface: #ffffff;
+  --lime: #cfdd80;
+  --lime-ink: #4b5320;
+  --sky: #a7b6c4;
+  --sky-50: #eef2f5;
+  --text-primary: #233955;
+  --text-secondary: #5b6b7d;
+  --text-tertiary: #8a99a8;
+  --border: #e6e6e4;
+  --border-strong: #d6dade;
+  --success: #5a6b18;
+  --success-bg: #eef1e3;
+  --info: #3a5169;
+  --info-bg: #eef2f5;
+  --warning: #8a5a12;
+  --warning-bg: #f7efe0;
+  --danger: #a32d2d;
+  --danger-bg: #fdecec;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
+}
+
+/*
+ * Aileron self-hosted (Manual de Identidad v2.0). Pesos: Light 300, Regular 400,
+ * SemiBold 600 (+ itálicas). Aileron es libre; Soliden es licenciado → Inter.
+ * Aún no hay Medium (500): el peso 500 cae a Regular 400 por el algoritmo de
+ * coincidencia de CSS (sin negrita sintética). Al recibir Aileron Medium .woff2
+ * se añade una cara 500.
+ */
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/aileron-light.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 300; font-style: italic; font-display: swap; src: url("/fonts/aileron-light-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/aileron-regular.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/aileron-italic.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
+@font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
+
 body {
-  @apply bg-niebla text-navy;
+  @apply bg-canvas text-navy font-sans;
 }

@@ -24,6 +24,7 @@ import {
   normalizeAddress,
   LOW_CONFIDENCE_THRESHOLD,
 } from "../../services/geocoding.js";
+import { checkServiceability } from "../../services/zones.js";
 import { logOrderEvent } from "../../services/orderEvents.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
 
@@ -154,6 +155,7 @@ export default async function portalRoutes(app: FastifyInstance) {
 
     const order = await createOrder(request.user.tenantId, {
       clientId: client.id,
+      serviceId: input.serviceId,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
       addressRaw: input.addressRaw,
@@ -162,10 +164,37 @@ export default async function portalRoutes(app: FastifyInstance) {
       weightKg: input.weightKg,
       tempProfile: input.tempProfile,
       priority: 0,
+      customFields: input.customFields,
       ...pickup,
     });
     return reply.code(201).send(withTrackingUrl(order));
   });
+
+  /**
+   * Propiedades personalizadas del operador (Tier 2 §9) que el negocio puede
+   * rellenar al crear un envío. Tenant-scoped; el portal solo necesita el id y
+   * la etiqueta (la visibilidad por conductor/destinatario la fija el operador).
+   */
+  app.get("/custom-properties", async (request) =>
+    prisma.customProperty.findMany({
+      where: { tenantId: request.user.tenantId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
+  );
+
+  /**
+   * Servicios activos del operador disponibles para el negocio al crear un
+   * envío (promesas de entrega con su plazo SLA). Tenant-scoped; solo lo
+   * mínimo que el portal necesita mostrar.
+   */
+  app.get("/services", async (request) =>
+    prisma.service.findMany({
+      where: { tenantId: request.user.tenantId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, identifier: true, completionDeadlineMin: true },
+    }),
+  );
 
   /**
    * Validación de dirección al crear el envío: el moat como feature del
@@ -178,6 +207,12 @@ export default async function portalRoutes(app: FastifyInstance) {
       select: { city: true },
     });
     const geo = await geocodeAddress(request.user.tenantId, body.addressRaw, tenant.city);
+    // Cobertura por zona (D5): avisa al comercio si el destino cae fuera de las
+    // zonas de cobertura ANTES de crear el envío (no bloquea — solo informa).
+    const svc = await checkServiceability(request.user.tenantId, {
+      lat: geo.lat,
+      lng: geo.lng,
+    });
     return {
       lat: geo.lat,
       lng: geo.lng,
@@ -186,6 +221,9 @@ export default async function portalRoutes(app: FastifyInstance) {
       normalized: normalizeAddress(body.addressRaw),
       ambiguous: geo.confidence < LOW_CONFIDENCE_THRESHOLD,
       knownAddress: geo.source === "ADDRESS_PIN",
+      hasZones: svc.hasZones,
+      serviceable: !svc.hasZones || svc.covering.length > 0,
+      coverageZones: svc.covering.map((z) => z.name),
     };
   });
 

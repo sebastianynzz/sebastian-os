@@ -45,14 +45,14 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className="mx-auto mt-10 max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-center"
+        className="mx-auto mt-10 max-w-lg rounded-xl border border-danger/30 bg-danger-bg p-6 text-center"
       >
-        <h2 className="text-lg font-bold text-red-700">Algo salió mal</h2>
+        <h2 className="text-lg font-bold text-danger">Algo salió mal</h2>
         <p className="mt-2 text-sm text-navy/70">
           Ocurrió un error inesperado en el panel. Puedes reintentar o recargar
           la página.
         </p>
-        <pre className="mt-3 overflow-x-auto rounded-lg bg-white/70 p-2 text-left text-xs text-red-600">
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-white/70 p-2 text-left text-xs text-danger">
           {error.message}
         </pre>
         <div className="mt-4 flex justify-center gap-2">

@@ -5,6 +5,15 @@ import { createDriverSchema, updateDriverSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 
+/** Verifica que un depósito pertenezca al tenant (aislamiento multi-depot). */
+async function depotInTenant(tenantId: string, depotId: string): Promise<boolean> {
+  const depot = await prisma.depot.findFirst({
+    where: { id: depotId, tenantId },
+    select: { id: true },
+  });
+  return Boolean(depot);
+}
+
 export default async function driversRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
 
@@ -22,6 +31,10 @@ export default async function driversRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const input = createDriverSchema.parse(request.body);
 
+      if (input.depotId && !(await depotInTenant(request.user.tenantId, input.depotId))) {
+        return reply.code(400).send({ error: "Depósito no encontrado" });
+      }
+
       const driver = await prisma.driver.create({
         data: {
           tenantId: request.user.tenantId,
@@ -31,6 +44,7 @@ export default async function driversRoutes(app: FastifyInstance) {
           licenseExpiresAt: input.licenseExpiresAt
             ? new Date(input.licenseExpiresAt)
             : undefined,
+          depotId: input.depotId ?? undefined,
         },
       });
 
@@ -68,6 +82,13 @@ export default async function driversRoutes(app: FastifyInstance) {
       });
       if (!driver) return reply.code(404).send({ error: "Conductor no encontrado" });
 
+      if (
+        input.depotId != null &&
+        !(await depotInTenant(request.user.tenantId, input.depotId))
+      ) {
+        return reply.code(400).send({ error: "Depósito no encontrado" });
+      }
+
       return prisma.driver.update({
         where: { id: driver.id },
         data: {
@@ -79,6 +100,8 @@ export default async function driversRoutes(app: FastifyInstance) {
                   : null,
               }
             : {}),
+          // null desasigna; ausente no toca.
+          ...(input.depotId !== undefined ? { depotId: input.depotId } : {}),
         },
         include: { user: { select: { email: true } } },
       });

@@ -22,6 +22,13 @@ import { navLinks } from "./nav";
 import RouteMap, { type MapStop } from "./RouteMap";
 import ScanSheet, { type ScanResult } from "./Scan";
 import { canOfferPush, enablePushAlerts, precacheRouteTiles } from "./sw";
+import {
+  DELIVERY_TYPES,
+  DELIVERY_TYPE_LABELS,
+  PICKUP_TYPES,
+  PICKUP_TYPE_LABELS,
+  type NavApp,
+} from "@moveos/shared";
 
 interface Stop {
   id: string;
@@ -44,6 +51,9 @@ interface Stop {
     pickupLng: number | null;
     // Política POD del comercio cliente (pruebas exigidas para la entrega).
     client: { podRequired: string[] } | null;
+    // Campos personalizados visibles para el conductor (Tier 2 §9), ya
+    // etiquetados por el API (el JSON crudo nunca llega a la app).
+    customProperties?: { id: string; name: string; value: string }[];
   };
   pod: unknown | null;
 }
@@ -287,15 +297,45 @@ function RouteSkeleton() {
 
 const PULL_REFRESH_THRESHOLD = 70;
 
+/**
+ * Tema conmutable del conductor. Default OSCURO (spec "dark-first"), pero el
+ * repartidor puede cambiar a claro para luz solar directa. La preferencia se
+ * persiste y se aplica como clase `.dark` en <html> (variante Tailwind).
+ */
+const THEME_KEY = "moveos-driver-theme";
+/** Cache de la app de navegación preferida (Tier 2 §10) para uso offline. */
+const NAV_APP_KEY = "moveos_driver_navapp";
+type Theme = "dark" | "light";
+function getInitialTheme(): Theme {
+  const saved = localStorage.getItem(THEME_KEY);
+  return saved === "light" || saved === "dark" ? saved : "dark";
+}
+function applyTheme(t: Theme) {
+  document.documentElement.classList.toggle("dark", t === "dark");
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(Boolean(getToken()));
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
   const [route, setRoute] = useState<DriverRoute | null>(() => readCachedRoute());
+  // App de navegación preferida (Tier 2 §10): la fija el operador en
+  // "Permisos de conductor". Cacheada para que la app respete la preferencia
+  // también sin señal (offline-first).
+  const [navApp, setNavApp] = useState<NavApp>(
+    () => (localStorage.getItem(NAV_APP_KEY) as NavApp) ?? "INTERNAL_GMAPS",
+  );
   const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(queueSize());
   const [pushOffer, setPushOffer] = useState(canOfferPush());
   const [showChargers, setShowChargers] = useState(false);
+  // Manifiesto de carga (Tier 2 §11): verificar bultos antes de salir.
+  const [loadSheet, setLoadSheet] = useState(false);
   const [starting, setStarting] = useState(false);
   // SOS: idle → confirm (armado) → sent. Evita disparos por toque accidental.
   const [sos, setSos] = useState<"idle" | "confirm" | "sent">("idle");
@@ -360,6 +400,20 @@ export default function App() {
   useEffect(() => {
     void load();
   }, [load, authed]);
+
+  // Permisos de conductor (Tier 2 §10): leer la app de navegación preferida que
+  // fijó el operador. Sin señal se conserva el último valor cacheado.
+  useEffect(() => {
+    if (!authed) return;
+    void api<{ navApp: NavApp }>("GET", "/controls/driver-permissions")
+      .then((p) => {
+        setNavApp(p.navApp);
+        localStorage.setItem(NAV_APP_KEY, p.navApp);
+      })
+      .catch(() => {
+        /* offline: se mantiene la preferencia cacheada */
+      });
+  }, [authed]);
 
   // Re-secuenciación en vivo: refrescar la ruta cada 45 s mientras esté
   // activa, para absorber paradas insertadas sin que el conductor recargue.
@@ -493,7 +547,8 @@ export default function App() {
 
   // Pull-to-refresh: tirar hacia abajo desde el tope recarga la ruta. Se
   // inhabilita con una hoja abierta para no robarle el gesto.
-  const overlayOpen = Boolean(activeStop) || sos !== "idle" || showChargers;
+  const overlayOpen =
+    Boolean(activeStop) || sos !== "idle" || showChargers || loadSheet;
   function onTouchStart(e: React.TouchEvent) {
     if (overlayOpen || refreshing || window.scrollY > 0) return;
     pullStart.current = e.touches[0]?.clientY ?? null;
@@ -527,7 +582,7 @@ export default function App() {
       <header className="sticky top-0 z-10 flex items-center justify-between bg-navy px-4 py-3 text-white">
         <div>
           <div className="font-bold">
-            move<span className="text-lima">.</span> conductor
+            <img src="/move-lime.svg" alt="move" className="inline h-5 w-auto align-[-0.2em]" /> conductor
           </div>
           {route && (
             <div className="text-xs opacity-80">
@@ -540,26 +595,34 @@ export default function App() {
             role="status"
             aria-label={online ? "En línea" : "Sin conexión"}
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
-              online ? "bg-emerald-500/20 text-emerald-100" : "bg-slate-200 text-slate-700"
+              online ? "bg-success-bg text-success" : "bg-niebla dark:bg-navy-900 text-text-secondary dark:text-sky"
             }`}
           >
             <span
               aria-hidden
-              className={`h-2 w-2 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+              className={`h-2 w-2 rounded-full ${online ? "bg-success" : "bg-text-tertiary"}`}
             />
             {online ? "En línea" : "Sin conexión"}
           </span>
           {pending > 0 && (
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold">
+            <span className="rounded-full bg-warning px-2 py-0.5 text-xs font-bold">
               {pending} sin sync
             </span>
           )}
           <button
             onClick={() => setSos("confirm")}
             aria-label="Abrir confirmación de alerta de pánico"
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold active:bg-red-700"
+            className="rounded-lg bg-danger px-3 py-1.5 text-sm font-bold active:bg-danger"
           >
             SOS
+          </button>
+          <button
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+            title="Cambiar tema"
+            className="text-base leading-none opacity-80"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
           </button>
           <button
             onClick={() => {
@@ -576,7 +639,7 @@ export default function App() {
       {message && (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 bg-emerald-100 px-4 py-2 text-sm text-emerald-800"
+          className="flex items-center justify-between gap-3 bg-success-bg px-4 py-2 text-sm text-success"
         >
           <span>{message}</span>
           <button
@@ -594,7 +657,7 @@ export default function App() {
         {(pull > 0 || refreshing) && (
           <div
             role="status"
-            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60 dark:text-niebla/60"
             style={{
               height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
             }}
@@ -622,16 +685,16 @@ export default function App() {
                   : "No se pudieron activar los avisos en este dispositivo",
               );
             }}
-            className="w-full rounded-xl border border-navy/30 bg-white py-3 text-sm font-bold text-navy shadow-sm"
+            className="w-full rounded-xl border border-navy/30 bg-white dark:bg-navy-700 py-3 text-sm font-bold text-navy shadow-sm"
           >
             🔔 Activar avisos de rutas asignadas
           </button>
         )}
 
         {loaded && !route && (
-          <div className="rounded-xl bg-white p-6 text-center text-slate-500 shadow-sm">
+          <div className="rounded-xl bg-white dark:bg-navy-700 p-6 text-center text-text-tertiary dark:text-sky/70 shadow-sm">
             No tiene ruta asignada hoy.
-            <button onClick={load} className="mt-3 block w-full rounded-lg bg-slate-100 py-2 text-sm font-medium">
+            <button onClick={load} className="mt-3 block w-full rounded-lg bg-niebla dark:bg-navy-900 py-2 text-sm font-medium">
               Actualizar
             </button>
           </div>
@@ -653,6 +716,16 @@ export default function App() {
           />
         )}
 
+        {/* Cadena de custodia (Tier 2 §11): verificar la carga antes de salir. */}
+        {route && ["DISPATCHED", "IN_PROGRESS"].includes(route.status) && (
+          <button
+            onClick={() => setLoadSheet(true)}
+            className="w-full rounded-xl border border-navy/30 bg-white dark:bg-navy-700 py-3 text-sm font-bold text-navy dark:text-niebla shadow-sm"
+          >
+            📦 Verificar carga del vehículo
+          </button>
+        )}
+
         {route?.status === "DISPATCHED" && (
           <button
             onClick={startRoute}
@@ -669,6 +742,7 @@ export default function App() {
           <StopCard
             key={stop.id}
             stop={stop}
+            navApp={navApp}
             routeActive={route.status === "IN_PROGRESS"}
             isCurrent={stop.id === currentStopId}
             onAction={() => setActiveStop(stop)}
@@ -700,6 +774,11 @@ export default function App() {
         <ChargerSheet geo={geo.current} onClose={() => setShowChargers(false)} />
       )}
 
+      {/* Tier 2 §11: manifiesto de carga — escanear cada bulto antes de salir. */}
+      {loadSheet && route && (
+        <LoadManifestSheet routeId={route.id} onClose={() => setLoadSheet(false)} />
+      )}
+
       {/* SOS: confirmar antes de enviar (evita falsas alarmas) y reenviar si
           el conductor sigue en peligro. La alerta va a la central, no al
           consumidor (B2B). */}
@@ -712,28 +791,28 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label="Alerta de pánico"
-            className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
             {sos === "confirm" ? (
               <>
-                <div className="text-lg font-bold text-red-700">
+                <div className="text-lg font-bold text-danger">
                   🚨 ¿Enviar alerta de pánico?
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
                   Se notificará a la central con tu ubicación. Úsalo solo ante
                   una emergencia real.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                    className="flex-1 rounded-xl bg-niebla dark:bg-navy-900 py-4 text-base font-bold text-navy"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={sendPanic}
-                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                    className="flex-1 rounded-xl bg-danger py-4 text-base font-bold text-white active:bg-danger"
                   >
                     Confirmar SOS
                   </button>
@@ -741,23 +820,23 @@ export default function App() {
               </>
             ) : (
               <>
-                <div className="text-lg font-bold text-red-700">
+                <div className="text-lg font-bold text-danger">
                   🚨 Alerta enviada
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
                   La central fue notificada. Si sigues en peligro, puedes
                   reenviarla.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy"
+                    className="flex-1 rounded-xl bg-niebla dark:bg-navy-900 py-4 text-base font-bold text-navy"
                   >
                     Cerrar
                   </button>
                   <button
                     onClick={sendPanic}
-                    className="flex-1 rounded-xl bg-red-600 py-4 text-base font-bold text-white active:bg-red-700"
+                    className="flex-1 rounded-xl bg-danger py-4 text-base font-bold text-white active:bg-danger"
                   >
                     Reenviar
                   </button>
@@ -811,12 +890,12 @@ function Login({
 
   return (
     <div className="flex min-h-screen items-center justify-center p-6">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-navy">move<span className="text-lima">.</span> conductor</h1>
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white dark:bg-navy-700 p-6 shadow-sm">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-navy"><img src="/move-navy.svg" alt="move" className="h-6 w-auto" /> conductor</h1>
         {notice && (
           <p
             role="status"
-            className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning"
           >
             {notice}
           </p>
@@ -842,7 +921,7 @@ function Login({
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {error}
           </p>
         )}
@@ -857,14 +936,155 @@ function Login({
   );
 }
 
+/**
+ * Manifiesto de carga (Tier 2 §11): en el depósito, el conductor escanea cada
+ * bulto antes de salir. Muestra el progreso (cargados/total) y, por bulto, si ya
+ * fue verificado. El escaneo se encola offline (sirve sin señal); el manifiesto
+ * se refresca al volver la señal.
+ */
+function LoadManifestSheet({
+  routeId,
+  onClose,
+}: {
+  routeId: string;
+  onClose: () => void;
+}) {
+  const [manifest, setManifest] = useState<{
+    total: number;
+    loaded: number;
+    orders: {
+      orderId: string;
+      trackingNumber: string | null;
+      customerName: string;
+      loaded: boolean;
+    }[];
+  } | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setManifest(
+        await api<{
+          total: number;
+          loaded: number;
+          orders: {
+            orderId: string;
+            trackingNumber: string | null;
+            customerName: string;
+            loaded: boolean;
+          }[];
+        }>("GET", `/routes/${routeId}/manifest`),
+      );
+    } catch {
+      /* offline: el escaneo se encola; el manifiesto se refresca con señal */
+    }
+  }, [routeId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const trackingNumbers = (manifest?.orders ?? [])
+    .map((o) => o.trackingNumber)
+    .filter((t): t is string => Boolean(t));
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-end bg-black/60" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Manifiesto de carga"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">📦 Cargar vehículo</h2>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
+          >
+            ✕
+          </button>
+        </div>
+        {message && (
+          <p className="mb-2 rounded-lg bg-lima/30 px-3 py-2 text-xs font-medium text-navy">
+            {message}
+          </p>
+        )}
+        {manifest === null ? (
+          <p className="text-sm text-text-tertiary dark:text-sky/70">
+            Cargando manifiesto…
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-sm font-semibold">
+              {manifest.loaded} de {manifest.total} bultos cargados
+            </p>
+            <ul className="space-y-2">
+              {manifest.orders.map((o) => (
+                <li
+                  key={o.orderId}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-niebla dark:border-navy-900 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs font-bold">
+                      {o.trackingNumber ?? "—"}
+                    </div>
+                    <div className="truncate text-sm">{o.customerName}</div>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
+                      o.loaded
+                        ? "bg-success-bg text-success"
+                        : "bg-niebla text-navy/50 dark:bg-navy-900 dark:text-sky/60"
+                    }`}
+                  >
+                    {o.loaded ? "✓ Cargado" : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setScanOpen(true)}
+              className="mt-4 w-full rounded-xl bg-navy py-3 text-sm font-bold text-white"
+            >
+              📷 Escanear paquete
+            </button>
+          </>
+        )}
+      </div>
+      {scanOpen && (
+        <ScanSheet
+          endpoint={`/routes/${routeId}/load-scan`}
+          expectedAny={trackingNumbers}
+          onResult={(result) => {
+            setScanOpen(false);
+            setMessage(
+              result.match
+                ? `✓ ${result.code} cargado`
+                : `⚠️ ${result.code} no pertenece a esta ruta`,
+            );
+            void refresh();
+          }}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 function StopCard({
   stop,
+  navApp,
   routeActive,
   isCurrent,
   onAction,
   onArrive,
 }: {
   stop: Stop;
+  navApp: NavApp;
   routeActive: boolean;
   isCurrent: boolean;
   onAction: () => void;
@@ -883,7 +1103,7 @@ function StopCard({
   const nav = navLat !== null && navLng !== null ? navLinks(navLat, navLng) : null;
   return (
     <div
-      className={`rounded-xl bg-white p-4 shadow-sm ${done ? "opacity-60" : ""} ${
+      className={`rounded-xl bg-white dark:bg-navy-700 p-4 shadow-sm ${done ? "opacity-60" : ""} ${
         isPickup && !done ? "border-l-4 border-cielo" : ""
       } ${isCurrent && !done ? "ring-2 ring-lima" : ""}`}
     >
@@ -897,7 +1117,7 @@ function StopCard({
             >
               {isPickup ? "📦 RECOGER" : "📍 ENTREGAR"}
             </span>
-            <span className="text-navy/60">
+            <span className="text-navy/60 dark:text-niebla/60">
               Parada {stop.sequence} · ETA {formatEta(stop.etaMin)}
             </span>
             {isCurrent && !done && (
@@ -907,40 +1127,63 @@ function StopCard({
             )}
           </div>
           <div className="mt-1 font-semibold">{stop.order.customerName}</div>
-          <div className="text-sm text-slate-600">{address}</div>
+          <div className="text-sm text-text-secondary dark:text-sky">{address}</div>
           {notes && (
-            <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+            <div className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
               📍 {notes}
             </div>
+          )}
+          {/* Campos personalizados visibles para el conductor (Tier 2 §9). */}
+          {stop.order.customProperties && stop.order.customProperties.length > 0 && (
+            <dl className="mt-2 space-y-0.5 text-xs">
+              {stop.order.customProperties.map((cp) => (
+                <div key={cp.id} className="flex gap-1">
+                  <dt className="text-navy/50 dark:text-niebla/50">{cp.name}:</dt>
+                  <dd className="font-semibold">{cp.value}</dd>
+                </div>
+              ))}
+            </dl>
           )}
         </div>
         <a
           href={`tel:${stop.order.customerPhone}`}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-sm"
+          className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-2 text-sm"
         >
           📞
         </a>
       </div>
 
-      {/* Navegación: deeplink a Waze / Google Maps — integrar, no construir. */}
+      {/* Navegación: deeplink a Waze / Google Maps — integrar, no construir. El
+          orden respeta la app preferida del operador (Tier 2 §10: navApp); ambas
+          quedan disponibles. WAZE → Waze primero; si no, Google Maps primero. */}
       {nav && !done && (
         <div className="mt-2 flex gap-2">
-          <a
-            href={nav.waze}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-sky-100 py-2 text-center text-xs font-bold text-sky-800"
-          >
-            🧭 Waze
-          </a>
-          <a
-            href={nav.gmaps}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-emerald-100 py-2 text-center text-xs font-bold text-emerald-800"
-          >
-            🗺️ Maps
-          </a>
+          {(navApp === "WAZE"
+            ? (["waze", "gmaps"] as const)
+            : (["gmaps", "waze"] as const)
+          ).map((target) =>
+            target === "waze" ? (
+              <a
+                key="waze"
+                href={nav.waze}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-lg bg-sky-50 py-2 text-center text-xs font-bold text-info"
+              >
+                🧭 Waze
+              </a>
+            ) : (
+              <a
+                key="gmaps"
+                href={nav.gmaps}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-lg bg-success-bg py-2 text-center text-xs font-bold text-success"
+              >
+                🗺️ Maps
+              </a>
+            ),
+          )}
         </div>
       )}
 
@@ -949,7 +1192,7 @@ function StopCard({
           {stop.status === "PENDING" && (
             <button
               onClick={onArrive}
-              className="flex-1 rounded-lg border border-navy py-2.5 text-sm font-bold text-navy"
+              className="flex-1 rounded-lg border border-navy py-2.5 text-sm font-bold text-navy dark:text-niebla"
             >
               Llegué
             </button>
@@ -997,6 +1240,11 @@ function StopActionSheet({
   // Escaneo del paquete (D3): vínculo bulto↔parada, validado localmente.
   const [scanOpen, setScanOpen] = useState(false);
   const [scan, setScan] = useState<ScanResult | null>(null);
+  // Tipo de entrega/recogida (política POD por tipo, D2): determina qué evidencia
+  // exige el servidor; se envía en la finalización.
+  const [stopType, setStopType] = useState<string>(
+    stop.kind === "PICKUP" ? "FROM_CUSTOMER" : "RECIPIENT",
+  );
   const photoRef = useRef<HTMLInputElement>(null);
 
   // Geocerca en vivo: `geo` es un ref que `watchPosition` actualiza sin
@@ -1027,6 +1275,11 @@ function StopActionSheet({
   const podRequired = isPickup ? [] : stop.order.client?.podRequired ?? [];
   const requiresPhoto = podRequired.includes("PHOTO");
   const requiresReceiver = podRequired.includes("RECEIVER_NAME");
+
+  // Opciones del tipo de parada (política POD por tipo, D2).
+  const typeOptions: [string, string][] = isPickup
+    ? PICKUP_TYPES.map((t) => [t, PICKUP_TYPE_LABELS[t]])
+    : DELIVERY_TYPES.map((t) => [t, DELIVERY_TYPE_LABELS[t]]);
 
   // Corrección de pin (el tap más valioso del producto): si el GPS real está
   // a >300 m del pin guardado de la ENTREGA, proponemos guardar la ubicación
@@ -1112,6 +1365,8 @@ function StopActionSheet({
 
       const { queued } = await apiOrQueue(`/routes/stops/${stop.id}/complete`, {
         types,
+        deliveryType: isPickup ? undefined : stopType,
+        pickupType: isPickup ? stopType : undefined,
         photoUrl,
         receivedBy: receivedBy || undefined,
         lat: subLat,
@@ -1181,22 +1436,22 @@ function StopActionSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`Gestionar entrega de la parada ${stop.sequence}`}
-        className="w-full rounded-t-2xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Contexto de la parada: evita confirmar la entrega equivocada. */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs font-bold text-navy/70">
+            <div className="text-xs font-bold text-navy/70 dark:text-niebla/70">
               Parada {stop.sequence}
             </div>
             <div className="truncate font-semibold">{stop.order.customerName}</div>
-            <div className="truncate text-sm text-slate-600">{sheetAddress}</div>
+            <div className="truncate text-sm text-text-secondary dark:text-sky">{sheetAddress}</div>
           </div>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="shrink-0 rounded-lg bg-niebla px-3 py-1.5 text-sm font-bold text-navy"
+            className="shrink-0 rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
           >
             ✕
           </button>
@@ -1204,13 +1459,13 @@ function StopActionSheet({
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => setMode("deliver")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "deliver" ? "bg-lima text-navy" : "bg-niebla dark:bg-navy-900"}`}
           >
             {isPickup ? "Recoger" : "Entregar"}
           </button>
           <button
             onClick={() => setMode("fail")}
-            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-red-600 text-white" : "bg-niebla"}`}
+            className={`flex-1 rounded-lg py-2 text-sm font-bold ${mode === "fail" ? "bg-danger text-white" : "bg-niebla dark:bg-navy-900"}`}
           >
             No se pudo
           </button>
@@ -1218,9 +1473,27 @@ function StopActionSheet({
 
         {mode === "deliver" ? (
           <div className="space-y-3">
+            {/* Tipo de parada (política POD por tipo): define qué evidencia se exige. */}
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-navy/70 dark:text-niebla/70">
+                {isPickup ? "Tipo de recogida" : "Tipo de entrega"}
+              </span>
+              <select
+                value={stopType}
+                onChange={(e) => setStopType(e.target.value)}
+                className="w-full rounded-lg border border-cielo bg-white px-3 py-3 text-navy focus:border-navy focus:outline-none dark:bg-navy-700 dark:text-niebla"
+              >
+                {typeOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
             {podRequired.length > 0 && (
-              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-info">
                 Este cliente exige:{" "}
                 {[
                   requiresPhoto ? "foto de evidencia" : null,
@@ -1235,16 +1508,16 @@ function StopActionSheet({
             {scan === null ? (
               <button
                 onClick={() => setScanOpen(true)}
-                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70 dark:text-niebla/70"
               >
                 📷 Escanear paquete {stop.order.trackingNumber ?? ""}
               </button>
             ) : scan.match ? (
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              <div className="rounded-lg bg-success-bg px-3 py-2 text-sm font-medium text-success">
                 ✅ Paquete verificado ({scan.code})
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">
                 <span>
                   ❌ Este paquete es de otra guía ({scan.code}) — esperada{" "}
                   {stop.order.trackingNumber}
@@ -1293,7 +1566,7 @@ function StopActionSheet({
                 />
                 <button
                   onClick={() => photoRef.current?.click()}
-                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy dark:text-niebla"
                 >
                   Cambiar foto
                 </button>
@@ -1301,13 +1574,13 @@ function StopActionSheet({
             ) : (
               <button
                 onClick={() => photoRef.current?.click()}
-                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70"
+                className="w-full rounded-lg border border-dashed border-navy/40 py-3 text-sm font-medium text-navy/70 dark:text-niebla/70"
               >
                 📷 Tomar foto de evidencia
               </button>
             )}
             {photoWarning && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
                 <span>{photoWarning}</span>
                 <button
                   onClick={() => photoRef.current?.click()}
@@ -1325,10 +1598,10 @@ function StopActionSheet({
                 role="status"
                 className={`rounded-lg px-3 py-2 text-xs font-medium ${
                   pinDriftM <= GEOFENCE_RADIUS_M
-                    ? "bg-emerald-50 text-emerald-800"
+                    ? "bg-success-bg text-success"
                     : pinDriftM <= ADDRESS_FIX_THRESHOLD_M
-                      ? "bg-amber-50 text-amber-800"
-                      : "bg-red-50 text-red-700"
+                      ? "bg-warning-bg text-warning"
+                      : "bg-danger-bg text-danger"
                 }`}
               >
                 {pinDriftM <= GEOFENCE_RADIUS_M
@@ -1339,7 +1612,7 @@ function StopActionSheet({
 
             {/* Pin-drop: el tap que alimenta el grafo de direcciones. */}
             {offerPinFix && (
-              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-info">
                 <input
                   type="checkbox"
                   checked={fixPin}
@@ -1354,7 +1627,7 @@ function StopActionSheet({
             )}
 
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
@@ -1377,7 +1650,7 @@ function StopActionSheet({
                 <button
                   key={value}
                   onClick={() => setFailReason(value)}
-                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-red-600 bg-red-50 text-red-700" : "border-slate-200"}`}
+                  className={`rounded-lg border py-2.5 text-sm font-medium ${failReason === value ? "border-danger/30 bg-danger-bg text-danger" : "border-border dark:border-white/10"}`}
                 >
                   {label}
                 </button>
@@ -1394,7 +1667,7 @@ function StopActionSheet({
                 />
                 <button
                   onClick={() => photoRef.current?.click()}
-                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy"
+                  className="rounded-lg border border-navy px-3 py-2 text-sm font-medium text-navy dark:text-niebla"
                 >
                   Cambiar foto
                 </button>
@@ -1404,8 +1677,8 @@ function StopActionSheet({
                 onClick={() => photoRef.current?.click()}
                 className={`w-full rounded-lg border border-dashed py-3 text-sm font-medium ${
                   EVIDENCE_REQUIRED_REASONS.includes(failReason)
-                    ? "border-red-400 text-red-700"
-                    : "border-navy/40 text-navy/70"
+                    ? "border-danger/30 text-danger"
+                    : "border-navy/40 text-navy/70 dark:text-niebla/70"
                 }`}
               >
                 📷 Foto de evidencia
@@ -1413,20 +1686,20 @@ function StopActionSheet({
               </button>
             )}
             {photoWarning && (
-              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
                 {photoWarning}
               </div>
             )}
 
             {error && (
-              <p role="alert" className="text-sm text-red-600">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
             <button
               onClick={fail}
               disabled={busy}
-              className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white active:bg-red-700 disabled:opacity-60"
+              className="w-full rounded-xl bg-danger py-4 text-lg font-bold text-white active:bg-danger disabled:opacity-60"
             >
               {busy ? "Registrando…" : "Registrar fallo"}
             </button>
@@ -1436,7 +1709,7 @@ function StopActionSheet({
 
       {scanOpen && (
         <ScanSheet
-          stopId={stop.id}
+          endpoint={`/routes/stops/${stop.id}/scan`}
           expected={stop.order.trackingNumber}
           onResult={(result) => {
             setScan(result);

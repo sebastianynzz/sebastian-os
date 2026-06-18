@@ -2,6 +2,7 @@ import {
   VEHICLE_TYPE_PROFILES,
   configSupportsTempProfile,
   type LatLng,
+  type OptimizationObjective,
   type TempProfile,
   type VehicleType,
 } from "@moveos/shared";
@@ -241,8 +242,40 @@ function twoOptImprove(
  * presupuesto de autonomía para EVs, asigna pedidos por vecino más cercano
  * con chequeo de factibilidad completo y mejora cada ruta con 2-opt.
  */
+/**
+ * Puntaje de asignación pedido→vehículo según la estrategia (menor = mejor).
+ * Sólo cambia el resultado cuando varios vehículos compiten por un pedido; con
+ * un único vehículo todas las estrategias coinciden.
+ *  - MAXIMIZE_EFFICIENCY: inserción más corta (vecino más cercano).
+ *  - EQUALIZE_WORKLOAD:   menos paradas primero (iguala conteo).
+ *  - BALANCE (def.):      menor tiempo de ruta resultante (iguala tiempo).
+ *  - FEWEST_DRIVERS:      evita abrir vehículos nuevos (llena los abiertos).
+ *  - ASSIGN_TO_SELECTED:  abre primero los vehículos vacíos (usa todos), luego eficiencia.
+ */
+function assignmentScore(
+  objective: OptimizationObjective,
+  stopCount: number,
+  insertionKm: number,
+  projectedRouteMin: number,
+): number {
+  switch (objective) {
+    case "MAXIMIZE_EFFICIENCY":
+      return insertionKm;
+    case "EQUALIZE_WORKLOAD":
+      return stopCount * 1e6 + insertionKm;
+    case "FEWEST_DRIVERS":
+      return (stopCount === 0 ? 1e9 : 0) + insertionKm;
+    case "ASSIGN_TO_SELECTED":
+      return (stopCount === 0 ? 0 : 1e6) + insertionKm;
+    case "BALANCE":
+    default:
+      return projectedRouteMin * 1e3 + insertionKm;
+  }
+}
+
 export function planRoutes(request: PlanRequest): PlanResult {
   const departureMin = request.departureMin ?? DEFAULT_DEPARTURE_MIN;
+  const objective: OptimizationObjective = request.objective ?? "BALANCE";
   const travel = request.travel ?? haversineTravelModel();
   const excludedVehicles: PlanResult["excludedVehicles"] = [];
   const states: VehicleState[] = [];
@@ -314,7 +347,7 @@ export function planRoutes(request: PlanRequest): PlanResult {
 
   for (const order of pending) {
     let bestState: VehicleState | null = null;
-    let bestCost = Number.POSITIVE_INFINITY;
+    let bestScore = Number.POSITIVE_INFINITY;
     let lastRejection = "Sin vehículos disponibles";
 
     for (const state of states) {
@@ -350,9 +383,15 @@ export function planRoutes(request: PlanRequest): PlanResult {
 
       const last = state.stops[state.stops.length - 1];
       const from = last ? last.location : request.depot;
-      const cost = travel.distanceKm(from, order.location);
-      if (cost < bestCost) {
-        bestCost = cost;
+      const insertionKm = travel.distanceKm(from, order.location);
+      const score = assignmentScore(
+        objective,
+        state.stops.length,
+        insertionKm,
+        sim.totalDurationMin,
+      );
+      if (score < bestScore) {
+        bestScore = score;
         bestState = state;
       }
     }

@@ -44,26 +44,26 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className="m-4 rounded-xl border border-red-200 bg-red-50 p-5 text-center"
+        className="m-4 rounded-xl border border-danger/30 bg-danger-bg p-5 text-center"
       >
-        <h2 className="text-base font-bold text-red-700">Algo salió mal</h2>
-        <p className="mt-2 text-sm text-slate-600">
+        <h2 className="text-base font-bold text-danger">Algo salió mal</h2>
+        <p className="mt-2 text-sm text-text-secondary dark:text-sky">
           Ocurrió un error inesperado. Toca Reintentar; si sigue, recarga la app.
           Tu trabajo pendiente queda guardado en este dispositivo.
         </p>
-        <pre className="mt-3 overflow-x-auto rounded-lg bg-white/70 p-2 text-left text-xs text-red-600">
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-white/70 p-2 text-left text-xs text-danger">
           {error.message}
         </pre>
         <div className="mt-4 flex justify-center gap-2">
           <button
             onClick={this.reset}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white"
           >
             Reintentar
           </button>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+            className="rounded-lg border border-border dark:border-white/10 px-4 py-2 text-sm font-semibold text-text-secondary dark:text-sky"
           >
             Recargar
           </button>

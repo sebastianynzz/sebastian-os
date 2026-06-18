@@ -29,6 +29,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
       include: {
         stops: { select: { routeId: true, kind: true, sequence: true, etaMin: true, status: true } },
         client: { select: { id: true, name: true, notifyChannel: true } },
+        service: { select: { id: true, name: true, identifier: true, completionDeadlineMin: true } },
       },
     });
   });

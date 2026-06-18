@@ -1,3 +1,8 @@
+import {
+  DEFAULT_NOTIFICATION_BODIES,
+  renderTemplate,
+  type NotificationEvent,
+} from "@moveos/shared";
 import { prisma } from "../lib/prisma.js";
 
 /**
@@ -45,7 +50,23 @@ export interface ClientNotification {
   orderId: string;
   client: ClientTarget | null;
   template: string; // p. ej. "envio_entregado", "envio_fallido"
+  /** Evento del catálogo (Tier 2): si está, se gatea/renderiza por plantilla. */
+  event?: NotificationEvent;
   payload: Record<string, unknown>;
+  /** Cuerpo ya renderizado desde la plantilla (lo calcula notifyClient). */
+  renderedBody?: string;
+}
+
+/** Variables disponibles para el cuerpo de la plantilla, desde el payload. */
+function notificationVars(payload: Record<string, unknown>): Record<string, unknown> {
+  return {
+    guia: payload.trackingNumber ?? payload.guia ?? "",
+    destinatario: payload.customerName ?? payload.recibidoPor ?? "",
+    motivo: payload.failureReason ?? payload.motivo ?? "",
+    rastreo: payload.trackingUrl ?? payload.rastreo ?? "",
+    conductor: payload.conductor ?? payload.driver ?? "",
+    ...payload,
+  };
 }
 
 interface SendResult {
@@ -67,8 +88,13 @@ async function dispatchToChannel(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // `event` conserva el nombre de plantilla por compatibilidad; los
+          // integradores nuevos deben usar `standardEvent` (catálogo
+          // NOTIFICATION_EVENTS), alineado con los webhooks de /developer.
           event: message.template,
+          standardEvent: message.event ?? null,
           orderId: message.orderId,
+          message: message.renderedBody,
           data: message.payload,
           sentAt: new Date().toISOString(),
         }),
@@ -115,10 +141,12 @@ async function dispatchToChannel(
             content: [
               {
                 type: "text/plain",
-                value: Object.entries(message.payload)
-                  .filter(([, v]) => v !== null && v !== undefined)
-                  .map(([k, v]) => `${k}: ${String(v)}`)
-                  .join("\n"),
+                value:
+                  message.renderedBody ??
+                  Object.entries(message.payload)
+                    .filter(([, v]) => v !== null && v !== undefined)
+                    .map(([k, v]) => `${k}: ${String(v)}`)
+                    .join("\n"),
               },
             ],
           }),
@@ -133,7 +161,7 @@ async function dispatchToChannel(
       channel === "EMAIL" && client.email ? client.email : client.name;
     console.log(
       `[notificación B2B → ${client.name}] ${message.template}`,
-      JSON.stringify(message.payload),
+      message.renderedBody ?? JSON.stringify(message.payload),
     );
     return { channel: channel === "EMAIL" ? "EMAIL" : "CONSOLE", recipient, ok: true };
   } catch (err) {
@@ -147,6 +175,27 @@ async function dispatchToChannel(
 }
 
 /**
+ * Envía una notificación de PRUEBA al canal configurado del negocio cliente
+ * (webhook/WhatsApp/email/in-app), sin pedido ni bitácora — solo para que el
+ * operador confirme que el canal funciona antes de depender de él. B2B: va al
+ * NEGOCIO, nunca al consumidor final.
+ */
+export async function sendTestNotification(
+  client: ClientTarget,
+): Promise<SendResult> {
+  const renderedBody =
+    "Notificación de prueba de MoveOS — tu canal de avisos está bien configurado.";
+  return dispatchToChannel(client, {
+    tenantId: "",
+    orderId: "test",
+    client,
+    template: "prueba",
+    payload: { mensaje: renderedBody },
+    renderedBody,
+  });
+}
+
+/**
  * Notifica al negocio cliente del envío. Si el pedido no tiene cliente
  * asociado, se registra como evento de bitácora pero no se envía nada
  * (el envío no pertenece a ningún negocio que deba enterarse).
@@ -157,7 +206,21 @@ export async function notifyClient(message: ClientNotification): Promise<void> {
     return;
   }
 
-  const result = await dispatchToChannel(message.client, message);
+  // Motor de notificaciones (Tier 2): si el evento trae plantilla, el operador
+  // pudo desactivarlo (no se notifica) o personalizar el cuerpo. Sin fila → se
+  // usa el cuerpo por defecto del evento. Eventos sin `event` (p. ej. la
+  // reprogramación por recuperación) siempre notifican.
+  let renderedBody: string | undefined;
+  if (message.event) {
+    const tpl = await prisma.messageTemplate.findUnique({
+      where: { tenantId_event: { tenantId: message.tenantId, event: message.event } },
+    });
+    if (tpl && !tpl.enabled) return; // el operador apagó este evento
+    const body = tpl?.body ?? DEFAULT_NOTIFICATION_BODIES[message.event];
+    renderedBody = renderTemplate(body, notificationVars(message.payload));
+  }
+
+  const result = await dispatchToChannel(message.client, { ...message, renderedBody });
 
   await prisma.notificationLog.create({
     data: {
@@ -167,7 +230,7 @@ export async function notifyClient(message: ClientNotification): Promise<void> {
       channel: result.channel,
       recipient: result.recipient,
       template: message.template,
-      payload: message.payload as object,
+      payload: { ...message.payload, ...(renderedBody ? { message: renderedBody } : {}) } as object,
       status: result.ok ? "SENT" : "FAILED",
     },
   });

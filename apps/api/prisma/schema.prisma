@@ -28,6 +28,12 @@ model Tenant {
   id        String   @id @default(cuid())
   name      String
   nit       String?
+  // Perfil de facturación de la SUSCRIPCIÓN SaaS del tenant (Tier 3 §13). No es
+  // un medio de pago ni COD: MoveOS no procesa pagos en la app. La plataforma
+  // emite las facturas; el tenant las ve y mantiene sus datos fiscales.
+  legalName      String?
+  billingEmail   String?
+  billingAddress String?
   city      String   @default("Bogotá")
   status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
   plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
@@ -41,6 +47,13 @@ model Tenant {
   // operatorType (mecánica de aprovisionamiento / propiedad de activos):
   // etiqueta + preset de módulos al aprovisionar, nunca lógica de cobro.
   businessModel String   @default("SAAS")
+  // Costos (D6, energía-nativo): costo del conductor por hora y tarifa de
+  // energía (COP/kWh). Nullable → se usan los valores por defecto compartidos.
+  driverCostPerHourCop Int?
+  energyTariffCop      Float?
+  // Privacidad de la página pública de rastreo (Tier 2): ETA_ONLY |
+  // ETA_POSITION | FULL. FULL preserva el comportamiento actual.
+  trackingTier  String   @default("FULL")
   createdAt DateTime @default(now())
 
   entitlements  ModuleEntitlement[]
@@ -61,6 +74,15 @@ model Tenant {
   aiProposals   AiProposal[]
   snoozedExceptions SnoozedException[]
   savedViews    SavedView[]
+  depots        Depot[]
+  zones         Zone[]
+  messageTemplates MessageTemplate[]
+  webhooks      Webhook[]
+  apiKeys       ApiKey[]
+  customProperties CustomProperty[]
+  driverPermissionPolicy DriverPermissionPolicy?
+  scanEvents    ScanEvent[]
+  invoices      Invoice[]
 }
 
 /// Rollup diario de métricas por tenant (fuente: Order/Route/RouteStop).
@@ -201,6 +223,10 @@ model Driver {
   // Vencimiento de la licencia de conducción: alimenta los recordatorios de
   // cumplimiento del panel (vencida / por vencer). Nullable: opcional al crear.
   licenseExpiresAt DateTime?
+  // Depósito base del conductor (multi-depot, D4). Nullable; base de la
+  // asignación por cercanía (fast-follow).
+  depotId    String?
+  depot      Depot?  @relation(fields: [depotId], references: [id])
   user       User?
   routes     Route[]
   telemetry  TelemetryPing[]
@@ -240,6 +266,10 @@ model Vehicle {
   lastLat        Float?
   lastLng        Float?
   lastSeenAt     DateTime?
+  // Depósito base del vehículo (multi-depot, D4). Nullable; usado para la
+  // planificación de carga por depósito y la asignación por cercanía.
+  homeDepotId    String?
+  homeDepot      Depot?    @relation(fields: [homeDepotId], references: [id])
   routes         Route[]
   telemetry      TelemetryPing[]
   commands       VehicleCommand[]
@@ -287,6 +317,8 @@ model Order {
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientId        String?
   client          Client?   @relation(fields: [clientId], references: [id])
+  serviceId       String?
+  service         Service?  @relation(fields: [serviceId], references: [id])
   trackingNumber  String?
   // Token opaco para la página pública de rastreo (no adivinable, distinto de
   // la guía MV-). Permite al negocio cliente seguir el envío sin login.
@@ -328,11 +360,16 @@ model Order {
   // consumidor final.
   recoveryStatus    String  @default("NONE") // NONE | FLAGGED | RESCHEDULED | RESOLVED
   rescheduledFromId String? // pedido fallido que originó este reenvío
+  // Propiedades personalizadas (Tier 2 §9): mapa { [customPropertyId]: valor }
+  // de los campos extra que el tenant definió. La visibilidad por conductor /
+  // destinatario la decide cada CustomProperty (nunca el JSON crudo).
+  customFields    Json?
   createdAt       DateTime  @default(now())
 
   // Un pedido puede tener hasta 2 paradas: PICKUP (si hay recogida) y DELIVERY.
   stops  RouteStop[]
   events OrderEvent[]
+  scanEvents ScanEvent[]
 
   @@unique([tenantId, trackingNumber])
   @@index([tenantId, status])
@@ -395,6 +432,11 @@ model Route {
   driver           Driver?  @relation(fields: [driverId], references: [id])
   vehicleId        String
   vehicle          Vehicle  @relation(fields: [vehicleId], references: [id])
+  // Depósito (multi-depot, D4): a dónde regresa la ruta. Las coordenadas
+  // efectivas viven en depotLat/depotLng (fuente del optimizador); depotId
+  // las enlaza con el depósito del catálogo. Nullable = plan sin depósito fijo.
+  depotId          String?
+  depot            Depot?   @relation(fields: [depotId], references: [id])
   depotLat         Float
   depotLng         Float
   departureMin     Int
@@ -402,6 +444,7 @@ model Route {
   totalDurationMin Int
   warnings         String[]
   stops            RouteStop[]
+  scanEvents       ScanEvent[]
   createdAt        DateTime @default(now())
 
   @@index([tenantId, date])
@@ -430,6 +473,7 @@ model ProofOfDelivery {
   stopId       String    @unique
   stop         RouteStop @relation(fields: [stopId], references: [id], onDelete: Cascade)
   types        String[] // PHOTO | SIGNATURE | OTP | GEOFENCE
+  deliveryType String? // tipo elegido (RECIPIENT | SAFE_PLACE | ...) — política POD por tipo
   photoUrl     String?
   signatureUrl String?
   receivedBy   String?
@@ -438,6 +482,224 @@ model ProofOfDelivery {
   lng          Float?
   geofenceOk   Boolean?
   createdAt    DateTime  @default(now())
+}
+
+/// Política de prueba de entrega (POD) configurable por tipo de parada (D2).
+/// `scope` = "TEAM_DEFAULT" (predeterminado del tenant) o un serviceId futuro.
+/// `config` guarda { delivery: { RECIPIENT: { signature, photo }, ... }, pickup: {...} }
+/// con niveles MANDATORY | OPTIONAL | DISABLED. Sin pagos → no hay sección COD.
+model PodPolicy {
+  id        String   @id @default(cuid())
+  tenantId  String
+  scope     String   @default("TEAM_DEFAULT")
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, scope])
+  @@index([tenantId])
+}
+
+/// Servicio / SLA (D3): promesa de entrega con nombre, precio por parada y plazo
+/// (SLA). Base de la facturación B2B y del seguimiento de incumplimientos
+/// (SLA_BREACH en el cockpit de excepciones). Sin pagos → no hay campo COD.
+model Service {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  name                  String
+  identifier            String
+  pricePerStopCop       Int      @default(0)
+  completionDeadlineMin Int
+  cutoffTime            String? // "HH:MM" America/Bogotá
+  serviceDays           String[] @default([])
+  stopType              String   @default("DELIVERY") // DELIVERY | PICKUP | BOTH
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  orders                Order[]
+
+  @@unique([tenantId, identifier])
+  @@index([tenantId])
+}
+
+/// Depósito / centro de distribución (multi-depot, D4). Punto de salida y
+/// regreso de las rutas. `isMain` marca el principal del tenant (uno por
+/// tenant). `routeDefaults` guarda preajustes por depósito (hora de salida,
+/// etc.). ⚡ Habilita FaaS multi-ciudad y la planificación de carga por
+/// depósito. Tenant-scoped.
+model Depot {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  address       String?
+  lat           Float
+  lng           Float
+  isMain        Boolean  @default(false)
+  routeDefaults Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  routes        Route[]
+  drivers       Driver[]
+  vehicles      Vehicle[]
+
+  @@index([tenantId])
+}
+
+/// Zona de entrega (D5): polígono geográfico con conductores asignados. Base
+/// de la verificación de cobertura al crear pedidos (point-in-zone) y de la
+/// preferencia de asignación por zona. `geometry` guarda { points: [{lat,lng}] };
+/// `color` es un dato de la zona (no un token de UI). Tenant-scoped.
+model Zone {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  color     String   @default("#233955")
+  geometry  Json
+  driverIds String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+/// Plantilla de notificación B2B por evento (Tier 2, motor de notificaciones).
+/// El operador decide, por evento del ciclo de vida, si notifica al NEGOCIO
+/// cliente (`enabled`) y con qué cuerpo (`body`, con placeholders {{guia}}…).
+/// El canal lo define cada cliente (Client.notifyChannel). Nunca al consumidor
+/// final. Una fila por (tenant, evento); sin fila = comportamiento por defecto.
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event     String // NOTIFICATION_EVENTS
+  enabled   Boolean  @default(true)
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, event])
+  @@index([tenantId])
+}
+
+/// Webhook del tenant (plataforma de desarrolladores, Tier 2 §8): suscripción a
+/// eventos del ciclo de vida (NOTIFICATION_EVENTS). En cada evento se hace POST
+/// firmado (HMAC-SHA256 con `secret`, cabecera x-moveos-signature) a `url`.
+/// Distinto del webhook por-cliente (Client.webhookUrl): este es a nivel tenant
+/// y orientado a integraciones. Tenant-scoped.
+model Webhook {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url       String
+  secret    String
+  events    String[] @default([])
+  enabled   Boolean  @default(true)
+  lastStatus Int?
+  lastDeliveredAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+/// API key del tenant (plataforma de desarrolladores, Tier 2 §8). Guarda solo el
+/// hash SHA-256 de la key (nunca la key en claro) + un `prefix` visible para
+/// identificarla. `scopes` acota lo que la integración puede hacer. Habilita la
+/// ingesta de pedidos por API (el desbloqueo de escala). Tenant-scoped.
+model ApiKey {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String
+  hashedKey  String    @unique
+  scopes     String[]  @default([])
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+/// Propiedad personalizada de parada (Tier 2 §9): campo extra definido por el
+/// tenant (p. ej. "Piso", "# factura"). Por campo se decide si es visible para
+/// el CONDUCTOR (app) y/o el DESTINATARIO (página pública de rastreo, B2B). El
+/// valor por pedido vive en Order.customFields, indexado por el id de la
+/// propiedad. El número de campos se limita por plan (upsell). Tenant-scoped.
+model CustomProperty {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name               String
+  visibleToDriver    Boolean  @default(false)
+  visibleToRecipient Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+/// Política de permisos de la app del conductor (Tier 2 §10). Singleton por
+/// tenant (una fila): app de navegación preferida para los deeplinks (navApp) y
+/// qué puede hacer el conductor con las rutas — editar las del despachador,
+/// crear rutas ad-hoc, editar rutas ya iniciadas. `granular` deja espacio a
+/// banderas finas a futuro. Sin fila = valores por defecto (app bloqueada).
+/// La app del conductor LEE esta política; las mutaciones son solo de ADMIN.
+model DriverPermissionPolicy {
+  id                       String   @id @default(cuid())
+  tenantId                 String   @unique
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  navApp                   String   @default("INTERNAL_GMAPS") // INTERNAL_GMAPS | WAZE | GOOGLE
+  allowEditDispatcherRoutes Boolean @default(false)
+  allowCreateRoutes        Boolean  @default(false)
+  allowEditStartedRoutes   Boolean  @default(false)
+  granular                 Json?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+/// Factura de la SUSCRIPCIÓN SaaS de un tenant (Tier 3 §13). La EMITE el operador
+/// de plataforma; el tenant la ve (historial) en su vista de facturación. MoveOS
+/// no procesa pagos en la app: `status` es informativo (lo gestiona la
+/// plataforma) y la liquidación ocurre por fuera. Sin COD. Tenant-scoped.
+model Invoice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String
+  periodMonth String // "YYYY-MM"
+  amountCop   Int
+  status      String   @default("ISSUED") // DRAFT | ISSUED | PAID | VOID
+  issuedAt    DateTime @default(now())
+  dueAt       DateTime?
+  notes       String?
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+}
+
+/// Escaneo de paquete (Tier 2 §11): cadena de custodia depósito → puerta. Un
+/// evento por escaneo de código de barras: LOAD (verificación del manifiesto al
+/// cargar el vehículo), PICKUP (recogida) o DELIVER (entrega). `matched` indica
+/// si el código coincidió con un pedido de la ruta; `orderId` es null cuando no
+/// coincidió con ninguno (escaneo sobrante). Tenant-scoped.
+model ScanEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  routeId   String?
+  route     Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  type      String // LOAD | PICKUP | DELIVER
+  barcode   String
+  matched   Boolean  @default(false)
+  scannedAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([routeId])
+  @@index([orderId])
 }
 
 /// Directorio de estaciones de carga (núcleo EV, roadmap P0.4b). Las redes

@@ -1,4 +1,9 @@
-import type { LatLng, TempProfile, VehicleType } from "@moveos/shared";
+import type {
+  LatLng,
+  OptimizationObjective,
+  TempProfile,
+  VehicleType,
+} from "@moveos/shared";
 import type { TravelModel } from "./travel.js";
 
 export interface OptimizableOrder {
@@ -47,6 +52,8 @@ export interface PlanRequest {
   departureMin?: number;
   orders: OptimizableOrder[];
   vehicles: OptimizableVehicle[];
+  /** Estrategia de asignación. Por defecto BALANCE. */
+  objective?: OptimizationObjective;
   /** Condiciones para el modelo de autonomía EV. */
   evConditions?: {
     temperatureC?: number;

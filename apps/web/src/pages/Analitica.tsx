@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FAIL_REASON_LABELS, type FailReason } from "@moveos/shared";
 import { api, ApiError } from "../api";
 import { TrendChart } from "../components/charts";
 import {
@@ -40,6 +41,46 @@ interface Timeseries {
   to: string;
   days: DayPoint[];
 }
+
+interface ClientSlaRow {
+  clientId: string | null;
+  clientName: string;
+  total: number;
+  onTime: number;
+  breached: number;
+  pending: number;
+  breachRate: number | null;
+}
+interface SlaReport {
+  from: string;
+  to: string;
+  totals: Omit<ClientSlaRow, "clientId" | "clientName">;
+  byClient: ClientSlaRow[];
+}
+interface FailureReport {
+  from: string;
+  to: string;
+  total: number;
+  byReason: { reason: FailReason; count: number; pct: number }[];
+  byDay: { day: string; count: number }[];
+}
+interface CostReport {
+  routes: number;
+  stops: number;
+  totalKm: number;
+  totalKwh: number;
+  routeHours: number;
+  laborCostCop: number;
+  energyCostCop: number;
+  totalCostCop: number;
+  costPerDeliveryCop: number | null;
+}
+
+const COP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
 
 // --- Fechas en Bogotá (UTC-5 fijo) ---
 function todayBogota(): string {
@@ -85,12 +126,12 @@ function summarize(days: DayPoint[]): RangeSummary {
 type Trend = { text: string; cls: string };
 function countTrend(cur: number, prev: number): Trend {
   if (cur === prev) return { text: "—", cls: "text-navy/40" };
-  if (prev === 0) return { text: "▲ nuevo", cls: "text-emerald-600" };
+  if (prev === 0) return { text: "▲ nuevo", cls: "text-success" };
   const pct = ((cur - prev) / prev) * 100;
   const up = cur > prev;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}%`,
-    cls: up ? "text-emerald-600" : "text-red-600",
+    cls: up ? "text-success" : "text-danger",
   };
 }
 function rateTrend(cur: number | null, prev: number | null): Trend {
@@ -100,7 +141,7 @@ function rateTrend(cur: number | null, prev: number | null): Trend {
   const up = diff > 0;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pp`,
-    cls: up ? "text-emerald-600" : "text-red-600",
+    cls: up ? "text-success" : "text-danger",
   };
 }
 
@@ -148,6 +189,9 @@ export default function Analitica() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [cur, setCur] = useState<DayPoint[] | null>(null);
   const [prev, setPrev] = useState<DayPoint[] | null>(null);
+  const [sla, setSla] = useState<SlaReport | null>(null);
+  const [failures, setFailures] = useState<FailureReport | null>(null);
+  const [cost, setCost] = useState<CostReport | null>(null);
   const [from, setFrom] = useState(() => addDays(todayBogota(), -29));
   const [to, setTo] = useState(() => todayBogota());
   const [moduleOff, setModuleOff] = useState(false);
@@ -181,15 +225,21 @@ export default function Analitica() {
     const prevTo = addDays(from, -1);
     const prevFrom = addDays(from, -len);
     try {
-      const [c, p] = await Promise.all([
+      const [c, p, s, f, cst] = await Promise.all([
         api<Timeseries>("GET", `/analytics/timeseries?from=${from}&to=${to}`),
         api<Timeseries>(
           "GET",
           `/analytics/timeseries?from=${prevFrom}&to=${prevTo}`,
         ),
+        api<SlaReport>("GET", `/analytics/sla-report?from=${from}&to=${to}`),
+        api<FailureReport>("GET", `/analytics/failures?from=${from}&to=${to}`),
+        api<CostReport>("GET", `/analytics/cost?from=${from}&to=${to}`),
       ]);
       setCur(c.days);
       setPrev(p.days);
+      setSla(s);
+      setFailures(f);
+      setCost(cst);
     } catch (err) {
       if (err instanceof ApiError && err.code === "MODULE_NOT_ENABLED") {
         setModuleOff(true);
@@ -308,14 +358,14 @@ export default function Analitica() {
 
       {rangeError && (
         <Card>
-          <p className="text-sm text-amber-700">{rangeError}</p>
+          <p className="text-sm text-warning">{rangeError}</p>
         </Card>
       )}
 
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-700">No se pudieron cargar las tendencias.</span>
+            <span className="text-danger">No se pudieron cargar las tendencias.</span>
             <Button variant="secondary" onClick={() => void loadSeries()}>
               Reintentar
             </Button>
@@ -399,6 +449,12 @@ export default function Analitica() {
         </>
       )}
 
+      {sla && sla.totals.total > 0 && <SlaByClientCard report={sla} />}
+
+      {failures && failures.total > 0 && <FailureCard report={failures} />}
+
+      {cost && cost.stops > 0 && <CostCard report={cost} />}
+
       <Card title="Indicadores acumulados (histórico)">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           {kpis.map((k) => (
@@ -424,6 +480,141 @@ export default function Analitica() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Color del % de incumplimiento: verde ≤10%, ámbar ≤25%, rojo por encima. */
+function breachRateStyle(rate: number | null): { text: string; cls: string } {
+  if (rate === null) return { text: "—", cls: "text-navy/40" };
+  const cls = rate <= 0.1 ? "text-success" : rate <= 0.25 ? "text-warning" : "text-danger";
+  return { text: `${(rate * 100).toFixed(0)}%`, cls };
+}
+
+/**
+ * Cumplimiento de SLA por negocio cliente: a tiempo / incumplidos / en curso y
+ * la tasa de incumplimiento. Argumento B2B directo para cada comercio.
+ */
+function SlaByClientCard({ report }: { report: SlaReport }) {
+  const t = report.totals;
+  const totalRate = breachRateStyle(t.breachRate);
+  return (
+    <Card title="Cumplimiento de SLA por cliente">
+      <p className="mb-3 text-xs text-navy/50">
+        Pedidos con servicio (promesa de entrega) en el rango. La hora límite es
+        el plazo del servicio desde la creación del pedido.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-niebla text-left text-xs uppercase tracking-wide text-navy/50">
+              <th className="py-2 pr-4 font-medium">Negocio</th>
+              <th className="py-2 pr-4 text-right font-medium">Total</th>
+              <th className="py-2 pr-4 text-right font-medium">A tiempo</th>
+              <th className="py-2 pr-4 text-right font-medium">Incumplidos</th>
+              <th className="py-2 pr-4 text-right font-medium">En curso</th>
+              <th className="py-2 text-right font-medium">% incumplido</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.byClient.map((r) => {
+              const rate = breachRateStyle(r.breachRate);
+              return (
+                <tr key={r.clientId ?? "__none__"} className="border-b border-niebla/60">
+                  <td className="py-2 pr-4 font-medium text-navy">{r.clientName}</td>
+                  <td className="py-2 pr-4 text-right">{r.total}</td>
+                  <td className="py-2 pr-4 text-right text-success">{r.onTime}</td>
+                  <td className="py-2 pr-4 text-right text-danger">{r.breached}</td>
+                  <td className="py-2 pr-4 text-right text-navy/60">{r.pending}</td>
+                  <td className={`py-2 text-right font-semibold ${rate.cls}`}>{rate.text}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-navy/20 font-semibold">
+              <td className="py-2 pr-4 text-navy">Total</td>
+              <td className="py-2 pr-4 text-right">{t.total}</td>
+              <td className="py-2 pr-4 text-right text-success">{t.onTime}</td>
+              <td className="py-2 pr-4 text-right text-danger">{t.breached}</td>
+              <td className="py-2 pr-4 text-right text-navy/60">{t.pending}</td>
+              <td className={`py-2 text-right ${totalRate.cls}`}>{totalRate.text}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Costo por entrega ENERGÍA-NATIVO: horas × costo/hora del conductor + kWh ×
+ * tarifa de energía, dividido entre las entregas. La unidad de costo es la
+ * energía, nunca el combustible (restricción dura 1.7).
+ */
+function CostCard({ report }: { report: CostReport }) {
+  return (
+    <Card title="Costo por entrega (energía-nativo)">
+      <p className="mb-3 text-xs text-navy/50">
+        Sobre las rutas del rango: mano de obra (horas × costo/hora) + energía
+        (kWh × tarifa), entre {report.stops} entrega(s). Configúralo en Controles ›
+        Costos.
+      </p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Costo por entrega</div>
+          <div className="mt-1 text-2xl font-bold">
+            {report.costPerDeliveryCop === null ? "—" : COP.format(report.costPerDeliveryCop)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Mano de obra</div>
+          <div className="mt-1 text-2xl font-bold">{COP.format(report.laborCostCop)}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Energía</div>
+          <div className="mt-1 text-2xl font-bold">{COP.format(report.energyCostCop)}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-navy/50">Energía total</div>
+          <div className="mt-1 text-2xl font-bold">
+            {report.totalKwh} <span className="text-sm font-medium text-navy/50">kWh</span>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Análisis de fallos: distribución de entregas fallidas por motivo. Insumo
+ * directo de mejora operativa; DIRECCION_ERRADA refuerza el grafo de direcciones.
+ */
+function FailureCard({ report }: { report: FailureReport }) {
+  const max = Math.max(...report.byReason.map((r) => r.count), 1);
+  return (
+    <Card title={`Análisis de fallos (${report.total})`}>
+      <p className="mb-3 text-xs text-navy/50">
+        Entregas fallidas o rechazadas del rango, por motivo estandarizado.
+      </p>
+      <div className="space-y-2">
+        {report.byReason.map((r) => (
+          <div key={r.reason} className="flex items-center gap-3 text-sm">
+            <span className="w-40 shrink-0 text-navy">
+              {FAIL_REASON_LABELS[r.reason]}
+            </span>
+            <span className="h-3 flex-1 overflow-hidden rounded-full bg-niebla">
+              <span
+                className="block h-full rounded-full bg-danger/60"
+                style={{ width: `${(r.count / max) * 100}%` }}
+              />
+            </span>
+            <span className="w-20 shrink-0 text-right font-mono text-xs text-navy/60">
+              {r.count} · {(r.pct * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 

@@ -148,3 +148,35 @@ describe("posponer excepciones del cockpit", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("recordatorios de documentos por vencer (Phase E)", () => {
+  it("un SOAT vencido aparece como excepción DOC_EXPIRY (severidad HIGH)", async () => {
+    const past = new Date(Date.now() - 5 * 86_400_000).toISOString();
+    const v = await api("POST", "/vehicles", tokenA, {
+      plate: "DOC1Z9",
+      type: "IONAX",
+      capacityKg: 600,
+      isElectric: true,
+      nominalRangeKm: 200,
+      soatExpiresAt: past,
+    });
+    expect(v.status).toBe(201);
+
+    const res = await api("GET", "/exceptions", tokenA);
+    const doc = res.body.items.find(
+      (i: { id: string }) => i.id === `doc-vehicle-soat-${v.body.id}`,
+    );
+    expect(doc).toBeTruthy();
+    expect(doc.type).toBe("DOC_EXPIRY");
+    expect(doc.severity).toBe("HIGH");
+    expect(doc.title).toContain("SOAT");
+  });
+
+  it("el recordatorio es por tenant: no aparece en otro tenant", async () => {
+    const res = await api("GET", "/exceptions", tokenB);
+    const any = res.body.items.some(
+      (i: { type: string }) => i.type === "DOC_EXPIRY",
+    );
+    expect(any).toBe(false);
+  });
+});

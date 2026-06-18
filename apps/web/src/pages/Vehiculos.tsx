@@ -67,10 +67,10 @@ function defaultsFor(type: VehicleType) {
 function docBadge(dateStr: string | null) {
   if (!dateStr) return <span className="text-navy/40">—</span>;
   const days = Math.floor((new Date(dateStr).getTime() - Date.now()) / 86400000);
-  if (days < 0) return <span className="font-medium text-red-600">Vencido</span>;
+  if (days < 0) return <span className="font-medium text-danger">Vencido</span>;
   if (days < 30)
-    return <span className="font-medium text-amber-600">{days} días</span>;
-  return <span className="text-emerald-600">Vigente</span>;
+    return <span className="font-medium text-warning">{days} días</span>;
+  return <span className="text-success">Vigente</span>;
 }
 
 export default function Vehiculos() {
@@ -81,6 +81,8 @@ export default function Vehiculos() {
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState<"ALL" | VehicleStatus>("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Depósito base del vehículo (multi-depot, D4 fast-follow).
+  const [depots, setDepots] = useState<{ id: string; name: string }[]>([]);
   const toast = useToast();
 
   // Estado del formulario, dirigido por la configuración seleccionada.
@@ -126,6 +128,9 @@ export default function Vehiculos() {
   }
   useEffect(() => {
     void load();
+    void api<{ id: string; name: string }[]>("GET", "/depots")
+      .then(setDepots)
+      .catch(() => {});
   }, []);
 
   async function patchVehicle(id: string, body: Record<string, unknown>) {
@@ -165,6 +170,7 @@ export default function Vehiculos() {
         isElectric: true,
         batteryKwh: batteryOption.batteryKwh,
         nominalRangeKm: batteryOption.rangeKm,
+        homeDepotId: data.get("homeDepotId") || undefined,
       });
       setShowForm(false);
       onTypeChange(VEHICLE_TYPES[0]); // reset
@@ -264,14 +270,14 @@ export default function Vehiculos() {
               </Field>
             )}
 
-            <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 sm:col-span-3">
+            <div className="rounded-lg bg-success-bg px-3 py-2 text-sm text-success sm:col-span-3">
               ⚡ Vehículo 100% eléctrico — exento de pico y placa (Ley 1964/2019).
               Autonomía nominal: <strong>{batteryOption.rangeKm} km</strong>.
             </div>
 
             {/* Cold Box: configuración de zona refrigerada (solo lectura). */}
             {profile.reefer && (
-              <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-3">
+              <div className="rounded-lg border border-sky/40 bg-sky-50 px-3 py-2 text-sm text-info sm:col-span-3">
                 ❄️ Caja refrigerada <strong>{profile.reefer.unit}</strong> —{" "}
                 {profile.reefer.tempMinC}°C a {profile.reefer.tempMaxC}°C. Perfiles
                 soportados: {profile.reefer.modes.join(", ")}.
@@ -279,10 +285,23 @@ export default function Vehiculos() {
             )}
 
             {isFlatbed && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:col-span-3">
+              <div className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-2 text-sm text-warning sm:col-span-3">
                 Plataforma abierta — se carga por peso y área (sin volumen
                 cerrado). Ideal para carga voluminosa o irregular.
               </div>
+            )}
+
+            {depots.length > 0 && (
+              <Field label="Depósito base (opcional)">
+                <select name="homeDepotId" className={inputClass} defaultValue="">
+                  <option value="">— Sin depósito —</option>
+                  {depots.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             )}
 
             <div className="sm:col-span-3">
@@ -326,6 +345,7 @@ export default function Vehiculos() {
           </Banner>
         ) : vehicles.length === 0 ? (
           <EmptyState
+            phrase="Potencia tu flota, reduce tus costos."
             action={
               <Button onClick={() => setShowForm(true)}>Nuevo vehículo</Button>
             }
@@ -375,7 +395,7 @@ export default function Vehiculos() {
                       </td>
                       <td>
                         {v.isElectric ? (
-                          <span className="text-emerald-600">
+                          <span className="text-success">
                             ⚡ {v.socPercent != null ? `${v.socPercent}% SoC` : "Sí"}
                             {v.nominalRangeKm ? ` · ${v.nominalRangeKm} km` : ""}
                           </span>
@@ -385,7 +405,7 @@ export default function Vehiculos() {
                       </td>
                       <td>
                         {p?.reefer ? (
-                          <span className="text-sky-700">
+                          <span className="text-info">
                             ❄️ {p.reefer.modes.join("/")}
                           </span>
                         ) : (

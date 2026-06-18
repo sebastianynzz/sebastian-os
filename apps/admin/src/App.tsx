@@ -20,7 +20,7 @@ function Shell() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-navy">
         <div className="border-b border-white/10 p-4">
           <div className="text-xl font-bold">
-            move<span className="text-lima">.</span>
+            <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
           </div>
           <div className="mt-1 text-xs text-cielo">Plataforma</div>
         </div>
