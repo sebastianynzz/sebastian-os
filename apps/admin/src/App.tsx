@@ -9,6 +9,39 @@ import Auditoria from "./pages/Auditoria";
 import Flywheel from "./pages/Flywheel";
 import Integraciones from "./pages/Integraciones";
 
+// Panel de plataforma (un solo operador, sin gating por rol/módulo): pocas
+// secciones, así que NO se usa una cascada colapsable como en el dashboard del
+// despachador — solo iconos + orden por prioridad, agrupado en tres niveles:
+//   1) Operación   — lo que se gestiona a diario (clientes + flota propia FaaS)
+//   2) Inteligencia — los tableros de medición (salud + moat de datos)
+//   3) Plataforma   — configuración y gobernanza (menos frecuente)
+const NAV_SECTIONS: {
+  label: string;
+  items: { to: string; label: string; icon: string }[];
+}[] = [
+  {
+    label: "Operación",
+    items: [
+      { to: "/tenants", label: "Tenants", icon: "🏢" },
+      { to: "/flota", label: "Flota en sitio", icon: "🔋" },
+    ],
+  },
+  {
+    label: "Inteligencia",
+    items: [
+      { to: "/metricas", label: "Métricas", icon: "📊" },
+      { to: "/flywheel", label: "Data flywheel", icon: "🔄" },
+    ],
+  },
+  {
+    label: "Plataforma",
+    items: [
+      { to: "/integraciones", label: "Integraciones", icon: "🔌" },
+      { to: "/auditoria", label: "Auditoría", icon: "🛡️" },
+    ],
+  },
+];
+
 function Shell() {
   const { admin, loading, logout } = useAuth();
 
@@ -24,26 +57,31 @@ function Shell() {
           </div>
           <div className="mt-1 text-xs text-cielo">Plataforma</div>
         </div>
-        <nav className="flex flex-col gap-1 p-2">
-          {[
-            { to: "/tenants", label: "Tenants" },
-            { to: "/flota", label: "Flota en sitio" },
-            { to: "/flywheel", label: "Data flywheel" },
-            { to: "/integraciones", label: "Integraciones" },
-            { to: "/metricas", label: "Métricas" },
-            { to: "/auditoria", label: "Auditoría" },
-          ].map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive ? "bg-lima text-navy" : "text-cielo hover:bg-white/10"
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
+        <nav aria-label="Secciones de la plataforma" className="flex flex-col gap-3 p-2">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label} className="flex flex-col gap-0.5">
+              <div className="px-3 pb-0.5 text-[11px] font-semibold uppercase tracking-wide text-cielo/60">
+                {section.label}
+              </div>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima ${
+                      isActive
+                        ? "bg-lima text-navy"
+                        : "text-cielo hover:bg-white/10 hover:text-white"
+                    }`
+                  }
+                >
+                  <span aria-hidden="true" className="text-base leading-none">
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="mt-auto border-t border-white/10 p-4 text-xs text-cielo">
