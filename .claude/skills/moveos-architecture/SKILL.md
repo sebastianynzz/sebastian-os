@@ -46,9 +46,11 @@ schemas/enums (`packages/shared`).
 
 - Spanish-first UI. Reuse `components/ui.tsx` (Card, PageHeader, Banner,
   Button, StatusBadge, inputClass, table classes) — don't restyle ad hoc.
-- New dashboard page = file in `apps/web/src/pages/` + route + `NAV_ITEMS`
-  entry in `App.tsx` (set `module:` key if gated). Staff home is
-  `/excepciones`.
+- New dashboard page = file in `apps/web/src/pages/` + route + an item inside
+  the right `NAV_GROUPS` bucket in `App.tsx` (the staff sidebar is an ordered,
+  collapsible cascade: Pedidos → Planificación → En vivo → Flota → Análisis →
+  Configuración). Set `module:` if gated, `roles:` if restricted; a group with
+  no visible items is hidden. Staff home is `/excepciones`.
 - Driver app is offline-first: ALL mutations go through `apiOrQueue`
   (queues network failures in localStorage, surfaces 4xx). Never use bare
   fetch for driver actions.
