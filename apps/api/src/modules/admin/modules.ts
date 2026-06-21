@@ -11,6 +11,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
+import { config } from "../../config.js";
 
 /** Administración de módulos del tenant: el corazón del modelo activable. */
 export default async function modulesRoutes(app: FastifyInstance) {
@@ -46,6 +47,20 @@ export default async function modulesRoutes(app: FastifyInstance) {
       }
 
       if (body.enabled) {
+        // Paywall (MO-06): en PRODUCCIÓN, activar un módulo de pago lo gestiona
+        // la plataforma (facturación), no el propio tenant — si no, un ADMIN se
+        // autoconcede módulos sin pagarlos. La plataforma los activa vía
+        // PATCH /platform/tenants/:id/modules/:key (requirePlatformAdmin). El
+        // tenant SÍ puede desactivar/bajar de plan. En dev/test se permite el
+        // autoservicio para no romper el flujo local ni la suite e2e.
+        if (config.isProd) {
+          return reply.code(403).send({
+            error:
+              "La activación de módulos de pago la gestiona MoveOS según tu plan. Escríbenos para habilitarlo.",
+            code: "MODULE_ENABLE_PLATFORM_ONLY",
+            moduleKey: params.key,
+          });
+        }
         // Habilitar arrastra sus dependencias (cascada): se prenden key + deps.
         const toEnable = modulesToEnableWith(params.key);
         await prisma.$transaction(

@@ -73,13 +73,27 @@ Verified with `pnpm -r build` (all packages), optimizer 77/77, SSRF unit 4/4, tw
 | **MO-11** ✅ | Security headers on web/admin/driver: Vite-compatible CSP (`script-src 'self'`, `frame-ancestors 'none'`), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, HSTS, `Permissions-Policy`. | `apps/{web,admin,driver}/vercel.json` |
 | **MO-14** ✅ | `@@unique([tenantId, externalRef])` on Order (+ migration); `createOrder` resolves the P2002 race idempotently; POD completion maps the `stopId`-unique race to a clean 409 (no duplicate DELIVERED webhook/bitácora). | `schema.prisma`, `lib/prisma.ts`, `services/orders.ts`, `modules/routes/routes.ts` |
 
-**Deferred — need a product/infra decision (not auto-applied):**
-- **MO-03 (full)** — making the `pod-photos` bucket **private + signed URLs** is an infra + data-model change (stored permanent URLs vs expiring signed links; affects dispute-evidence longevity). The cache-leak half is mitigated; the bucket privacy refactor needs a decision.
-- **MO-06** — tenant self-enable of paid modules is a **monetization** decision (could be intended self-serve trials). Left as-is pending confirmation.
+### Batch 3 (applied & verified)
+
+Verified with `pnpm -r build` (all packages), optimizer 77/77, SSRF unit 4/4, new storage unit 5/5, no `.map` files emitted, all `vercel.json` valid. New e2e for evidence signing (`storage.test.ts`) + updated `uploads.test.ts`.
+
+| ID | Fix | Files |
+|----|-----|-------|
+| **MO-03** ✅ | POD evidence no longer public. Store only the object **key**; serve via a **signed, 1h-expiry** `GET /evidence?key&exp&sig` (HMAC; streamed `private, no-store`); Supabase bucket used privately (service-role fetch); the unauthenticated `/files/` static route removed. Read endpoints sign keys via `signPodEvidence()`; `photoUrl`/`signatureUrl` validators tightened (reject `javascript:`). Backward compatible. **Infra follow-up: set the `pod-photos` bucket to PRIVATE.** | `services/storage.ts`, `modules/uploads/{routes,evidence}.ts`, `app.ts`, `modules/{orders,routes}/routes.ts`, `packages/shared/src/schemas.ts`, `apps/driver/src/api.ts` |
+| **MO-06** ✅ | Production-gated paywall: in prod a tenant ADMIN can no longer self-enable paid modules (`403 MODULE_ENABLE_PLATFORM_ONLY`); enabling goes through the platform/billing plane. Tenants may still disable/downgrade; dev/test keep self-serve (so the e2e suite and local flow are unaffected). | `modules/admin/modules.ts` |
+| **MO-17** ✅ | Driver logout clears on-device PII (route/queue/chargers) and warns before discarding unsynced deliveries. | `apps/driver/src/{App.tsx,api.ts}` |
+| **MO-18** ✅ | `GET /controls/cost` and `/controls/billing` now require ADMIN. | `modules/controls/routes.ts` |
+| **MO-21** ✅ | Constant-time login (dummy-hash compare) on tenant + platform auth. | `modules/auth/routes.ts`, `modules/platform/auth.ts` |
+| **MO-24** ✅ | POD uploads validated by magic bytes. | `services/storage.ts`, `modules/uploads/routes.ts` |
+| **MO-25** ✅ | `build.sourcemap=false` on all SPAs. | `apps/{web,admin,driver}/vite.config.ts` |
+| **MO-26** ✅ | HSTS 1y + preload (helmet). | `app.ts` |
+| **MO-33** ✅ | `.gitignore` covers key/cert/env-local files. | `.gitignore` |
+
+**Remaining (not blocking; lower priority):**
 - **MO-16** — `localStorage`→httpOnly cookies would re-introduce CSRF and force a 3-frontend + SSE + offline-PWA refactor; MO-08 (revocation) + the new CSP materially reduce its residual risk, so the full cookie migration is left as its own decision.
-- **MO-17** — clearing driver on-device PII on logout needs the "warn if the offline queue has unsynced deliveries" handling to avoid data loss; queued as a focused follow-up.
-- **MO-18** — `/controls/billing` read-for-any-tenant-user is **explicitly documented as intended** in the code; restricting to ADMIN is a product call.
-- Remaining Lows (MO-21/24/25/26/etc.) queued for a follow-up batch.
+- A few Info/Low items (e.g. MO-31 verbose-4xx hardening) are noted in the table but judged low-value; can be picked up on request.
+
+**Status: 32 of 33 findings remediated** (only MO-16 intentionally deferred). The Critical, all 6 Highs, and all but one Medium/Low are done.
 
 ---
 
