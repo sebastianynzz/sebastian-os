@@ -74,14 +74,16 @@ The 6 design/feature specs live in the repo at `docs/00_START_HERE.md` … `docs
 ## What's left
 
 **D3b — finish Services/SLA (start here):**
-1. `SLA_BREACH` in the Exceptions Cockpit — `apps/api/src/services/exceptions.ts`
-   already has `order.createdAt`; join the order's `service` and raise a breach
-   (or predicted breach) exception via the existing exception machinery.
-2. Per-client SLA report in analytics.
-3. **Controles › Servicios** CRUD page (web) + a service column/filter on Pedidos
-   (`Order.serviceId`); send `serviceId` on order create (single + portal).
-4. `services` e2e test (mirror `controlsPodPolicy.test.ts`); add an `slaDueAt`
-   unit test.
+1. ✅ DONE (`2a3b68d`) `SLA_BREACH` in the Exceptions Cockpit — undelivered orders
+   past their service deadline (HIGH) or due within 30 min (MEDIUM); test
+   `slaExceptions.test.ts`. Registered icon/label/snooze-prefix in web Excepciones.
+2. TODO — per-client SLA report in analytics.
+3. ✅ PARTLY DONE (`d777f30`) **Controles › Servicios** CRUD page (list/create/
+   activate/delete). STILL TODO: a **service `<select>` on the Pedidos create
+   form + a service column/filter** (`Order.serviceId`); send `serviceId` from the
+   portal create too.
+4. TODO — a fuller `services` CRUD e2e (role guards, 404s); `slaExceptions.test.ts`
+   already exercises create+order+SLA. Optional `slaDueAt` unit test.
 
 **D4 multi-depot · D5 delivery zones · D6 cost/failure analytics** (energy-native
 cost = routeHours×driverCostPerHour + kWh×tariff), then **Tier 2** (notification
