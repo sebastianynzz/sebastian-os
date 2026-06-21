@@ -168,6 +168,10 @@ model User {
   // varios usuarios (gerente + bodega), por eso no es @unique.
   client       Client? @relation(fields: [clientId], references: [id])
   clientId     String?
+  // Revocación de JWT: el token lleva esta versión; logout / reset de
+  // contraseña / cambio de rol la incrementan, invalidando los tokens viejos
+  // (≤12 h) sin esperar a que expiren ni meter estado de sesión en el servidor.
+  tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
   pushSubscriptions PushSubscription[]
   savedViews   SavedView[]

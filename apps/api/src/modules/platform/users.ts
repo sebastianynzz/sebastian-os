@@ -7,6 +7,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { auditPlatform } from "../../services/platformAudit.js";
+import { invalidateUserToken } from "../../services/userTokens.js";
 
 /**
  * Gestión del EQUIPO de un tenant desde el panel de plataforma (soporte de
@@ -115,6 +116,11 @@ export default async function platformTenantUsersRoutes(app: FastifyInstance) {
         .send({ error: "No se puede degradar al último ADMIN del tenant" });
     }
 
+    // Revocar los JWT vigentes del usuario si se le resetea la contraseña o se
+    // cambia su rol (un token viejo conservaría el rol/acceso anterior ≤12 h).
+    const revoke =
+      Boolean(input.newPassword) ||
+      (input.role !== undefined && input.role !== user.role);
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -123,9 +129,11 @@ export default async function platformTenantUsersRoutes(app: FastifyInstance) {
         ...(input.newPassword
           ? { passwordHash: await bcrypt.hash(input.newPassword, 10) }
           : {}),
+        ...(revoke ? { tokenVersion: { increment: 1 } } : {}),
       },
       select: { id: true, name: true, email: true, role: true },
     });
+    if (revoke) invalidateUserToken(userId);
     if (input.newPassword) {
       await auditPlatform(request, "USER_RESET_PASSWORD", {
         targetTenantId: id,
@@ -165,6 +173,9 @@ export default async function platformTenantUsersRoutes(app: FastifyInstance) {
         .send({ error: "No se puede eliminar al último ADMIN del tenant" });
     }
     await prisma.user.delete({ where: { id: userId } });
+    // El usuario ya no existe: limpiar la caché para que sus tokens dejen de
+    // validar de inmediato (getUserTokenVersion → null → 401) sin esperar al TTL.
+    invalidateUserToken(userId);
     await auditPlatform(request, "USER_DELETE", {
       targetTenantId: id,
       targetUserId: userId,

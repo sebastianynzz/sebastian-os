@@ -61,11 +61,25 @@ The following fixes were implemented on branch `claude/kind-goodall-fypvvw` and 
 | **MO-19** ✅ | Global `@fastify/multipart` limits (`fileSize` 8 MB, `files` 1, `fields` 20, `parts` 25). | `app.ts` |
 | **MO-23** ✅ | Deleted/missing tenant (`status === null`) now rejected with 401, not just `SUSPENDED`. | `plugins/auth.ts` |
 
+### Batch 2 (applied & verified)
+
+Verified with `pnpm -r build` (all packages), optimizer 77/77, SSRF unit 4/4, two new migrations matched to schema via `prisma migrate diff`, and a new logout/revocation e2e test (`apps/api/src/tests/logout.test.ts`, runs in CI). Frontend `vercel.json` headers validated as JSON.
+
+| ID | Fix | Files |
+|----|-----|-------|
+| **MO-08** ✅ | JWT revocation via `User.tokenVersion` (+ migration). Tokens carry `tv`; `verifyTenantToken` rejects mismatches (cached lookup like tenant-status). New `POST /auth/logout` bumps the version (real logout); platform reset/role-change bump it; user-delete invalidates the cache. Web + driver logout buttons now call it (impersonation sessions excluded so support logout never revokes the impersonated user). | `schema.prisma`, `services/userTokens.ts`, `plugins/auth.ts`, `modules/auth/routes.ts`, `modules/platform/users.ts`, `modules/platform/tenants.ts`, `types.d.ts`, `apps/web/src/{api.ts,auth.tsx}`, `apps/driver/src/App.tsx` |
+| **MO-09** ✅ | `POST /auth/register` rate-limited 5/min (anti tenant-spam). | `modules/auth/routes.ts` |
+| **MO-10** ✅ | `POST /addresses/validate` rate-limited 60/min keyed by session token (paid-geocoder cost cap). | `modules/addresses/routes.ts` |
+| **MO-11** ✅ | Security headers on web/admin/driver: Vite-compatible CSP (`script-src 'self'`, `frame-ancestors 'none'`), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, HSTS, `Permissions-Policy`. | `apps/{web,admin,driver}/vercel.json` |
+| **MO-14** ✅ | `@@unique([tenantId, externalRef])` on Order (+ migration); `createOrder` resolves the P2002 race idempotently; POD completion maps the `stopId`-unique race to a clean 409 (no duplicate DELIVERED webhook/bitácora). | `schema.prisma`, `lib/prisma.ts`, `services/orders.ts`, `modules/routes/routes.ts` |
+
 **Deferred — need a product/infra decision (not auto-applied):**
-- **MO-03 (full)** — making the `pod-photos` bucket **private + signed URLs** is an infra + data-model change (stored permanent URLs vs expiring signed links; affects dispute-evidence longevity). The cache-leak half is mitigated above; the bucket privacy refactor needs a decision.
+- **MO-03 (full)** — making the `pod-photos` bucket **private + signed URLs** is an infra + data-model change (stored permanent URLs vs expiring signed links; affects dispute-evidence longevity). The cache-leak half is mitigated; the bucket privacy refactor needs a decision.
 - **MO-06** — tenant self-enable of paid modules is a **monetization** decision (could be intended self-serve trials). Left as-is pending confirmation.
+- **MO-16** — `localStorage`→httpOnly cookies would re-introduce CSRF and force a 3-frontend + SSE + offline-PWA refactor; MO-08 (revocation) + the new CSP materially reduce its residual risk, so the full cookie migration is left as its own decision.
+- **MO-17** — clearing driver on-device PII on logout needs the "warn if the offline queue has unsynced deliveries" handling to avoid data loss; queued as a focused follow-up.
 - **MO-18** — `/controls/billing` read-for-any-tenant-user is **explicitly documented as intended** in the code; restricting to ADMIN is a product call.
-- **MO-08 / MO-16** (token revocation, `localStorage`→httpOnly), **MO-14** (idempotency unique constraint — needs a migration + dup-data check), **MO-09/10/11** and remaining Lows: queued for follow-up batches.
+- Remaining Lows (MO-21/24/25/26/etc.) queued for a follow-up batch.
 
 ---
 

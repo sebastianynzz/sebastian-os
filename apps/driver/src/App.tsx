@@ -625,7 +625,14 @@ export default function App() {
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
+              // Logout real: revoca los JWT en el servidor. Mejor esfuerzo —
+              // si el conductor está sin red, igual se limpia la sesión local.
+              try {
+                await api("POST", "/auth/logout");
+              } catch {
+                /* offline: limpiar localmente de todos modos */
+              }
               setToken(null);
               setAuthed(false);
             }}

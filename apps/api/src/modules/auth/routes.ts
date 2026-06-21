@@ -8,6 +8,7 @@ import {
   type UserRole,
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
+import { invalidateUserToken } from "../../services/userTokens.js";
 
 export default async function authRoutes(app: FastifyInstance) {
   /** Registro self-service de un tenant nuevo (onboarding SMB). */
@@ -58,6 +59,7 @@ export default async function authRoutes(app: FastifyInstance) {
       tenantId: tenant.id,
       role: "ADMIN",
       name: user.name,
+      tv: user.tokenVersion,
     });
     return reply.code(201).send({ token, tenant, user: publicUser(user) });
   });
@@ -99,6 +101,7 @@ export default async function authRoutes(app: FastifyInstance) {
       driverId: user.driverId ?? undefined,
       clientId: user.clientId ?? undefined,
       name: user.name,
+      tv: user.tokenVersion,
     });
     return {
       token,
@@ -106,6 +109,24 @@ export default async function authRoutes(app: FastifyInstance) {
       tenant: { id: user.tenant.id, name: user.tenant.name, city: user.tenant.city },
       modules: sessionModules(user.tenant.entitlements),
     };
+    },
+  );
+
+  /**
+   * Logout real: incrementa la versión de token del usuario, invalidando TODOS
+   * sus JWT vigentes (≤12 h) — no solo borrar el token en el cliente. Disponible
+   * para cualquier usuario del tenant, incluido el portal (CLIENT).
+   */
+  app.post(
+    "/logout",
+    { preHandler: [app.authenticateTenant] },
+    async (request) => {
+      await prisma.user.update({
+        where: { id: request.user.sub },
+        data: { tokenVersion: { increment: 1 } },
+      });
+      invalidateUserToken(request.user.sub);
+      return { ok: true };
     },
   );
 

@@ -10,6 +10,8 @@ interface TenantClaims {
   /** Portal de clientes: negocio cliente al que pertenece el usuario CLIENT. */
   clientId?: string;
   name: string;
+  /** Versión de token para revocación (logout / reset / cambio de rol). */
+  tv?: number;
   /** Consola de soporte: email del operador de plataforma que impersona. */
   impersonatedBy?: string;
 }

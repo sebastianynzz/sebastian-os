@@ -3,6 +3,7 @@ import fastifyJwt from "@fastify/jwt";
 import type { UserRole } from "@moveos/shared";
 import { config } from "../config.js";
 import { getTenantStatus } from "./tenantStatus.js";
+import { getUserTokenVersion } from "../services/userTokens.js";
 
 export async function registerAuth(app: FastifyInstance) {
   await app.register(fastifyJwt, {
@@ -33,13 +34,28 @@ export async function registerAuth(app: FastifyInstance) {
     }
     const claims = request.user as {
       typ?: string;
+      sub?: string;
       tenantId?: string;
       role?: string;
       clientId?: string;
+      tv?: number;
     };
     if (claims.typ === "platform" || !claims.tenantId) {
       await reply.code(401).send({ error: "Token no válido para esta ruta" });
       return null;
+    }
+    // Revocación: si el token trae versión (`tv`), debe coincidir con la del
+    // usuario. Tras logout / reset de contraseña / cambio de rol se incrementa,
+    // invalidando los JWT viejos sin esperar a su expiración. Usuario borrado →
+    // null → 401. Tokens legados sin `tv` se aceptan (expiran ≤12 h).
+    if (claims.tv !== undefined && claims.sub) {
+      const current = await getUserTokenVersion(claims.sub);
+      if (current === null || current !== claims.tv) {
+        await reply
+          .code(401)
+          .send({ error: "Sesión finalizada", code: "TOKEN_REVOKED" });
+        return null;
+      }
     }
     const status = await getTenantStatus(claims.tenantId);
     // `null` = el tenant ya no existe (borrado): un token emitido antes (≤12 h)

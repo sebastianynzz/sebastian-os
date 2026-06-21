@@ -21,6 +21,11 @@ export function setImpersonationToken(token: string): void {
   sessionStorage.setItem(IMPERSONATION_KEY, token);
 }
 
+/** ¿La sesión activa es de impersonación (consola de soporte)? */
+export function isImpersonating(): boolean {
+  return Boolean(sessionStorage.getItem(IMPERSONATION_KEY));
+}
+
 export function getToken(): string | null {
   return (
     sessionStorage.getItem(IMPERSONATION_KEY) ??
