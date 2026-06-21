@@ -28,6 +28,7 @@ import Excepciones from "./pages/Excepciones";
 import Direcciones from "./pages/Direcciones";
 import Copilot from "./pages/Copilot";
 import ControlesPod from "./pages/ControlesPod";
+import Servicios from "./pages/Servicios";
 import PortalResumen from "./pages/PortalResumen";
 import PortalPedidos from "./pages/PortalPedidos";
 import PortalNuevoEnvio from "./pages/PortalNuevoEnvio";
@@ -57,6 +58,8 @@ const NAV_ITEMS: {
   { to: "/seguridad", label: "Seguridad", module: "SAFETY" },
   { to: "/analitica", label: "Analítica", module: "ANALYTICS_PRO" },
   { to: "/sostenibilidad", label: "Sostenibilidad", module: "ANALYTICS_PRO" },
+  // Servicios (catálogo SLA + precio): configuración de tenant, solo ADMIN.
+  { to: "/controles/servicios", label: "Servicios", roles: ["ADMIN"] },
   // Prueba de entrega (POD por tipo): configuración de tenant, solo ADMIN.
   { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
   // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
@@ -216,6 +219,7 @@ export default function App() {
           <Route path="/sostenibilidad" element={<Sostenibilidad />} />
           <Route path="/modulos" element={<Modulos />} />
           <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
+          <Route path="/controles/servicios" element={<Servicios />} />
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
           <Route path="/portal/envios" element={<PortalPedidos />} />
