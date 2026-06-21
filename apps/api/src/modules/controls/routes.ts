@@ -63,7 +63,7 @@ export default async function controlsRoutes(app: FastifyInstance) {
    * hora y tarifa de energía (COP/kWh). Alimentan el costo por entrega en
    * analítica. En null se devuelven los valores por defecto compartidos.
    */
-  app.get("/cost", async (request) => {
+  app.get("/cost", { preHandler: [requireRole("ADMIN")] }, async (request) => {
     const tenant = await prisma.tenant.findUniqueOrThrow({
       where: { id: request.user.tenantId },
       select: { driverCostPerHourCop: true, energyTariffCop: true },
@@ -200,10 +200,10 @@ export default async function controlsRoutes(app: FastifyInstance) {
   /**
    * Facturación de la suscripción SaaS (Tier 3 §13): datos fiscales del tenant +
    * historial de facturas (las emite la plataforma). MoveOS NO procesa pagos en
-   * la app (sin COD): es una vista de cuenta. Lectura para cualquier usuario del
-   * tenant; el perfil lo edita ADMIN. Tenant-scoped.
+   * la app (sin COD): es una vista de cuenta. Lectura y edición restringidas a
+   * ADMIN (los datos fiscales/costos no se exponen a DISPATCHER). Tenant-scoped.
    */
-  app.get("/billing", async (request) => {
+  app.get("/billing", { preHandler: [requireRole("ADMIN")] }, async (request) => {
     const tenant = await prisma.tenant.findUniqueOrThrow({
       where: { id: request.user.tenantId },
       select: {

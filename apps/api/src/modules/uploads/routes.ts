@@ -3,6 +3,7 @@ import {
   buildPodKey,
   isAllowedImage,
   pickStorage,
+  sniffImageType,
 } from "../../services/storage.js";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB: foto de cámara comprimida
@@ -38,9 +39,18 @@ export default async function uploadsRoutes(app: FastifyInstance) {
           .send({ error: `Archivo demasiado grande (máx ${MAX_FILE_BYTES / 1024 / 1024} MB)` });
       }
 
+      // Validar por CONTENIDO (magic bytes), no solo por el Content-Type
+      // declarado: bloquea un HTML/SVG/polyglot etiquetado como image/*.
+      const realType = sniffImageType(buffer);
+      if (!realType || realType !== file.mimetype) {
+        return reply.code(415).send({
+          error: "El archivo no es una imagen JPEG/PNG/WebP válida.",
+        });
+      }
+
       const storage = pickStorage();
-      const key = buildPodKey(request.user.tenantId, file.mimetype);
-      const stored = await storage.save(buffer, file.mimetype, key);
+      const key = buildPodKey(request.user.tenantId, realType);
+      const stored = await storage.save(buffer, realType, key);
       return reply.code(201).send({ url: stored.url, storage: storage.name });
     },
   );

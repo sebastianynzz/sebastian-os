@@ -9,6 +9,7 @@ import {
 import {
   api,
   apiOrQueue,
+  clearDriverData,
   compressImage,
   flushQueue,
   getToken,
@@ -626,6 +627,16 @@ export default function App() {
           </button>
           <button
             onClick={async () => {
+              // Avisar si hay entregas sin sincronizar: el logout borra la cola.
+              const pending = queueSize();
+              if (
+                pending > 0 &&
+                !window.confirm(
+                  `Tienes ${pending} ${pending === 1 ? "entrega" : "entregas"} sin sincronizar que se perderán al cerrar sesión. ¿Continuar?`,
+                )
+              ) {
+                return;
+              }
               // Logout real: revoca los JWT en el servidor. Mejor esfuerzo —
               // si el conductor está sin red, igual se limpia la sesión local.
               try {
@@ -634,6 +645,8 @@ export default function App() {
                 /* offline: limpiar localmente de todos modos */
               }
               setToken(null);
+              // Borra PII local (ruta, cola, cargadores) — dispositivo compartido.
+              clearDriverData();
               setAuthed(false);
             }}
             className="text-xs underline opacity-80"

@@ -62,7 +62,10 @@ export async function buildApp() {
     trustProxy: true,
   });
 
-  await app.register(helmet);
+  // Cabeceras de seguridad (helmet por defecto) + HSTS a 1 año con preload.
+  await app.register(helmet, {
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  });
   // CORS restringido a orígenes conocidos (allowlist por entorno).
   await app.register(cors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,

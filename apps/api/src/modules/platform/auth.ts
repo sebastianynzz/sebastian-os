@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 import { loginSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 
+// Hash señuelo: comparar siempre evita enumerar operadores por tiempo de respuesta.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("moveos-dummy-timing-guard", 10);
+
 /** Autenticación del operador de plataforma (plano separado de los tenants). */
 export default async function platformAuthRoutes(app: FastifyInstance) {
   app.post(
@@ -13,7 +16,11 @@ export default async function platformAuthRoutes(app: FastifyInstance) {
       const admin = await prisma.platformAdmin.findUnique({
         where: { email: input.email },
       });
-      if (!admin || !(await bcrypt.compare(input.password, admin.passwordHash))) {
+      const passwordOk = await bcrypt.compare(
+        input.password,
+        admin?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      );
+      if (!admin || !passwordOk) {
         return reply.code(401).send({ error: "Credenciales inválidas" });
       }
       const token = app.jwt.sign({

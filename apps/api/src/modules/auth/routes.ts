@@ -10,6 +10,11 @@ import {
 import { prisma } from "../../lib/prisma.js";
 import { invalidateUserToken } from "../../services/userTokens.js";
 
+// Hash señuelo para igualar el trabajo de bcrypt cuando el email no existe:
+// sin esto, un email inexistente responde más rápido (no se hashea) y permite
+// enumerar usuarios por tiempo. Se compara siempre contra un hash real.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("moveos-dummy-timing-guard", 10);
+
 export default async function authRoutes(app: FastifyInstance) {
   /** Registro self-service de un tenant nuevo (onboarding SMB). */
   app.post(
@@ -76,7 +81,13 @@ export default async function authRoutes(app: FastifyInstance) {
       where: { email: input.email },
       include: { tenant: { include: { entitlements: true } } },
     });
-    if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
+    // Compara SIEMPRE (contra un hash señuelo si el usuario no existe) para que
+    // el tiempo de respuesta no revele si el email está registrado.
+    const passwordOk = await bcrypt.compare(
+      input.password,
+      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+    );
+    if (!user || !passwordOk) {
       // Registro de seguridad (A09): deja rastro de intentos fallidos para
       // alertar sobre fuerza bruta / credential-stuffing. Nunca la contraseña.
       request.log.warn(

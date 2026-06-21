@@ -96,6 +96,18 @@ function writeQueue(queue: QueuedAction[]) {
 }
 
 /**
+ * Borra del dispositivo TODOS los datos locales sensibles del conductor (ruta
+ * con nombres/direcciones, cola offline con cuerpos de entrega, cargadores). Se
+ * llama en el logout: en un dispositivo compartido, el siguiente turno no debe
+ * poder leer la PII del anterior. NO incluye el token (lo maneja setToken).
+ */
+export function clearDriverData(): void {
+  localStorage.removeItem(QUEUE_KEY);
+  localStorage.removeItem("moveos_driver_route");
+  localStorage.removeItem("moveos_driver_chargers");
+}
+
+/**
  * Modo offline-first para zonas sin señal: si la petición falla por RED se
  * encola en localStorage (persiste entre cierres) y se reintenta con backoff.
  * Los errores de negocio (4xx) en vivo se propagan de inmediato. `ephemeral`
