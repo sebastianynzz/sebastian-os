@@ -7,7 +7,7 @@ import {
   resolvePodReq,
   type PodPolicyConfig,
 } from "@moveos/shared";
-import { prisma } from "../../lib/prisma.js";
+import { prisma, isUniqueViolation } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
@@ -515,34 +515,46 @@ export default async function routesRoutes(app: FastifyInstance) {
         GEOFENCE_RADIUS_KM;
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.routeStop.update({
-        where: { id: stopId },
-        data: {
-          status: "COMPLETED",
-          completedAt: now,
-          pod: {
-            create: {
-              types: input.types,
-              deliveryType: isPickup ? input.pickupType : input.deliveryType,
-              photoUrl: input.photoUrl,
-              signatureUrl: input.signatureUrl,
-              receivedBy: input.receivedBy,
-              notes: input.notes,
-              lat: input.lat,
-              lng: input.lng,
-              geofenceOk,
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.routeStop.update({
+          where: { id: stopId },
+          data: {
+            status: "COMPLETED",
+            completedAt: now,
+            pod: {
+              create: {
+                types: input.types,
+                deliveryType: isPickup ? input.pickupType : input.deliveryType,
+                photoUrl: input.photoUrl,
+                signatureUrl: input.signatureUrl,
+                receivedBy: input.receivedBy,
+                notes: input.notes,
+                lat: input.lat,
+                lng: input.lng,
+                geofenceOk,
+              },
             },
           },
-        },
+        });
+        await tx.order.update({
+          where: { id: order.id },
+          data: isPickup
+            ? { pickedUpAt: now }
+            : { status: "DELIVERED", deliveredAt: now },
+        });
       });
-      await tx.order.update({
-        where: { id: order.id },
-        data: isPickup
-          ? { pickedUpAt: now }
-          : { status: "DELIVERED", deliveredAt: now },
-      });
-    });
+    } catch (err) {
+      // Carrera: dos confirmaciones concurrentes de la MISMA parada (p. ej. un
+      // doble flush de la cola offline). La unicidad de POD por parada
+      // (ProofOfDelivery.stopId @unique) hace fallar a la perdedora aquí; se
+      // trata como "ya completada" (idempotente) en vez de devolver un 500, y
+      // los efectos posteriores (webhook DELIVERED, bitácora) NO se duplican.
+      if (isUniqueViolation(err)) {
+        return reply.code(409).send({ error: "Parada ya completada" });
+      }
+      throw err;
+    }
 
     if (isPickup) {
       await logOrderEvent(order.id, "PICKED_UP", "Paquete recogido en origen");

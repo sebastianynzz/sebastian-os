@@ -372,6 +372,11 @@ model Order {
   scanEvents ScanEvent[]
 
   @@unique([tenantId, trackingNumber])
+  // Idempotencia a nivel de BD para ingesta/import: dos reintentos concurrentes
+  // con el mismo externalRef no pueden crear pedidos duplicados (carrera TOCTOU).
+  // Postgres trata los NULL como distintos, así que los pedidos manuales (sin
+  // externalRef) no se ven afectados.
+  @@unique([tenantId, externalRef])
   @@index([tenantId, status])
 }
 

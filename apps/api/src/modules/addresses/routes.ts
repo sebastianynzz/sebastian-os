@@ -60,7 +60,21 @@ export default async function addressesRoutes(app: FastifyInstance) {
    * Validación previa de una dirección (sin crear pedido): geocodifica y
    * devuelve fuente + confianza para que la UI avise "dirección ambigua".
    */
-  app.post("/validate", async (request) => {
+  app.post(
+    "/validate",
+    {
+      // Endpoint que llama al geocodificador de pago (LUPAP/Google) en cada
+      // string nuevo: acotar para evitar amplificación de costo (DoS financiero).
+      // Se acota por sesión (token) — más justo que por IP compartida.
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: "1 minute",
+          keyGenerator: (req) => req.headers.authorization ?? req.ip,
+        },
+      },
+    },
+    async (request) => {
     const body = z
       .object({ addressRaw: z.string().min(5), city: z.string().optional() })
       .parse(request.body);

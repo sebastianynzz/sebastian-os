@@ -11,7 +11,14 @@ import { prisma } from "../../lib/prisma.js";
 
 export default async function authRoutes(app: FastifyInstance) {
   /** Registro self-service de un tenant nuevo (onboarding SMB). */
-  app.post("/register", async (request, reply) => {
+  app.post(
+    "/register",
+    {
+      // Anti-abuso: el registro crea Tenant + entitlements + usuario ADMIN en
+      // cada llamada. Sin tope, es un vector de spam de tenants / bloat de BD.
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
     const input = registerTenantSchema.parse(request.body);
 
     const existing = await prisma.user.findUnique({
