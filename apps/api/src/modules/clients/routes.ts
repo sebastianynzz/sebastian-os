@@ -9,6 +9,7 @@ import {
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { sendTestNotification } from "../../services/notifications.js";
+import { safeFetch, BlockedUrlError } from "../../lib/safeFetch.js";
 
 /**
  * Negocios cliente del tenant (modelo B2B): las tiendas/distribuidores que
@@ -132,30 +133,35 @@ export default async function clientsRoutes(app: FastifyInstance) {
         .object({ webhookUrl: z.string().url() })
         .parse(request.body);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
       try {
-        const res = await fetch(webhookUrl, {
+        // safeFetch rechaza URLs hacia la red interna (anti-SSRF) y añade timeout:
+        // sin esto, el operador podría sondear metadatos del cloud / servicios
+        // internos viendo el `status` que devolvemos.
+        const res = await safeFetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          timeoutMs: 5000,
           body: JSON.stringify({
             event: "test",
             message: "Webhook de prueba de MoveOS",
             sentAt: new Date().toISOString(),
           }),
-          signal: controller.signal,
         });
         return reply.send({ ok: res.ok, status: res.status });
       } catch (err) {
+        if (err instanceof BlockedUrlError) {
+          return reply.code(400).send({
+            ok: false,
+            error: "La URL no es válida o apunta a una red interna no permitida",
+          });
+        }
         return reply.send({
           ok: false,
           error:
-            err instanceof Error && err.name === "AbortError"
+            err instanceof Error && err.name === "TimeoutError"
               ? "La URL no respondió en 5 s"
               : "No se pudo conectar con la URL",
         });
-      } finally {
-        clearTimeout(timeout);
       }
     },
   );

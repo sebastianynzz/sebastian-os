@@ -44,6 +44,31 @@ Net effect: the highest-yield issues are **not** RLS policies (there are none) b
 
 ---
 
+## 1.5 Remediation log — Batch 1 (applied & verified)
+
+The following fixes were implemented on branch `claude/kind-goodall-fypvvw` and verified with `pnpm -r build` (strict tsc + vite, all packages green), the optimizer unit suite (77/77), a new SSRF unit suite (`apps/api/src/tests/safeFetch.test.ts`, 4/4), and `pnpm audit --prod` → **"No known vulnerabilities found."** The full API e2e suite runs in CI (fresh Postgres) — no local DB was available here.
+
+| ID | Fix | Files |
+|----|-----|-------|
+| **MO-01** ✅ | Bumped `@fastify/jwt` `^9`→`^10` (pulls patched `fast-jwt@6.2.4`); pinned `verify.algorithms: ["HS256"]`; hardened `config.ts` so an empty/blank `JWT_SECRET` can never reach the signer. | `apps/api/package.json`, `plugins/auth.ts`, `config.ts`, `pnpm-lock.yaml` |
+| **MO-02** ✅ | New `lib/safeFetch.ts` SSRF guard (blocks loopback/private/link-local/CGNAT/metadata + non-http(s) + redirects); applied to all three tenant-controlled outbound sinks. Loopback allowed only under `NODE_ENV==="test"` for the mock-server harness. | `lib/safeFetch.ts`, `services/webhooks.ts`, `services/notifications.ts`, `modules/clients/routes.ts` |
+| **MO-04** ✅ | `trustProxy: true` so the rate limiter & logs key on the real client IP behind Render's edge. | `app.ts` |
+| **MO-05** ✅ | Per-route rate limit on `/ingest/orders[/:source]` (60/min) **keyed by API key**, not IP. | `modules/ingest/routes.ts` |
+| **MO-07** ✅ | CI gate `pnpm audit --prod --audit-level=high`; added `.github/dependabot.yml` (npm + actions, weekly). | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
+| **MO-12** ✅ | Failed logins now logged (`auth.login_failed`, email+IP, never the password). | `modules/auth/routes.ts` |
+| **MO-13** ✅ | Webhook delivery failures logged instead of silently swallowed. | `services/webhooks.ts` |
+| **MO-15 / MO-20 / MO-03 (partial)** ✅ | Global `onSend` default `Cache-Control: no-store` for API responses (covers public tracking PII/GPS and back-button); explicit `private, no-store` on the `/files/` POD route. | `app.ts` |
+| **MO-19** ✅ | Global `@fastify/multipart` limits (`fileSize` 8 MB, `files` 1, `fields` 20, `parts` 25). | `app.ts` |
+| **MO-23** ✅ | Deleted/missing tenant (`status === null`) now rejected with 401, not just `SUSPENDED`. | `plugins/auth.ts` |
+
+**Deferred — need a product/infra decision (not auto-applied):**
+- **MO-03 (full)** — making the `pod-photos` bucket **private + signed URLs** is an infra + data-model change (stored permanent URLs vs expiring signed links; affects dispute-evidence longevity). The cache-leak half is mitigated above; the bucket privacy refactor needs a decision.
+- **MO-06** — tenant self-enable of paid modules is a **monetization** decision (could be intended self-serve trials). Left as-is pending confirmation.
+- **MO-18** — `/controls/billing` read-for-any-tenant-user is **explicitly documented as intended** in the code; restricting to ADMIN is a product call.
+- **MO-08 / MO-16** (token revocation, `localStorage`→httpOnly), **MO-14** (idempotency unique constraint — needs a migration + dup-data check), **MO-09/10/11** and remaining Lows: queued for follow-up batches.
+
+---
+
 ## 2. Findings table
 
 | ID | Title | Severity | Status | Location |

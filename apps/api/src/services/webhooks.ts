@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import type { NotificationEvent } from "@moveos/shared";
 import { prisma } from "../lib/prisma.js";
+import { safeFetch } from "../lib/safeFetch.js";
 
 /**
  * Entrega de webhooks de la plataforma de desarrolladores (Tier 2 §8). En cada
@@ -35,7 +36,8 @@ export async function deliverWebhook(
   });
   const signature = signWebhook(webhook.secret, body);
   try {
-    const res = await fetch(webhook.url, {
+    // safeFetch bloquea destinos internos (anti-SSRF) además del timeout.
+    const res = await safeFetch(webhook.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -43,13 +45,18 @@ export async function deliverWebhook(
         "x-moveos-signature": signature,
       },
       body,
-      signal: AbortSignal.timeout(5000),
+      timeoutMs: 5000,
     });
     await prisma.webhook
       .update({ where: { id: webhook.id }, data: { lastStatus: res.status, lastDeliveredAt: new Date() } })
       .catch(() => {});
     return { ok: res.ok, status: res.status };
-  } catch {
+  } catch (err) {
+    // No silenciar el fallo: deja rastro para alertar (A09) sin filtrar el secreto.
+    console.warn(
+      `[webhook ${webhook.id}] entrega fallida → ${webhook.url}:`,
+      err instanceof Error ? err.message : err,
+    );
     await prisma.webhook
       .update({ where: { id: webhook.id }, data: { lastStatus: 0, lastDeliveredAt: new Date() } })
       .catch(() => {});

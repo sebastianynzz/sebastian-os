@@ -68,6 +68,12 @@ export default async function authRoutes(app: FastifyInstance) {
       include: { tenant: { include: { entitlements: true } } },
     });
     if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
+      // Registro de seguridad (A09): deja rastro de intentos fallidos para
+      // alertar sobre fuerza bruta / credential-stuffing. Nunca la contraseña.
+      request.log.warn(
+        { event: "auth.login_failed", email: input.email, ip: request.ip },
+        "intento de inicio de sesión fallido",
+      );
       return reply.code(401).send({ error: "Credenciales inválidas" });
     }
     // Bloquear acceso a tenants suspendidos (el include ya está cargado).

@@ -8,6 +8,9 @@ export async function registerAuth(app: FastifyInstance) {
   await app.register(fastifyJwt, {
     secret: config.jwtSecret,
     sign: { expiresIn: "12h" }, // jornada operativa; sin tokens eternos
+    // Fija el algoritmo a HS256 (secreto simétrico): rechaza alg:none y la
+    // confusión de algoritmo RS256→HS256. Defensa en profundidad.
+    verify: { algorithms: ["HS256"] },
   });
 
   /**
@@ -39,6 +42,12 @@ export async function registerAuth(app: FastifyInstance) {
       return null;
     }
     const status = await getTenantStatus(claims.tenantId);
+    // `null` = el tenant ya no existe (borrado): un token emitido antes (≤12 h)
+    // no debe seguir autenticando. Se bloquea igual que un tenant suspendido.
+    if (status === null) {
+      await reply.code(401).send({ error: "Token no válido para esta ruta" });
+      return null;
+    }
     if (status === "SUSPENDED") {
       await reply.code(403).send({
         error: "Cuenta suspendida. Contacte al administrador de la plataforma.",

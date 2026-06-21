@@ -1,7 +1,11 @@
 const DEV_JWT_SECRET = "dev-secret-cambiar-en-produccion";
 const isProd = process.env.NODE_ENV === "production";
 
-const jwtSecret = process.env.JWT_SECRET ?? DEV_JWT_SECRET;
+// Un JWT_SECRET vacío o en blanco haría que se firme/verifique con secreto
+// vacío (clase de bypass de HMAC en algunas versiones de fast-jwt): tratar
+// "" / espacios como "no definido" para nunca pasar un secreto vacío al firmador.
+const envSecret = process.env.JWT_SECRET?.trim();
+const jwtSecret = envSecret && envSecret.length > 0 ? envSecret : DEV_JWT_SECRET;
 
 // Falla en arranque si producción no define un secreto fuerte: nunca correr
 // en producción con el secreto de desarrollo.

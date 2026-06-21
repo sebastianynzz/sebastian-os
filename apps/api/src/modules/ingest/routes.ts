@@ -18,13 +18,30 @@ declare module "fastify" {
   }
 }
 
+/** Extrae la API key cruda de la cabecera (Bearer o x-api-key). */
+function rawApiKey(request: FastifyRequest): string | undefined {
+  const auth = request.headers.authorization;
+  return auth?.startsWith("Bearer ")
+    ? auth.slice(7)
+    : (request.headers["x-api-key"] as string | undefined);
+}
+
+/**
+ * Límite por ruta para la ingesta de pedidos, acotado POR API KEY (no por IP):
+ * una key filtrada o abusiva no puede inundar la creación de pedidos (escrituras
+ * a BD + cascada de geocodificación + fan-out de webhooks) más allá de este
+ * tope. Cae al IP si no hay key (esos casos los rechaza 401 igual).
+ */
+const ingestRateLimit = {
+  max: 60,
+  timeWindow: "1 minute",
+  keyGenerator: (request: FastifyRequest) => rawApiKey(request) ?? request.ip,
+};
+
 /** preHandler que exige una API key válida con el scope dado. */
 function requireApiScope(scope: ApiKeyScope) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
-    const auth = request.headers.authorization;
-    const raw = auth?.startsWith("Bearer ")
-      ? auth.slice(7)
-      : (request.headers["x-api-key"] as string | undefined);
+    const raw = rawApiKey(request);
     if (!raw) return reply.code(401).send({ error: "Falta API key" });
     const key = await verifyApiKey(raw);
     if (!key) return reply.code(401).send({ error: "API key inválida" });
@@ -38,7 +55,10 @@ function requireApiScope(scope: ApiKeyScope) {
 export default async function ingestRoutes(app: FastifyInstance) {
   app.post(
     "/orders",
-    { preHandler: [requireApiScope("orders:write")] },
+    {
+      config: { rateLimit: ingestRateLimit },
+      preHandler: [requireApiScope("orders:write")],
+    },
     async (request, reply) => {
       const input = createOrderSchema.parse(request.body);
       const order = await createOrder(request.apiAuth!.tenantId, input);
@@ -59,7 +79,10 @@ export default async function ingestRoutes(app: FastifyInstance) {
    */
   app.post(
     "/orders/:source",
-    { preHandler: [requireApiScope("orders:write")] },
+    {
+      config: { rateLimit: ingestRateLimit },
+      preHandler: [requireApiScope("orders:write")],
+    },
     async (request, reply) => {
       const { source } = z
         .object({ source: z.enum(CONNECTOR_SOURCES) })

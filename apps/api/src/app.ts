@@ -57,6 +57,9 @@ export async function buildApp() {
       transport: undefined,
       level: process.env.LOG_LEVEL ?? "info",
     },
+    // Detrás del edge de Render: usar X-Forwarded-For como IP real del cliente,
+    // para que el rate-limit (y los logs) identifiquen al cliente y no al proxy.
+    trustProxy: true,
   });
 
   await app.register(helmet);
@@ -70,15 +73,32 @@ export async function buildApp() {
     max: 300,
     timeWindow: "1 minute",
   });
-  await app.register(multipart);
+  // Topes globales de multipart (DoS): cualquier consumidor multipart hereda
+  // estos límites; las rutas que necesiten otro tope lo fijan aparte.
+  await app.register(multipart, {
+    limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 20, parts: 25 },
+  });
   // Evidencias subidas en desarrollo (en producción las sirve Supabase Storage).
+  // Son fotos de POD (PII): nunca cachear en una caché compartida.
   mkdirSync(UPLOADS_DIR, { recursive: true });
   await app.register(fastifyStatic, {
     root: UPLOADS_DIR,
     prefix: "/files/",
     decorateReply: false,
+    setHeaders: (res) => res.setHeader("Cache-Control", "private, no-store"),
   });
   await registerAuth(app);
+
+  // Por defecto, ninguna respuesta de la API es cacheable por una caché
+  // compartida o el navegador (datos por-tenant / PII / token-keyed). Las rutas
+  // que sí deban cachear algo fijan su propio Cache-Control y este hook lo
+  // respeta. Cubre el rastreo público (PII + GPS) y evita el back-button leak.
+  app.addHook("onSend", async (_request, reply, payload) => {
+    if (!reply.hasHeader("cache-control")) {
+      reply.header("Cache-Control", "no-store");
+    }
+    return payload;
+  });
 
   // Los clientes de navegador envían Content-Type: application/json incluso en
   // POSTs sin cuerpo (p. ej. /routes/:id/start): tratar cuerpo vacío como {}.
