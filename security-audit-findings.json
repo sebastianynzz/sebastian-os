@@ -1,0 +1,374 @@
+{
+  "audit": "MoveOS Full Security Audit",
+  "date": "2026-06-21",
+  "repo": "/home/user/move-os",
+  "branch": "claude/kind-goodall-fypvvw",
+  "live_url": "https://moveyow.com",
+  "owasp_reference": "OWASP Top 10:2025",
+  "method": "Read-only static analysis via 7 parallel domain subagents; no fixes applied; no production probing.",
+  "stack_actual": {
+    "api": "Fastify + Prisma + PostgreSQL (no Postgres RLS; tenant isolation enforced in application code)",
+    "auth": "Custom JWT via @fastify/jwt (HS256), Bearer tokens in localStorage, no cookies",
+    "frontends": "Vite + React SPAs (apps/web, apps/admin, apps/driver) on Vercel/Cloudflare Pages",
+    "api_host": "Render",
+    "storage": "Supabase Storage bucket pod-photos (public-read per docs/DEPLOYMENT.md)"
+  },
+  "summary": { "critical": 1, "high": 6, "medium": 12, "low": 14, "info_clean": 14, "total_actionable": 33 },
+  "findings": [
+    {
+      "id": "MO-01",
+      "title": "Vulnerable fast-jwt in production JWT authentication path",
+      "severity": "Critical",
+      "status": "Confirmed",
+      "location": "apps/api/package.json:22 -> fast-jwt@5.0.6 (pnpm-lock.yaml:1551); used by apps/api/src/plugins/auth.ts:8",
+      "evidence": "pnpm audit --prod returns 6 advisories, all fast-jwt (3 critical/1 high/2 moderate): empty-HMAC-secret JWT bypass (fix >=6.2.4), RS256->HS256 algorithm confusion (incomplete CVE-2023-48223 fix, >=6.2.0), cacheKeyBuilder cache confusion, crit-header bypass CVE-2026-35042, 2x ReDoS. @fastify/jwt ^9 pulls the vulnerable line.",
+      "remediation": "Bump @fastify/jwt to ^10.1.0 (patched fast-jwt >=6.2.4); validate v9->v10 against registerAuth; assert non-empty JWT_SECRET at boot in config.ts; re-run pnpm audit --prod.",
+      "owasp_2025": "A03 Software Supply Chain Failures"
+    },
+    {
+      "id": "MO-02",
+      "title": "SSRF via tenant-controlled outbound URLs (3 sinks, one a response oracle)",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/clients/routes.ts:131-148; apps/api/src/services/webhooks.ts:38 (+modules/developer/routes.ts:34-40,63-75); apps/api/src/services/notifications.ts:87",
+      "evidence": "z.string().url() accepts any scheme/host. /clients/test-webhook fetches an arbitrary URL and returns {ok,status} (internal-network/metadata oracle). Developer webhooks and per-client webhookUrl are stored SSRF delivered on events and via /test endpoints; lastStatus persisted. No private-CIDR/metadata block, no scheme allowlist, no DNS-rebind protection.",
+      "remediation": "Centralized safeFetch(): restrict scheme to http(s), resolve host and reject loopback/private/link-local/CGNAT/metadata ranges and *.internal, redirect:'error', pin resolved IP. Validate at write-time (Zod refine) and delivery-time.",
+      "owasp_2025": "A01 Broken Access Control (SSRF)"
+    },
+    {
+      "id": "MO-03",
+      "title": "POD delivery evidence (PII) served from public Supabase bucket / unauthenticated /files/",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": "apps/api/src/services/storage.ts:82; docs/DEPLOYMENT.md:27-28; apps/api/src/app.ts:76-80",
+      "evidence": "storage.ts returns .../object/public/${bucket}/${key}; bucket pod-photos documented public-read. Dev /files/ static route has no auth and no Cache-Control. Keys are 96-bit random (not enumerable) but protection rests entirely on URL secrecy; public objects are freely CDN-cacheable with no revocation; cross-tenant on leak. POD = PII / B2B dispute evidence.",
+      "remediation": "Make pod-photos private; serve via short-TTL signed URLs (Cache-Control: private) or an authenticated tenant-scoped streaming endpoint (verify route.tenantId === req.user.tenantId). Add auth + no-store to dev /files/ or do not register it when internet-exposed.",
+      "owasp_2025": "A01 Broken Access Control / A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-04",
+      "title": "Global rate limiter is per-instance in-memory and not proxy-aware (no trustProxy)",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts:55-72",
+      "evidence": "Fastify constructor sets no trustProxy; @fastify/rate-limit {global:true,max:300,timeWindow:'1 minute'} with no Redis store and no keyGenerator (default key request.ip). Counters reset/multiply across Render instances; request.ip is the edge socket IP behind the proxy, collapsing clients or hiding the real client. Per-route caps inherit the weakness.",
+      "remediation": "Set trustProxy:true (or hop count); back rate-limit with a shared Redis store; add a keyGenerator factoring tenant/API-key on authenticated routes.",
+      "owasp_2025": "A04 Insecure Design (anti-automation/abuse)"
+    },
+    {
+      "id": "MO-05",
+      "title": "Ingest order-creation endpoints have no per-route rate limit",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/ingest/routes.ts:38-77",
+      "evidence": "POST /ingest/orders and /ingest/orders/:source carry only requireApiScope('orders:write') with no config.rateLimit; they call createOrder (DB writes + geocoding cascade + webhook fan-out). Bounded only by the soft global 300/min (unreliable per MO-04). No per-key quota.",
+      "remediation": "Add a tighter per-route rateLimit keyed by API key; enforce a per-tenant/per-key daily order quota tied to the plan.",
+      "owasp_2025": "A04 Insecure Design / Abuse"
+    },
+    {
+      "id": "MO-06",
+      "title": "Tenant ADMIN can self-enable paid modules (paywall/entitlement bypass)",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/admin/modules.ts:31-89; packages/shared/src/modules.ts:57-125",
+      "evidence": "Tenant-plane PATCH /modules/:key does moduleEntitlement.upsert(...enabled:true...) blocking only CORE_MODULE_KEYS. Paid modules (TELEMATICS, SAFETY, ANALYTICS_PRO, AI_ADDONS, CUSTOMER_EXPERIENCE_PRO, COMPLIANCE_RNDC, COLD_CHAIN; core:false) can be enabled by a customer admin with no billing/platform check. A platform-admin override exists in parallel, indicating self-enable is unintended.",
+      "remediation": "Remove enable-side self-service from the tenant plane (allow disable/downgrade only, or enable only plan-included modules); route enable through the platform/billing plane.",
+      "owasp_2025": "A01 Broken Access Control (function-level/business-logic)"
+    },
+    {
+      "id": "MO-07",
+      "title": "No dependency/SCA gate in CI; no Dependabot/Renovate",
+      "severity": "High",
+      "status": "Confirmed",
+      "location": ".github/workflows/ci.yml; missing .github/dependabot.yml",
+      "evidence": "CI runs install/generate/migrate/build/test with no pnpm audit, SCA, or secret scan. No dependabot.yml/renovate.json. Root cause that MO-01's critical chain shipped unnoticed.",
+      "remediation": "Add CI step pnpm audit --prod --audit-level=high (fail on prod high/critical); add .github/dependabot.yml for npm/pnpm (weekly, grouped).",
+      "owasp_2025": "A03 Software Supply Chain Failures"
+    },
+    {
+      "id": "MO-08",
+      "title": "Stateless JWT cannot be revoked (logout/reset/delete do not invalidate live tokens)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/plugins/auth.ts:8-11; apps/api/src/modules/platform/users.ts:118-135,167",
+      "evidence": "Tokens signed {expiresIn:'12h'} with no tokenVersion/jti. No /logout endpoint; frontend logout clears localStorage only. Code documents that reset/delete does not revoke existing JWTs (<=12h). Tenant suspension is re-checked live, but identity/role/password changes are not.",
+      "remediation": "Add a tokenVersion/passwordChangedAt claim compared in verifyTenantToken/requirePlatformAdmin (bump = real logout), or a short jti denylist with TTL=remaining exp.",
+      "owasp_2025": "A07 Authentication Failures"
+    },
+    {
+      "id": "MO-09",
+      "title": "Self-service /auth/register: no rate limit/CAPTCHA, unverified email, auto-grants ADMIN",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/auth/routes.ts:14-56",
+      "evidence": "/login is throttled 10/min but /auth/register has no rate limit and no CAPTCHA; it creates Tenant+entitlements+ADMIN user and issues a 12h ADMIN token with no email verification. Role is server-hardcoded (no privilege escalation into existing tenant), but mass-signup abuse and unverified-email account creation are open.",
+      "remediation": "Add a tight per-route limit (e.g. 5/min/IP) + CAPTCHA; require email verification before issuing an operational token.",
+      "owasp_2025": "A07 Authentication Failures / A04"
+    },
+    {
+      "id": "MO-10",
+      "title": "Address /validate paid-geocoder cost-amplification (only the soft global limit)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/addresses/routes.ts:63-70",
+      "evidence": "POST /addresses/validate -> geocodeAddress runs the paid LUPAP/Google cascade with only the global 300/min. Novel strings bypass the Address-Graph cache, enabling authenticated financial-DoS on paid providers.",
+      "remediation": "Per-tenant per-route rateLimit on /addresses/validate; meter paid-provider calls against plan usage.",
+      "owasp_2025": "A04 Insecure Design / Abuse (cost)"
+    },
+    {
+      "id": "MO-11",
+      "title": "SPAs have no committed hosting security headers (CSP/frame-ancestors)",
+      "severity": "Medium",
+      "status": "Likely",
+      "location": "apps/{web,admin,driver}/vite.config.ts; SPA vercel.json",
+      "evidence": "helmet protects only API JSON. The SPA HTML (clickjacking/CSP surface) is served by Vercel/Cloudflare Pages with no headers/_headers/CSP/frame-ancestors committed; vite configs set none.",
+      "remediation": "Commit explicit host headers per SPA: CSP with frame-ancestors 'self', X-Content-Type-Options nosniff, Referrer-Policy, HSTS. Verify via securityheaders.com.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-12",
+      "title": "Failed logins are not logged (no security event stream)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/auth/routes.ts:70-79",
+      "evidence": "401 on bad credentials/unknown email/suspended tenant with no app.log line and no audit record. Credential-stuffing/lockout patterns invisible to ops.",
+      "remediation": "app.log.warn({event:'auth.login_failed', email, ip}) (email only, never password) on each 401; optional per-account failed-attempt counter.",
+      "owasp_2025": "A09 Security Logging and Alerting Failures"
+    },
+    {
+      "id": "MO-13",
+      "title": "Webhook delivery failures swallowed by bare catch (no log/Sentry)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/services/webhooks.ts:52-57,71",
+      "evidence": "deliverWebhook catches failures with bare catch {} recording only lastStatus:0; emitWebhookEvent discards Promise.allSettled results. No app.log/captureError. Integrations can silently stop with zero visibility.",
+      "remediation": "Log a warn with webhook.id/tenantId/url/status (no secret) on failure; captureError on repeated failures; surface lastStatus in the developer UI.",
+      "owasp_2025": "A09 Security Logging and Alerting Failures"
+    },
+    {
+      "id": "MO-14",
+      "title": "TOCTOU idempotency on order ingest and POD completion (not DB-enforced)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/services/orders.ts:23-28; apps/api/src/modules/routes/routes.ts:453-457,518-543; apps/api/prisma/schema.prisma",
+      "evidence": "createOrder dedups via findFirst({tenantId,externalRef}) then inserts with no @@unique([tenantId,externalRef]) and no transaction -> concurrent retries duplicate orders. POD completion checks status==='COMPLETED' then updates routeStop by id only (no status precondition) -> concurrent offline-queue replays both emit DELIVERED webhooks/events.",
+      "remediation": "Add @@unique([tenantId,externalRef]) + upsert/catch P2002 in createOrder; make POD update conditional (updateMany where status != 'COMPLETED', check count).",
+      "owasp_2025": "A10 Mishandling of Exceptional Conditions"
+    },
+    {
+      "id": "MO-15",
+      "title": "Public tracking JSON returns recipient PII + live driver GPS with no cache headers",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/tracking/public.ts:52-168",
+      "evidence": "GET /track/:token returns recipient, address, operator, sender, driverPosition{lat,lng,at} (FULL tier) with no Cache-Control. Token-keyed private data that must not be shared-cache eligible.",
+      "remediation": "Set reply.header('Cache-Control','no-store') on /track/:token and its 404 path.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-16",
+      "title": "JWT stored in localStorage across all SPAs (XSS-readable)",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/web/src/api.ts:24-39; apps/driver/src/api.ts:4-10; apps/admin/src/api.ts:10-14",
+      "evidence": "moveos_token / moveos_driver_token / moveos_platform_token in localStorage, attached as Authorization: Bearer. Any XSS exfiltrates a 12h token; the admin token grants cross-tenant platform access. (Also why CSRF is N/A.)",
+      "remediation": "Prefer httpOnly+Secure+SameSite cookies (then add CSRF tokens) or keep tokens short-lived + revocable (MO-08) behind a strict CSP; keep dangerouslySetInnerHTML banned.",
+      "owasp_2025": "A05 Security Misconfiguration / A07"
+    },
+    {
+      "id": "MO-17",
+      "title": "Driver logout leaves PII in on-device storage",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/driver/src/App.tsx:628-631; apps/driver/src/api.ts:2,95",
+      "evidence": "Logout runs only setToken(null). moveos_driver_route (names/addresses), moveos_driver_queue (queued delivery POST bodies, POD URLs), moveos_driver_chargers persist in localStorage. On a shared device the next holder reads prior PII via DevTools.",
+      "remediation": "On logout clear those keys and caches.delete() non-tile caches; warn if the offline queue is non-empty before discarding.",
+      "owasp_2025": "A02 / A05 (sensitive data in client cache)"
+    },
+    {
+      "id": "MO-18",
+      "title": "DISPATCHER (any staff) can read tenant billing/cost via non-ADMIN GET handlers",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/controls/routes.ts:66-75,206-222",
+      "evidence": "GET /controls/cost and /controls/billing require only app.authenticate while their PATCH counterparts require ADMIN. They return driverCostPerHourCop, energyTariffCop, legalName/nit/billingEmail/billingAddress, invoices. SPA hides the nav but mounts the route for DISPATCHER. Role-scoping gap, not cross-tenant.",
+      "remediation": "Add requireRole('ADMIN') to these GET handlers if billing/cost is ADMIN-only.",
+      "owasp_2025": "A01 Broken Access Control (function-level)"
+    },
+    {
+      "id": "MO-19",
+      "title": "@fastify/multipart registered with no global limits",
+      "severity": "Medium",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts:73",
+      "evidence": "register(multipart) with no limits; only the POD handler caps fileSize (8MB). Field/part counts and any future multipart consumer are unbounded -> resource-exhaustion via thousands of parts/huge fields.",
+      "remediation": "register(multipart,{limits:{fileSize:8*1024*1024,files:1,fields:10,parts:20}}), keeping per-route overrides.",
+      "owasp_2025": "A05 Security Misconfiguration / DoS"
+    },
+    {
+      "id": "MO-20",
+      "title": "No Cache-Control: no-store on authenticated API JSON (back-button after logout)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts (no default Cache-Control; only SSE sets no-cache)",
+      "evidence": "No authenticated JSON route sets no-store; grep for no-store across apps/ returns zero. Bounded by Bearer-token auth (no ambient cookie) but defense-in-depth wants no-store given shared-device risk (MO-17).",
+      "remediation": "Add an onSend hook setting Cache-Control: no-store on non-public, non-asset routes.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-21",
+      "title": "Login user-enumeration via bcrypt timing side-channel",
+      "severity": "Low",
+      "status": "Likely",
+      "location": "apps/api/src/modules/auth/routes.ts:66-72; apps/api/src/modules/platform/auth.ts:13-18",
+      "evidence": "bcrypt.compare is short-circuited when the email is unknown (!user), so existing emails pay the hash cost (~tens of ms) and unknown ones do not. Response body is correctly uniform ('Credenciales invalidas'); only timing leaks existence.",
+      "remediation": "Always compare against a fixed dummy bcrypt hash when the user is not found (constant work). Confirm the delta in deployment.",
+      "owasp_2025": "A07 Authentication Failures"
+    },
+    {
+      "id": "MO-22",
+      "title": "Sentry/alerting off-by-default in production (SENTRY_DSN empty in blueprint)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/lib/sentry.ts:8-21; render.yaml",
+      "evidence": "captureError no-ops when SENTRY_DSN is unset; render.yaml ships it empty (sync:false). On a fresh deploy all 5xx go to logs only. Positive: captureError sends only the exception, never request bodies/headers/tokens.",
+      "remediation": "Make SENTRY_DSN (or an equivalent alert sink) a required go-live checklist item.",
+      "owasp_2025": "A09 Security Logging and Alerting Failures"
+    },
+    {
+      "id": "MO-23",
+      "title": "Deleted/missing tenant (status null) is not blocked - only SUSPENDED is",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/plugins/tenantStatus.ts:22-25; apps/api/src/plugins/auth.ts:42",
+      "evidence": "getTenantStatus returns null for a missing/deleted tenant; the gate blocks only status==='SUSPENDED', so a deleted tenant's outstanding 12h tokens still authenticate the operational plane.",
+      "remediation": "Treat status !== 'ACTIVE' (including null) as 403 in auth.ts.",
+      "owasp_2025": "A10 / A07"
+    },
+    {
+      "id": "MO-24",
+      "title": "POD upload MIME validated by client-declared type, not magic bytes",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/modules/uploads/routes.ts:18-46; apps/api/src/services/storage.ts:35-43",
+      "evidence": "MIME comes from the multipart Content-Type, not content sniffing. Impact limited: extension forced from the allowlist, helmet nosniff, server-randomized filename (no traversal/SVG-XSS). A polyglot can still be stored as .png.",
+      "remediation": "Verify magic bytes (e.g. file-type) match the declared image; ensure POD served as image/attachment, never text/html.",
+      "owasp_2025": "A05 / A02"
+    },
+    {
+      "id": "MO-25",
+      "title": "Prod SPA builds may ship JS source maps (no explicit sourcemap:false)",
+      "severity": "Low",
+      "status": "Likely",
+      "location": "apps/{web,admin,driver}/vite.config.ts",
+      "evidence": "Vite build.sourcemap defaults to false but is not explicitly locked; if a build flips it on, .map files expose frontend source. No secrets live in SPA bundles, so impact is attack-surface mapping.",
+      "remediation": "Set build:{sourcemap:false} in all three configs; confirm no *.map in dist/.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-26",
+      "title": "HSTS max-age is helmet's 180-day default (no preload)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts:62",
+      "evidence": "register(helmet) with no opts -> Strict-Transport-Security: max-age=15552000; includeSubDomains (180 days, no preload).",
+      "remediation": "Optional: helmet({hsts:{maxAge:31536000,includeSubDomains:true,preload:true}}) if MoveOS controls the apex and wants preload.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    },
+    {
+      "id": "MO-27",
+      "title": "Weak hardcoded dev JWT secret fallback (prod boot guard present and correct)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/config.ts:1-12",
+      "evidence": "DEV_JWT_SECRET constant used as a dev fallback, but a prod guard throws if isProd && (secret===DEV || length<32); render.yaml auto-generates a strong JWT_SECRET. No production exposure; no rotation required.",
+      "remediation": "Optional hardening: derive the dev fallback from a per-machine random value so it is not a constant.",
+      "owasp_2025": "A02 / A07 (weak default)"
+    },
+    {
+      "id": "MO-28",
+      "title": "Demo seed credentials are public/documented (moveos123)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/prisma/seed.ts:13-26",
+      "evidence": "bcrypt.hash('moveos123',10) seeding *.demo.moveos.co accounts, password documented in the seed header and tests. Intentional fixtures (hashed, not plaintext); risk only if seeded against a public prod DB.",
+      "remediation": "Gate the seed behind NODE_ENV !== 'production' / never run against the prod DB; optionally source the demo password from an env var.",
+      "owasp_2025": "A07 (weak default credential)"
+    },
+    {
+      "id": "MO-29",
+      "title": "weightKg and similar operational numerics are client-trusted on order creation",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/services/orders.ts; portalCreateOrderSchema",
+      "evidence": "CLIENT-supplied weightKg (positive-number only) feeds capacity/optimizer math. No price is computed client-side (price derives from server-validated serviceId), so this is trusted-input-affecting-planning, not price tampering. No isolation impact.",
+      "remediation": "Accept as designed, or bound/validate against service constraints if weight ever drives billing.",
+      "owasp_2025": "A04 / A06 Insecure Design"
+    },
+    {
+      "id": "MO-30",
+      "title": "No explicit Fastify bodyLimit (relies on 1 MB default)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts:54-60",
+      "evidence": "No bodyLimit set; Fastify default 1 MB applies (cap exists but is not intentional/auditable). Malformed/empty JSON is handled cleanly (try/catch -> 400, no crash).",
+      "remediation": "Set an explicit bodyLimit matching real needs; rely on @fastify/multipart limits for uploads (MO-19).",
+      "owasp_2025": "A10 Mishandling of Exceptional Conditions"
+    },
+    {
+      "id": "MO-31",
+      "title": "<500 business errors echo err.message verbatim (no concrete leak found)",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "apps/api/src/app.ts:115-117",
+      "evidence": "Error handler returns err.message for statusCode<500; 5xx always returns generic 'Error interno'. Observed 4xx messages are deliberate Spanish business strings; no internal/DB/stack leak found, but a future library error with a 4xx code would pass its message through.",
+      "remediation": "Whitelist/known 4xx messages; ensure thrown 4xx errors never embed DB/driver text.",
+      "owasp_2025": "A04 Insecure Design (verbose errors)"
+    },
+    {
+      "id": "MO-32",
+      "title": "Dev-tooling CVEs (vitest/vite/esbuild) - not in the production image",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": "transitive under vitest/vite (pnpm-lock.yaml)",
+      "evidence": "pnpm audit flags vitest <3.2.6 (UI arbitrary file read, critical), vite server.fs.deny bypass (high), esbuild dev-server CORS (moderate/low). All require a running dev server / Vitest UI; devDependencies, not in the Render prod build. Top-level vite@6.4.3 is already patched.",
+      "remediation": "Bump vitest ^3.2.6; resolve vite >=6.4.3 consistently to clear the audit so the MO-07 CI gate stays green.",
+      "owasp_2025": "A03 Software Supply Chain Failures"
+    },
+    {
+      "id": "MO-33",
+      "title": ".gitignore lacks *.pem/*.key/*.p12/.env.*.local patterns",
+      "severity": "Low",
+      "status": "Confirmed",
+      "location": ".gitignore",
+      "evidence": "Covers .env and .env.local but not *.pem/*.key/*.p12/*.pfx/.env.production/.env.*.local. No such files exist today; this is preventive hardening.",
+      "remediation": "Add the patterns to prevent accidental future commits of key/cert/env files.",
+      "owasp_2025": "A02 Security Misconfiguration"
+    }
+  ],
+  "reviewed_sound_no_action": [
+    "Secrets: no hardcoded provider keys (all process.env); no server secret in any VITE_ client bundle; git history clean (pickaxe scans); API keys SHA-256, webhook secrets HMAC, shown once.",
+    "Injection: all $queryRaw tagged-template parameterized; no Unsafe/Prisma.raw/string-SQL; no eval/Function/child_process; orderBy uses static field names.",
+    "XSS: zero dangerouslySetInnerHTML/innerHTML/document.write across SPAs; React default escaping; no markdown/HTML renderer.",
+    "CSRF: N/A - Bearer-header auth, no cookies (@fastify/cookie absent).",
+    "Tenant isolation/IDOR: update/delete-by-id preceded by tenant-scoped findFirst -> 404; bare findUnique({id}) are token-derived or platform-admin by design; findUnique({email}) are uniqueness checks only.",
+    "Platform plane: requirePlatformAdmin rejects tenant tokens (403); impersonation 30-min, audited, never CLIENT, tenant-scoped.",
+    "Auth provenance: tenantId/role/driverId/clientId only from verified JWT; signup hardcodes ADMIN, portal hardcodes CLIENT.",
+    "Supply chain: no hallucinated/typosquatted packages; lockfile committed.",
+    "Logging: no secrets/PII logged; platform audit redacts passwords; Sentry sends only exceptions.",
+    "Cache: driver service worker caches only /assets/, shell, OSM tiles - API/uploads bypass SW cache; no cache poisoning (no X-Forwarded-Host reflection); no Set-Cookie/token in cacheable response; web cache deception N/A.",
+    "Password reset: admin-mediated only (no self-service token to attack); aligns with B2B-only notifications."
+  ],
+  "manual_tests": [
+    {"id": "AC-M1", "purpose": "MO-06 paywall self-enable", "command": "curl -i -X PATCH https://STAGING/modules/AI_ADDONS -H 'Authorization: Bearer $ADMIN' -H 'Content-Type: application/json' -d '{\"enabled\":true}'"},
+    {"id": "AC-M2", "purpose": "MO-02 SSRF oracle", "command": "curl -i -X POST https://STAGING/clients/test-webhook -H 'Authorization: Bearer $ADMIN' -H 'Content-Type: application/json' -d '{\"webhookUrl\":\"http://169.254.169.254/latest/meta-data/\"}'"},
+    {"id": "AC-M3", "purpose": "MO-03 POD evidence without auth", "command": "curl -i 'https://STAGING/files/pod/<tenantId>/<key>.jpg' ; curl -sI 'https://<project>.supabase.co/storage/v1/object/public/pod-photos/<key>.jpg'"},
+    {"id": "AC-M4", "purpose": "Cross-tenant IDOR (expect 404) + platform plane (expect 403)", "command": "curl -i https://STAGING/orders/$ID_TENANT_B -H 'Authorization: Bearer $TOKEN_TENANT_A' ; curl -i https://STAGING/platform/tenants -H 'Authorization: Bearer $TENANT_TOKEN'"},
+    {"id": "AC-M5", "purpose": "Headers/CORS/rate-limit", "command": "curl -sSI https://STAGING/health | grep -iE 'strict-transport|content-security|x-content-type|x-frame|referrer-policy' ; curl -sSI -H 'Origin: https://evil.com' https://STAGING/auth/me | grep -i 'access-control-'"}
+  ],
+  "tools": {
+    "used": ["ripgrep", "git pickaxe (-S)", "pnpm audit (--prod/--json)", "pnpm outdated -r", "file reads"],
+    "missing_recommended": ["gitleaks/trufflehog (continuous secret scanning)", "semgrep --config auto", "Dependabot/Renovate"]
+  },
+  "do_not": "No fixes applied. Remediation available on request, recommended order MO-01 -> MO-02 -> MO-03."
+}
