@@ -4,7 +4,6 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
-import fastifyStatic from "@fastify/static";
 import { ZodError } from "zod";
 import { config } from "./config.js";
 import { captureError } from "./lib/sentry.js";
@@ -21,6 +20,7 @@ import trackingRoutes from "./modules/tracking/routes.js";
 import publicTrackingRoutes from "./modules/tracking/public.js";
 import telematicsRoutes from "./modules/telematics/routes.js";
 import uploadsRoutes from "./modules/uploads/routes.js";
+import evidenceRoutes from "./modules/uploads/evidence.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import { UPLOADS_DIR } from "./services/storage.js";
 import evRoutes from "./modules/ev/routes.js";
@@ -81,15 +81,11 @@ export async function buildApp() {
   await app.register(multipart, {
     limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 20, parts: 25 },
   });
-  // Evidencias subidas en desarrollo (en producción las sirve Supabase Storage).
-  // Son fotos de POD (PII): nunca cachear en una caché compartida.
+  // Directorio local de evidencias (dev/self-host). Las fotos de POD son PII:
+  // ya NO se sirven por estático público — se entregan por `/evidence` con URL
+  // firmada y de corta duración (ver modules/uploads/evidence.ts). En producción
+  // viven en un bucket PRIVADO de Supabase y se obtienen con la service-role.
   mkdirSync(UPLOADS_DIR, { recursive: true });
-  await app.register(fastifyStatic, {
-    root: UPLOADS_DIR,
-    prefix: "/files/",
-    decorateReply: false,
-    setHeaders: (res) => res.setHeader("Cache-Control", "private, no-store"),
-  });
   await registerAuth(app);
 
   // Por defecto, ninguna respuesta de la API es cacheable por una caché
@@ -144,6 +140,10 @@ export async function buildApp() {
 
   // Rastreo público (SIN autenticación): el negocio cliente sigue su envío.
   await app.register(publicTrackingRoutes, { prefix: "/track" });
+
+  // Evidencia POD por URL firmada (SIN auth Bearer; la firma HMAC autoriza).
+  // Sustituye la URL pública permanente del bucket por una de corta duración.
+  await app.register(evidenceRoutes);
 
   // Núcleo
   await app.register(authRoutes, { prefix: "/auth" });

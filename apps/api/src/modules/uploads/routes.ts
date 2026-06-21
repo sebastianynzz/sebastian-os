@@ -3,6 +3,7 @@ import {
   buildPodKey,
   isAllowedImage,
   pickStorage,
+  signEvidencePath,
   sniffImageType,
 } from "../../services/storage.js";
 
@@ -51,7 +52,14 @@ export default async function uploadsRoutes(app: FastifyInstance) {
       const storage = pickStorage();
       const key = buildPodKey(request.user.tenantId, realType);
       const stored = await storage.save(buffer, realType, key);
-      return reply.code(201).send({ url: stored.url, storage: storage.name });
+      // Se persiste la CLAVE (`stored.key`) en el POD; `url` es una URL firmada
+      // de corta duración para previsualizar/verificar de inmediato. El cliente
+      // debe enviar `key` al completar la parada (no la URL, que expira).
+      return reply.code(201).send({
+        key: stored.key,
+        url: signEvidencePath(stored.key),
+        storage: storage.name,
+      });
     },
   );
 }

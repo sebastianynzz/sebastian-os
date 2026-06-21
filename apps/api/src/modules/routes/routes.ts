@@ -15,6 +15,7 @@ import { emitWebhookEvent } from "../../services/webhooks.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import { signPodEvidence } from "../../services/storage.js";
 import {
   loadVisibleProperties,
   selectVisibleFields,
@@ -39,7 +40,7 @@ export default async function routesRoutes(app: FastifyInstance) {
 
   app.get("/", async (request) => {
     const query = z.object({ date: z.string().optional() }).parse(request.query);
-    return prisma.route.findMany({
+    const routes = await prisma.route.findMany({
       where: {
         tenantId: request.user.tenantId,
         ...(query.date ? { date: query.date } : {}),
@@ -54,6 +55,10 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: "desc" },
     });
+    return routes.map((r) => ({
+      ...r,
+      stops: r.stops.map((s) => ({ ...s, pod: signPodEvidence(s.pod) })),
+    }));
   });
 
   app.get("/:id", async (request, reply) => {
@@ -68,7 +73,10 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
     });
     if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
-    return route;
+    return {
+      ...route,
+      stops: route.stops.map((s) => ({ ...s, pod: signPodEvidence(s.pod) })),
+    };
   });
 
   /**
@@ -257,6 +265,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       ...route,
       stops: route.stops.map((s) => ({
         ...s,
+        pod: signPodEvidence(s.pod),
         order: {
           ...s.order,
           customFields: undefined,
