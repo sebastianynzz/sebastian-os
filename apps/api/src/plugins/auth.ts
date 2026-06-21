@@ -40,7 +40,14 @@ export async function registerAuth(app: FastifyInstance) {
       clientId?: string;
       tv?: number;
     };
-    if (claims.typ === "platform" || !claims.tenantId) {
+    // Solo tokens de ACCESS de tenant: un token de plataforma o de REFRESH
+    // (el de la cookie httpOnly, que solo sirve en /auth/refresh) nunca debe
+    // autenticar una ruta de datos.
+    if (
+      claims.typ === "platform" ||
+      claims.typ === "refresh" ||
+      !claims.tenantId
+    ) {
       await reply.code(401).send({ error: "Token no válido para esta ruta" });
       return null;
     }

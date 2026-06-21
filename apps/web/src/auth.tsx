@@ -6,7 +6,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, isImpersonating, setImpersonationToken, setToken } from "./api";
+import {
+  api,
+  getToken,
+  isImpersonating,
+  refreshAccess,
+  setImpersonationToken,
+  setToken,
+} from "./api";
 
 interface Session {
   user: { id: string; name: string; email: string; role: string };
@@ -68,10 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    // Bootstrap tras recargar: el access token (en memoria) se perdió, así que
+    // se intenta renovar con la cookie httpOnly de refresh antes de darse por
+    // deslogueado. Si no hay sesión válida, queda en login.
     if (!getToken()) {
-      setSession(null);
-      setLoading(false);
-      return;
+      const ok = await refreshAccess();
+      if (!ok) {
+        setSession(null);
+        setLoading(false);
+        return;
+      }
     }
     try {
       const me = await api<Session>("GET", "/auth/me");

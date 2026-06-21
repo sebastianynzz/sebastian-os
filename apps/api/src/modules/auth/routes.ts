@@ -7,8 +7,25 @@ import {
   MODULE_CATALOG,
   type UserRole,
 } from "@moveos/shared";
+import { config } from "../../config.js";
 import { prisma } from "../../lib/prisma.js";
-import { invalidateUserToken } from "../../services/userTokens.js";
+import { invalidateUserToken, getUserTokenVersion } from "../../services/userTokens.js";
+import {
+  setRefreshCookie,
+  clearRefreshCookie,
+  TENANT_REFRESH_COOKIE,
+  TENANT_REFRESH_PATH,
+} from "../../lib/authCookies.js";
+
+type AccessUser = {
+  id: string;
+  tenantId: string;
+  role: string;
+  driverId: string | null;
+  clientId: string | null;
+  name: string;
+  tokenVersion: number;
+};
 
 // Hash señuelo para igualar el trabajo de bcrypt cuando el email no existe:
 // sin esto, un email inexistente responde más rápido (no se hashea) y permite
@@ -16,6 +33,31 @@ import { invalidateUserToken } from "../../services/userTokens.js";
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("moveos-dummy-timing-guard", 10);
 
 export default async function authRoutes(app: FastifyInstance) {
+  // ACCESS token (corta vida, lo guarda la SPA en memoria) + REFRESH token
+  // (cookie httpOnly, renueva el access sin exponer una credencial durable a JS).
+  function issueAccessToken(u: AccessUser): string {
+    return app.jwt.sign(
+      {
+        typ: "tenant",
+        sub: u.id,
+        tenantId: u.tenantId,
+        role: u.role as UserRole,
+        driverId: u.driverId ?? undefined,
+        clientId: u.clientId ?? undefined,
+        name: u.name,
+        tv: u.tokenVersion,
+      },
+      { expiresIn: config.accessTokenTtl },
+    );
+  }
+  function setRefresh(reply: Parameters<typeof setRefreshCookie>[0], u: AccessUser): void {
+    const refresh = app.jwt.sign(
+      { typ: "refresh", sub: u.id, tenantId: u.tenantId, tv: u.tokenVersion },
+      { expiresIn: config.refreshTokenTtl },
+    );
+    setRefreshCookie(reply, TENANT_REFRESH_COOKIE, TENANT_REFRESH_PATH, refresh);
+  }
+
   /** Registro self-service de un tenant nuevo (onboarding SMB). */
   app.post(
     "/register",
@@ -58,14 +100,8 @@ export default async function authRoutes(app: FastifyInstance) {
       },
     });
 
-    const token = app.jwt.sign({
-      typ: "tenant",
-      sub: user.id,
-      tenantId: tenant.id,
-      role: "ADMIN",
-      name: user.name,
-      tv: user.tokenVersion,
-    });
+    const token = issueAccessToken(user);
+    setRefresh(reply, user);
     return reply.code(201).send({ token, tenant, user: publicUser(user) });
   });
 
@@ -104,16 +140,8 @@ export default async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    const token = app.jwt.sign({
-      typ: "tenant",
-      sub: user.id,
-      tenantId: user.tenantId,
-      role: user.role as UserRole,
-      driverId: user.driverId ?? undefined,
-      clientId: user.clientId ?? undefined,
-      name: user.name,
-      tv: user.tokenVersion,
-    });
+    const token = issueAccessToken(user);
+    setRefresh(reply, user);
     return {
       token,
       user: publicUser(user),
@@ -124,6 +152,54 @@ export default async function authRoutes(app: FastifyInstance) {
   );
 
   /**
+   * Renovar la sesión (MO-16): lee el REFRESH token de la cookie httpOnly,
+   * verifica firma + revocación (tokenVersion) + estado del tenant, y emite un
+   * ACCESS token nuevo (rotando además la cookie de refresh — sesión deslizante).
+   * Lo llama la SPA al cargar (token en memoria perdido tras recargar) y cuando
+   * el access token expira. CLIENT del portal incluido.
+   */
+  app.post("/refresh", async (request, reply) => {
+    const raw = request.cookies[TENANT_REFRESH_COOKIE];
+    const fail = (code: number, error: string, extra?: object) => {
+      clearRefreshCookie(reply, TENANT_REFRESH_COOKIE, TENANT_REFRESH_PATH);
+      return reply.code(code).send({ error, ...extra });
+    };
+    if (!raw) return reply.code(401).send({ error: "Sin sesión" });
+    let claims: { typ?: string; sub?: string; tenantId?: string; tv?: number };
+    try {
+      claims = app.jwt.verify(raw);
+    } catch {
+      return fail(401, "Sesión inválida");
+    }
+    if (claims.typ !== "refresh" || !claims.sub || !claims.tenantId) {
+      return fail(401, "Sesión inválida");
+    }
+    const current = await getUserTokenVersion(claims.sub);
+    if (current === null || (claims.tv !== undefined && current !== claims.tv)) {
+      return fail(401, "Sesión finalizada", { code: "TOKEN_REVOKED" });
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: claims.sub },
+      include: { tenant: { include: { entitlements: true } } },
+    });
+    if (!user) return fail(401, "Sesión inválida");
+    if (user.tenant.status === "SUSPENDED") {
+      return reply.code(403).send({
+        error: "Cuenta suspendida. Contacte al administrador de la plataforma.",
+        code: "TENANT_SUSPENDED",
+      });
+    }
+    const token = issueAccessToken(user);
+    setRefresh(reply, user);
+    return {
+      token,
+      user: publicUser(user),
+      tenant: { id: user.tenant.id, name: user.tenant.name, city: user.tenant.city },
+      modules: sessionModules(user.tenant.entitlements),
+    };
+  });
+
+  /**
    * Logout real: incrementa la versión de token del usuario, invalidando TODOS
    * sus JWT vigentes (≤12 h) — no solo borrar el token en el cliente. Disponible
    * para cualquier usuario del tenant, incluido el portal (CLIENT).
@@ -131,12 +207,13 @@ export default async function authRoutes(app: FastifyInstance) {
   app.post(
     "/logout",
     { preHandler: [app.authenticateTenant] },
-    async (request) => {
+    async (request, reply) => {
       await prisma.user.update({
         where: { id: request.user.sub },
         data: { tokenVersion: { increment: 1 } },
       });
       invalidateUserToken(request.user.sub);
+      clearRefreshCookie(reply, TENANT_REFRESH_COOKIE, TENANT_REFRESH_PATH);
       return { ok: true };
     },
   );

@@ -89,11 +89,18 @@ Verified with `pnpm -r build` (all packages), optimizer 77/77, SSRF unit 4/4, ne
 | **MO-26** ✅ | HSTS 1y + preload (helmet). | `app.ts` |
 | **MO-33** ✅ | `.gitignore` covers key/cert/env-local files. | `.gitignore` |
 
-**Remaining (not blocking; lower priority):**
-- **MO-16** — `localStorage`→httpOnly cookies would re-introduce CSRF and force a 3-frontend + SSE + offline-PWA refactor; MO-08 (revocation) + the new CSP materially reduce its residual risk, so the full cookie migration is left as its own decision.
-- A few Info/Low items (e.g. MO-31 verbose-4xx hardening) are noted in the table but judged low-value; can be picked up on request.
+### Batch 4 (applied & verified) — MO-16
 
-**Status: 32 of 33 findings remediated** (only MO-16 intentionally deferred). The Critical, all 6 Highs, and all but one Medium/Low are done.
+**MO-16** ✅ — Token storage hardened with a **hybrid (option C)**: the high-value apps (dispatcher `web`, platform `admin`) now keep the **access token in memory only** (never `localStorage`) and renew it via a **refresh token in an `httpOnly` cookie** (`POST /auth/refresh` / `/platform/auth/refresh`). An XSS can no longer read or persist the durable session credential.
+- API: `@fastify/cookie` + CORS `credentials:true`; access/refresh split with configurable TTLs; `verifyTenantToken` rejects `refresh`-type tokens; refresh enforces the `tokenVersion` revocation (logout/reset/delete kill the cookie too). Cookie attributes are env-configurable (`AUTH_COOKIE_SAMESITE/SECURE/DOMAIN`), defaulting to `None; Secure` in prod (works cross-site Vercel↔Render and same-site).
+- Frontends: `web` + `admin` store the token in memory, bootstrap the session from the cookie on load, and single-flight-refresh + retry on 401. New e2e `refresh.test.ts` proves the cookie→access→revoke-on-logout flow.
+- **CSRF not re-introduced:** the cookie only gates `/auth/refresh` (a non-mutating endpoint whose response a cross-origin attacker can't read); all state-changing routes still use the in-memory Bearer access token, which a CSRF page cannot set. Logout requires the Bearer token, so it isn't CSRF-reachable.
+- **Driver excluded by design:** the driver PWA is **offline-first** — a memory-only token would log it out on any offline reload — so it keeps its storage. Its token is the lowest-privilege (single driver, own routes) and still benefits from MO-08 revocation + MO-17 logout-purge.
+- **Validate on staging:** the cross-origin cookie behavior depends on the real SPA/API domains; confirm `/auth/refresh` round-trips with the chosen `AUTH_COOKIE_SAMESITE` before relying on it.
+
+**Files:** `apps/api/{package.json, src/config.ts, src/app.ts, src/lib/authCookies.ts, src/plugins/auth.ts, src/types.d.ts, src/modules/auth/routes.ts, src/modules/platform/auth.ts, src/tests/refresh.test.ts}`, `apps/web/src/{api.ts, auth.tsx}`, `apps/admin/src/{api.ts, auth.tsx}`, `.env.production.example`.
+
+**Status: all 33 findings remediated.** (Driver token storage is an intentional, documented exception for offline-first; web + admin — the crown-jewel surfaces — are fully migrated.)
 
 ---
 

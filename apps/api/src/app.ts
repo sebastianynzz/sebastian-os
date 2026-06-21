@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import Fastify from "fastify";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
@@ -66,9 +67,15 @@ export async function buildApp() {
   await app.register(helmet, {
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
   });
+  // Cookies (refresh token httpOnly de la sesión; MO-16). Firmadas con el JWT
+  // secret por si en el futuro se firma alguna cookie no-JWT.
+  await app.register(cookie, { secret: config.jwtSecret });
   // CORS restringido a orígenes conocidos (allowlist por entorno).
+  // `credentials: true` para que el navegador envíe la cookie de refresh en
+  // las llamadas a /auth/refresh (requiere origin explícito, nunca "*").
   await app.register(cors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+    credentials: true,
   });
   // Límite de peticiones global; los endpoints sensibles lo endurecen aparte.
   await app.register(rateLimit, {
