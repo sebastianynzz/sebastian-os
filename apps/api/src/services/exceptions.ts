@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import { slaDueAt } from "@moveos/shared";
 import { LOW_CONFIDENCE_THRESHOLD } from "./geocoding.js";
 import { todayBogota } from "./dailyMetrics.js";
 import { toMinOfDayBogota } from "./routing.js";
@@ -24,6 +25,7 @@ export interface ExceptionItem {
     | "VEHICLE_STALE"
     | "LOW_BATTERY"
     | "FAILED_DELIVERY"
+    | "SLA_BREACH"
     | "ADDRESS_UNCONFIRMED";
   severity: ExceptionSeverity;
   title: string;
@@ -167,6 +169,56 @@ export async function computeExceptions(tenantId: string): Promise<ExceptionItem
       detail: `${order.customerName} · ${order.failureReason ?? "sin motivo"} · ${order.client?.name ?? "sin comercio"} — marcar para reprogramación del comercio`,
       action: { kind: "FLAG_RECOVERY", orderId: order.id },
       refs: { orderId: order.id, trackingNumber: order.trackingNumber },
+      createdAt: order.createdAt.toISOString(),
+    });
+  }
+
+  // 3b. SLA en riesgo (D3): pedidos aún no entregados cuyo servicio tiene un
+  // plazo (completionDeadlineMin) ya vencido o por vencer. Incumplido = HIGH;
+  // por vencer (dentro de la ventana) = MEDIUM. Sin acción de un clic: el
+  // despachador prioriza/replanifica desde Pedidos.
+  const SLA_PREDICT_WINDOW_MIN = 30;
+  const slaCandidates = await prisma.order.findMany({
+    where: {
+      tenantId,
+      serviceId: { not: null },
+      status: { notIn: ["DELIVERED", "FAILED", "REJECTED", "CANCELLED"] },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    select: {
+      id: true,
+      trackingNumber: true,
+      customerName: true,
+      createdAt: true,
+      client: { select: { name: true } },
+      service: { select: { name: true, completionDeadlineMin: true } },
+    },
+  });
+  const slaNow = Date.now();
+  for (const order of slaCandidates) {
+    if (!order.service) continue;
+    const dueAt = slaDueAt(order.createdAt, order.service.completionDeadlineMin);
+    const minsToDue = (dueAt.getTime() - slaNow) / 60000;
+    const breached = minsToDue < 0;
+    if (!breached && minsToDue > SLA_PREDICT_WINDOW_MIN) continue;
+    const who = order.trackingNumber ?? order.customerName;
+    const comercio = order.client?.name ?? "sin comercio";
+    items.push({
+      id: `sla-${order.id}`,
+      type: "SLA_BREACH",
+      severity: breached ? "HIGH" : "MEDIUM",
+      title: breached
+        ? `SLA incumplido: ${who} (${order.service.name})`
+        : `SLA por vencer: ${who} (${order.service.name})`,
+      detail: breached
+        ? `Venció hace ${Math.round(-minsToDue)} min · ${comercio} — priorizar o reprogramar`
+        : `Vence en ${Math.round(minsToDue)} min · ${comercio} — despachar pronto`,
+      refs: {
+        orderId: order.id,
+        trackingNumber: order.trackingNumber,
+        dueAt: dueAt.toISOString(),
+      },
       createdAt: order.createdAt.toISOString(),
     });
   }

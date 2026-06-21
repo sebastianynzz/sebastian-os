@@ -61,6 +61,7 @@ const TYPE_ICONS: Record<string, string> = {
   VEHICLE_STALE: "📡",
   LOW_BATTERY: "🔋",
   FAILED_DELIVERY: "📦",
+  SLA_BREACH: "⏳",
   ADDRESS_UNCONFIRMED: "📍",
 };
 const TYPE_LABELS: Record<string, string> = {
@@ -70,6 +71,7 @@ const TYPE_LABELS: Record<string, string> = {
   VEHICLE_STALE: "Sin señal",
   LOW_BATTERY: "Batería baja",
   FAILED_DELIVERY: "Entrega fallida",
+  SLA_BREACH: "SLA",
   ADDRESS_UNCONFIRMED: "Dirección",
 };
 // Etiqueta legible para la sección de pospuestas (a partir del prefijo del
@@ -80,6 +82,7 @@ const KEY_PREFIX_LABELS: Record<string, string> = {
   stale: "Vehículo sin señal",
   soc: "Batería baja",
   failed: "Entrega fallida",
+  sla: "SLA en riesgo",
   triage: "Direcciones por confirmar",
 };
 
