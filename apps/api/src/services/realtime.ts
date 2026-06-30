@@ -155,26 +155,42 @@ export function openSseStream(
     // Desactiva el buffering de proxies (nginx/render) para entrega inmediata.
     "x-accel-buffering": "no",
   });
-  reply.raw.write(": conectado\n\n");
-
-  const heartbeat = setInterval(() => {
-    reply.raw.write(": ping\n\n");
-  }, HEARTBEAT_MS);
-
   const closeFns: Array<() => void> = [];
   let closed = false;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
   const cleanup = () => {
     if (closed) return;
     closed = true;
     clearInterval(heartbeat);
     for (const fn of closeFns) fn();
   };
+
+  // Escritura defensiva: el conductor corre en red móvil inestable; si el
+  // socket muere a mitad de un write, Node lanza. Capturar y limpiar en vez
+  // de propagar (una desconexión abrupta NO debe tumbar la API).
+  const safeWrite = (chunk: string) => {
+    if (closed) return;
+    try {
+      reply.raw.write(chunk);
+    } catch {
+      cleanup();
+    }
+  };
+
+  safeWrite(": conectado\n\n");
+
+  heartbeat = setInterval(() => safeWrite(": ping\n\n"), HEARTBEAT_MS);
+
+  // 'close' cubre el cierre normal; 'error' (RST/ECONNRESET) emite sin 'close'
+  // y, sin listener, sería una excepción no capturada → crash del proceso.
   request.raw.on("close", cleanup);
+  request.raw.on("error", cleanup);
+  reply.raw.on("error", cleanup);
 
   return {
     sub: {
       send: (event, data) => {
-        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        safeWrite(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       },
       close: () => {
         cleanup();
