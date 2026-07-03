@@ -72,6 +72,9 @@ class SupabaseStorageAdapter implements StorageAdapter {
           "x-upsert": "false",
         },
         body: new Uint8Array(buffer),
+        // Acotado: si Storage se cuelga, el conductor recibe un error claro y
+        // reintenta, en vez de dejar la petición (y la conexión) colgada.
+        signal: AbortSignal.timeout(30_000),
       },
     );
     if (!res.ok) {

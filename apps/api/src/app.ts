@@ -53,6 +53,13 @@ import { closeAllStreams } from "./services/realtime.js";
  */
 export async function buildApp() {
   const app = Fastify({
+    // Render (y cualquier PaaS) termina TLS en su proxy: sin trustProxy,
+    // request.ip es la IP interna del proxy para TODOS los clientes, así que
+    // el rate limit por IP metía a toda la base de clientes (¡y al health
+    // checker de Render!) en un solo balde compartido → 429 masivos que
+    // Render reporta como "server failure". Con trustProxy, la IP real viene
+    // de X-Forwarded-For (solo el proxy de la plataforma alcanza el servicio).
+    trustProxy: true,
     logger: process.env.NODE_ENV !== "test" && {
       transport: undefined,
       level: process.env.LOG_LEVEL ?? "info",
@@ -117,7 +124,13 @@ export async function buildApp() {
     });
   });
 
-  app.get("/health", async () => ({ ok: true, service: "moveos-api" }));
+  // Exento del rate limit: si el health check de Render recibe un 429 por
+  // tráfico ajeno, la plataforma marca la instancia como caída y la reinicia.
+  app.get(
+    "/health",
+    { config: { rateLimit: false } },
+    async () => ({ ok: true, service: "moveos-api" }),
+  );
 
   // Rastreo público (SIN autenticación): el negocio cliente sigue su envío.
   await app.register(publicTrackingRoutes, { prefix: "/track" });

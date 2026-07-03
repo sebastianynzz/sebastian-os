@@ -98,6 +98,9 @@ async function dispatchToChannel(
           data: message.payload,
           sentAt: new Date().toISOString(),
         }),
+        // Acotado: un endpoint colgado del negocio no debe retener conexiones
+        // de MoveOS (mismo límite que los webhooks de /developer).
+        signal: AbortSignal.timeout(5000),
       });
       return { channel: "WEBHOOK", recipient: client.webhookUrl, ok: true };
     }
@@ -118,6 +121,7 @@ async function dispatchToChannel(
             type: "template",
             template: { name: message.template, language: { code: "es_CO" } },
           }),
+          signal: AbortSignal.timeout(10_000),
         });
         return { channel: "WHATSAPP", recipient: client.phone, ok: true };
       }
@@ -150,6 +154,7 @@ async function dispatchToChannel(
               },
             ],
           }),
+          signal: AbortSignal.timeout(10_000),
         });
         return { channel: "EMAIL", recipient: client.email, ok: res.ok };
       }
