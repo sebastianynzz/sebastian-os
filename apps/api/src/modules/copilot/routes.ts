@@ -660,8 +660,35 @@ export default async function copilotRoutes(app: FastifyInstance) {
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",
       });
+
+      // Desconexión del cliente: sin listener de 'error', un RST del socket
+      // sería una excepción no capturada (misma clase de bug que el SSE de
+      // realtime). Además aborta el stream de Anthropic en curso para no
+      // seguir quemando tokens y herramientas hablando con nadie.
+      let clientGone = false;
+      let activeStream: { abort: () => void } | null = null;
+      const onDisconnect = () => {
+        clientGone = true;
+        activeStream?.abort();
+      };
+      request.raw.on("close", onDisconnect);
+      request.raw.on("error", onDisconnect);
+      reply.raw.on("error", onDisconnect);
+
       const writeLine = (obj: unknown) => {
-        if (!reply.raw.writableEnded) reply.raw.write(JSON.stringify(obj) + "\n");
+        if (clientGone || reply.raw.writableEnded) return;
+        try {
+          reply.raw.write(JSON.stringify(obj) + "\n");
+        } catch {
+          clientGone = true;
+        }
+      };
+      const endStream = () => {
+        try {
+          if (!reply.raw.writableEnded) reply.raw.end();
+        } catch {
+          // Socket ya destruido: nada que cerrar.
+        }
       };
 
       // Cada turno del modelo se transmite; el texto sale por deltas y al final
@@ -675,14 +702,23 @@ export default async function copilotRoutes(app: FastifyInstance) {
           tools: TOOLS,
           messages: history,
         });
+        activeStream = stream;
         stream.on("text", (delta: string) => writeLine({ type: "delta", text: delta }));
-        return stream.finalMessage();
+        try {
+          return await stream.finalMessage();
+        } finally {
+          activeStream = null;
+        }
       };
 
       try {
         let response = await streamTurn();
 
-        for (let i = 0; i < MAX_LOOP && response.stop_reason === "tool_use"; i++) {
+        for (
+          let i = 0;
+          i < MAX_LOOP && !clientGone && response.stop_reason === "tool_use";
+          i++
+        ) {
           const toolUses = response.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
           );
@@ -728,13 +764,19 @@ export default async function copilotRoutes(app: FastifyInstance) {
             text: "No puedo ayudar con esa solicitud. ¿Hay algo más de la operación en lo que te apoye?",
           });
           writeLine({ type: "done", actions: [] });
-          reply.raw.end();
+          endStream();
           return;
         }
 
         writeLine({ type: "done", actions });
-        reply.raw.end();
+        endStream();
       } catch (err) {
+        if (clientGone) {
+          // El abort por desconexión hace rechazar finalMessage(): no es un
+          // error del proveedor, solo un cliente que cerró la pestaña.
+          endStream();
+          return;
+        }
         if (err instanceof Anthropic.APIError) {
           request.log.error({ status: err.status, message: err.message }, "Copilot stream API error");
           writeLine({
@@ -750,7 +792,7 @@ export default async function copilotRoutes(app: FastifyInstance) {
             message: "Error interno del Copiloto",
           });
         }
-        reply.raw.end();
+        endStream();
       }
     },
   );

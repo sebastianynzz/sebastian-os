@@ -84,7 +84,7 @@ async function dispatchToChannel(
 
   try {
     if (channel === "WEBHOOK" && client.webhookUrl) {
-      await fetch(client.webhookUrl, {
+      const res = await fetch(client.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -102,14 +102,16 @@ async function dispatchToChannel(
         // de MoveOS (mismo límite que los webhooks de /developer).
         signal: AbortSignal.timeout(5000),
       });
-      return { channel: "WEBHOOK", recipient: client.webhookUrl, ok: true };
+      // ok según el estado HTTP: un 4xx/5xx del negocio debe quedar FAILED
+      // en la bitácora, no SENT.
+      return { channel: "WEBHOOK", recipient: client.webhookUrl, ok: res.ok };
     }
 
     if (channel === "WHATSAPP" && client.phone) {
       const token = process.env.WHATSAPP_BUSINESS_TOKEN;
       const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
       if (token && phoneId) {
-        await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
+        const res = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -123,7 +125,7 @@ async function dispatchToChannel(
           }),
           signal: AbortSignal.timeout(10_000),
         });
-        return { channel: "WHATSAPP", recipient: client.phone, ok: true };
+        return { channel: "WHATSAPP", recipient: client.phone, ok: res.ok };
       }
       // Sin credenciales: cae a consola.
     }

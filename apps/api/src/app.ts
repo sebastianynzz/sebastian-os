@@ -77,7 +77,12 @@ export async function buildApp() {
     max: 300,
     timeWindow: "1 minute",
   });
-  await app.register(multipart);
+  // Piso global de límites: hoy /uploads/pod fija los suyos por petición,
+  // pero cualquier ruta multipart futura sin límites explícitos no debe
+  // aceptar archivos sin tope.
+  await app.register(multipart, {
+    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  });
   // Evidencias subidas en desarrollo (en producción las sirve Supabase Storage).
   mkdirSync(UPLOADS_DIR, { recursive: true });
   await app.register(fastifyStatic, {
