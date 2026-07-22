@@ -226,7 +226,7 @@ export default function ControlesShell() {
   );
 
   return (
-    <div className="-m-4 flex flex-col md:-m-6 md:min-h-screen md:flex-row">
+    <div className="-m-4 flex flex-col md:-m-6 md:min-h-[calc(100%+3rem)] md:flex-row">
       <aside className="flex shrink-0 flex-col gap-3.5 border-b border-border bg-surface p-3 pt-4 md:min-h-full md:w-[230px] md:border-b-0 md:border-r">
         <div className="flex items-center gap-2 px-1.5">
           <SlidersHorizontal aria-hidden="true" className="h-[15px] w-[15px] text-navy" strokeWidth={1.75} />

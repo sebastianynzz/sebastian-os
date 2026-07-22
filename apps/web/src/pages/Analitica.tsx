@@ -382,7 +382,7 @@ export default function Analitica() {
               value={from}
               max={to}
               onChange={(e) => setFrom(e.target.value)}
-              className={inputClass}
+              className={`${inputClass} max-w-[150px]`}
               aria-label="Desde"
             />
             <input
@@ -391,7 +391,7 @@ export default function Analitica() {
               min={from}
               max={todayBogota()}
               onChange={(e) => setTo(e.target.value)}
-              className={inputClass}
+              className={`${inputClass} max-w-[150px]`}
               aria-label="Hasta"
             />
             <Button
