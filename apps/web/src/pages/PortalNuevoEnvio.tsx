@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../toast";
 import {
@@ -50,6 +51,32 @@ interface AddressCheck {
   coverageZones: string[];
 }
 
+/** Aviso de validación en vivo bajo el campo de dirección (limón = conocida). */
+function AddressHint({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "lima" | "warning";
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  const tones = {
+    lima: "bg-lima/30 text-lime-ink",
+    warning: "bg-warning-bg text-warning",
+  };
+  return (
+    <p
+      className={`mt-1.5 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs ${tones[tone]}`}
+    >
+      <span aria-hidden="true" className="shrink-0 [&>svg]:h-3 [&>svg]:w-3">
+        {icon}
+      </span>
+      {children}
+    </p>
+  );
+}
+
 export default function PortalNuevoEnvio() {
   const [me, setMe] = useState<PortalMe | null>(null);
   const [services, setServices] = useState<ServiceOption[]>([]);
@@ -61,6 +88,7 @@ export default function PortalNuevoEnvio() {
   const [busy, setBusy] = useState(false);
   const [addressCheck, setAddressCheck] = useState<AddressCheck | null>(null);
   const [checkingAddress, setCheckingAddress] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   /**
    * Validación de dirección al salir del campo (el moat como feature del
@@ -96,6 +124,12 @@ export default function PortalNuevoEnvio() {
       .catch(() => {});
   }, []);
 
+  async function copyTrackingLink(url: string) {
+    await navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1500);
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreated(null);
@@ -126,6 +160,7 @@ export default function PortalNuevoEnvio() {
       });
       setCreated(order);
       form.reset();
+      setAddressCheck(null);
     } catch (err) {
       toast.error(err);
     } finally {
@@ -134,7 +169,7 @@ export default function PortalNuevoEnvio() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-2xl space-y-4">
       <PageHeader
         title="Nuevo envío"
         subtitle={
@@ -146,7 +181,8 @@ export default function PortalNuevoEnvio() {
 
       {created && (
         <Banner kind="success" onDismiss={() => setCreated(null)}>
-          Envío creado con guía <strong>{created.trackingNumber}</strong>.{" "}
+          Envío creado con guía{" "}
+          <strong className="font-mono">{created.trackingNumber}</strong>.{" "}
           {created.trackingUrl && (
             <>
               Enlace de rastreo para tu cliente:{" "}
@@ -154,21 +190,31 @@ export default function PortalNuevoEnvio() {
                 href={created.trackingUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium underline"
+                className="font-medium underline underline-offset-2"
               >
                 {created.trackingUrl}
-              </a>
+              </a>{" "}
+              <Button
+                variant="secondary"
+                icon={copiedLink ? <Check strokeWidth={2} /> : <Copy strokeWidth={2} />}
+                onClick={() => {
+                  if (created.trackingUrl) void copyTrackingLink(created.trackingUrl);
+                }}
+                className="ml-1 align-middle"
+              >
+                {copiedLink ? "¡Copiado!" : "Copiar rastreo"}
+              </Button>
             </>
           )}
         </Banner>
       )}
 
-      <Card title="Datos del destinatario">
+      <Card>
         <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Nombre de quien recibe">
+          <Field label="Quien recibe">
             <input name="customerName" className={inputClass} required minLength={2} />
           </Field>
-          <Field label="Celular de quien recibe">
+          <Field label="Celular">
             <input name="customerPhone" className={inputClass} required placeholder="+57..." />
           </Field>
           <div className="sm:col-span-2">
@@ -182,32 +228,32 @@ export default function PortalNuevoEnvio() {
               />
             </Field>
             {checkingAddress && (
-              <p className="mt-1 text-xs text-navy/50">Verificando dirección…</p>
+              <p className="mt-1.5 text-xs text-text-tertiary">Verificando dirección…</p>
             )}
             {addressCheck && !checkingAddress && (
-              <p
-                className={`mt-1 rounded px-2 py-1 text-xs ${
-                  addressCheck.knownAddress
-                    ? "bg-success-bg text-success"
-                    : addressCheck.ambiguous
-                      ? "bg-warning-bg text-warning"
-                      : "bg-success-bg text-success"
-                }`}
-              >
-                {addressCheck.knownAddress
-                  ? "✅ Dirección conocida: ya fue confirmada en entregas anteriores."
-                  : addressCheck.ambiguous
-                    ? "⚠️ Esta dirección es ambigua. Revisa la nomenclatura o agrega una referencia (ej: \"frente al colegio…\") para evitar una entrega fallida."
-                    : "✅ Dirección verificada."}
-              </p>
+              addressCheck.knownAddress ? (
+                <AddressHint tone="lima" icon={<Check strokeWidth={2.5} />}>
+                  Dirección conocida — confirmada en entregas anteriores
+                </AddressHint>
+              ) : addressCheck.ambiguous ? (
+                <AddressHint tone="warning" icon={<AlertTriangle strokeWidth={2} />}>
+                  Esta dirección es ambigua. Revisa la nomenclatura o agrega una
+                  referencia (ej: «frente al colegio…») para evitar una entrega
+                  fallida.
+                </AddressHint>
+              ) : (
+                <AddressHint tone="lima" icon={<Check strokeWidth={2.5} />}>
+                  Dirección verificada.
+                </AddressHint>
+              )
             )}
             {/* Cobertura por zona (D5): aviso B2B cuando el destino cae fuera de
                 las zonas del operador. No bloquea el envío. */}
             {addressCheck && !checkingAddress && addressCheck.hasZones && !addressCheck.serviceable && (
-              <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
-                ⚠️ Este destino está fuera de las zonas de cobertura de tu operador.
+              <AddressHint tone="warning" icon={<AlertTriangle strokeWidth={2} />}>
+                Este destino está fuera de las zonas de cobertura de tu operador.
                 Puedes crear el envío, pero confírmalo con ellos.
-              </p>
+              </AddressHint>
             )}
           </div>
           <Field label="Indicaciones (opcional)">
@@ -228,7 +274,7 @@ export default function PortalNuevoEnvio() {
                 placeholder="1"
               />
             </Field>
-            <Field label="Tu referencia (opcional)">
+            <Field label="Tu referencia">
               <input name="externalRef" className={inputClass} placeholder="# pedido interno" />
             </Field>
           </div>
@@ -249,8 +295,8 @@ export default function PortalNuevoEnvio() {
           )}
 
           {customProps.length > 0 && (
-            <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
-              <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
+            <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-border p-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 text-xs font-semibold uppercase tracking-wide text-text-tertiary">
                 Datos adicionales
               </div>
               {customProps.map((p) => (
@@ -261,35 +307,44 @@ export default function PortalNuevoEnvio() {
             </div>
           )}
 
-          <div className="sm:col-span-2 space-y-2 rounded-lg border border-niebla p-3">
-            <div className="text-xs font-semibold uppercase text-navy/50">
-              ¿Dónde recogemos el paquete?
+          <div className="sm:col-span-2 space-y-2 rounded-lg border border-border p-3">
+            <div className="text-[10.5px] font-semibold uppercase tracking-wide text-text-tertiary">
+              ¿Dónde recogemos?
             </div>
             {me?.pickupAddressRaw && (
-              <label className="flex items-start gap-2 text-sm">
+              <label
+                className={`flex items-start gap-2 text-sm ${
+                  pickupMode === "REGISTERED" ? "text-navy" : "text-text-secondary"
+                }`}
+              >
                 <input
                   type="radio"
                   name="pickupMode"
+                  className="mt-1 accent-navy"
                   checked={pickupMode === "REGISTERED"}
                   onChange={() => setPickupMode("REGISTERED")}
                 />
                 <span>
-                  En mi dirección registrada:{" "}
-                  <strong>{me.pickupAddressRaw}</strong>
+                  Mi dirección registrada: <strong>{me.pickupAddressRaw}</strong>
                   {me.pickupNotes && (
-                    <span className="text-navy/50"> · {me.pickupNotes}</span>
+                    <span className="text-text-secondary"> · {me.pickupNotes}</span>
                   )}
                 </span>
               </label>
             )}
-            <label className="flex items-start gap-2 text-sm">
+            <label
+              className={`flex items-start gap-2 text-sm ${
+                pickupMode === "CUSTOM" ? "text-navy" : "text-text-secondary"
+              }`}
+            >
               <input
                 type="radio"
                 name="pickupMode"
+                className="mt-1 accent-navy"
                 checked={pickupMode === "CUSTOM"}
                 onChange={() => setPickupMode("CUSTOM")}
               />
-              <span>En otra dirección puntual</span>
+              <span>Otra dirección puntual</span>
             </label>
             {pickupMode === "CUSTOM" && (
               <div className="grid grid-cols-1 gap-3 pl-6 sm:grid-cols-2">
@@ -301,21 +356,24 @@ export default function PortalNuevoEnvio() {
                 </Field>
               </div>
             )}
-            <label className="flex items-start gap-2 text-sm">
+            <label
+              className={`flex items-start gap-2 text-sm ${
+                pickupMode === "NONE" ? "text-navy" : "text-text-secondary"
+              }`}
+            >
               <input
                 type="radio"
                 name="pickupMode"
+                className="mt-1 accent-navy"
                 checked={pickupMode === "NONE"}
                 onChange={() => setPickupMode("NONE")}
               />
-              <span className="text-navy/70">
-                Ya está en el depósito del operador (sin recogida)
-              </span>
+              <span>Ya está en el depósito del operador</span>
             </label>
           </div>
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={busy}>
-              {busy ? "Creando…" : "Crear envío"}
+            <Button type="submit" variant="cta" disabled={busy} className="w-full">
+              {busy ? "Creando…" : "Crear envío — guía y rastreo al instante"}
             </Button>
           </div>
         </form>

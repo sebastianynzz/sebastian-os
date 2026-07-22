@@ -1,11 +1,14 @@
 import { Fragment, useState } from "react";
+import { Check, Copy, PackageOpen, RotateCw } from "lucide-react";
 import { api } from "../api";
 import { formatDateBogota, formatShortBogota } from "../format";
 import { useRealtimeReload } from "../realtime";
 import {
   Banner,
+  Button,
   Card,
   EmptyState,
+  KpiCard,
   Loading,
   PageHeader,
   StatusBadge,
@@ -149,18 +152,9 @@ export default function PortalPedidos() {
 
       {summary && (
         <div className="grid grid-cols-3 gap-3">
-          <Card>
-            <div className="text-2xl font-bold text-navy">{summary.createdThisMonth}</div>
-            <div className="text-xs text-navy/50">envíos este mes</div>
-          </Card>
-          <Card>
-            <div className="text-2xl font-bold text-navy">{summary.deliveredThisMonth}</div>
-            <div className="text-xs text-navy/50">entregados este mes</div>
-          </Card>
-          <Card>
-            <div className="text-2xl font-bold text-navy">{inCourse}</div>
-            <div className="text-xs text-navy/50">en curso ahora</div>
-          </Card>
+          <KpiCard label="Envíos este mes" value={summary.createdThisMonth} />
+          <KpiCard label="Entregados" value={summary.deliveredThisMonth} accent />
+          <KpiCard label="En curso ahora" value={inCourse} tone="hero" />
         </div>
       )}
 
@@ -169,101 +163,150 @@ export default function PortalPedidos() {
           <Loading label="Cargando sus envíos…" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm text-navy">
               <thead>
                 <tr className={theadRowClass}>
-                  <th className="py-2">Guía</th>
-                  <th>Destinatario</th>
-                  <th>Dirección</th>
-                  <th>Estado</th>
-                  <th>Creado</th>
-                  <th>
+                  <th className="w-[140px] py-2 font-semibold">Guía</th>
+                  <th className="font-semibold">Destinatario</th>
+                  <th className="w-[110px] font-semibold">Estado</th>
+                  <th className="w-[110px] font-semibold">Creado</th>
+                  <th className="w-[250px]">
                     <span className="sr-only">Acciones</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
-                  <Fragment key={o.id}>
-                    <tr className={tableRowClass}>
-                      <td className="py-2 font-mono text-xs font-medium">
-                        {o.trackingNumber}
-                        {o.externalRef && (
-                          <div className="text-navy/40">ref: {o.externalRef}</div>
-                        )}
-                      </td>
-                      <td>{o.customerName}</td>
-                      <td className="max-w-[220px] truncate" title={o.addressRaw}>
-                        {o.addressRaw}
-                      </td>
-                      <td>
-                        <StatusBadge status={o.status} />
-                        {o.failureReason && (
-                          <div className="text-xs text-danger">{o.failureReason}</div>
-                        )}
-                      </td>
-                      <td className="text-xs text-navy/50">
-                        {formatDateBogota(o.createdAt)}
-                      </td>
-                      <td className="space-x-2 whitespace-nowrap text-right text-xs">
-                        {["FAILED", "REJECTED"].includes(o.status) &&
-                          o.recoveryStatus !== "RESCHEDULED" && (
-                            <button
-                              onClick={() => void reschedule(o)}
-                              disabled={rescheduling === o.id}
-                              className="rounded bg-lima px-2 py-1 font-bold text-navy disabled:opacity-50"
-                            >
-                              {rescheduling === o.id ? "…" : "Reprogramar"}
-                            </button>
-                          )}
-                        {o.recoveryStatus === "RESCHEDULED" && (
-                          <span className="text-success">↻ Reprogramado</span>
-                        )}
-                        {o.trackingUrl && (
-                          <button
-                            onClick={() => void copyTracking(o)}
-                            className="text-navy/60 underline-offset-2 hover:underline"
-                          >
-                            {copied === o.id ? "¡Copiado!" : "Copiar rastreo"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => void toggleTimeline(o.id)}
-                          aria-expanded={expanded === o.id}
-                          className="text-navy/60 underline-offset-2 hover:underline"
+                {orders.map((o) => {
+                  const failed = ["FAILED", "REJECTED"].includes(o.status);
+                  return (
+                    <Fragment key={o.id}>
+                      <tr
+                        className={`${tableRowClass} ${
+                          failed ? "bg-danger-bg/40 hover:bg-danger-bg/60" : ""
+                        }`}
+                      >
+                        <td
+                          className={`py-2.5 ${
+                            failed ? "border-l-[3px] border-l-danger pl-1.5" : ""
+                          }`}
                         >
-                          {expanded === o.id ? "Ocultar" : "Historial"}
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded === o.id && (
-                      <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                        <td colSpan={6} className="px-4 py-3">
-                          <ol className="space-y-1 text-xs">
-                            {(events[o.id] ?? []).map((e, i) => (
-                              <li key={i} className="flex items-baseline gap-2">
-                                <span className="font-mono text-navy/40">
-                                  {formatShortBogota(e.createdAt)}
-                                </span>
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lima" />
-                                <span className="font-medium">
-                                  {EVENT_LABELS[e.type] ?? e.type}
-                                </span>
-                                {e.details && (
-                                  <span className="text-navy/50">{e.details}</span>
-                                )}
-                              </li>
-                            ))}
-                          </ol>
+                          <span className="font-mono text-xs font-semibold">
+                            {o.trackingNumber}
+                          </span>
+                          {o.externalRef && (
+                            <span className="block text-[11px] text-text-tertiary">
+                              ref: {o.externalRef}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="font-medium">{o.customerName}</span>
+                          {failed ? (
+                            <span className="block text-[11px] text-danger">
+                              Entrega no lograda
+                              {o.failureReason && <> · «{o.failureReason}»</>}
+                            </span>
+                          ) : (
+                            <span
+                              className="block max-w-[260px] truncate text-[11px] text-text-tertiary"
+                              title={o.addressRaw}
+                            >
+                              {o.addressRaw}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <StatusBadge status={o.status} />
+                        </td>
+                        <td className="whitespace-nowrap font-mono text-xs text-text-tertiary">
+                          {formatDateBogota(o.createdAt)}
+                        </td>
+                        <td className="whitespace-nowrap py-2 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {failed && o.recoveryStatus !== "RESCHEDULED" && (
+                              <Button
+                                variant="cta"
+                                onClick={() => void reschedule(o)}
+                                disabled={rescheduling === o.id}
+                              >
+                                {rescheduling === o.id ? "Reprogramando…" : "Reprogramar"}
+                              </Button>
+                            )}
+                            {o.recoveryStatus === "RESCHEDULED" && (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+                                <RotateCw
+                                  aria-hidden="true"
+                                  className="h-3 w-3"
+                                  strokeWidth={2.5}
+                                />
+                                Reprogramado
+                              </span>
+                            )}
+                            {o.trackingUrl && (
+                              <Button
+                                variant="secondary"
+                                icon={
+                                  copied === o.id ? (
+                                    <Check strokeWidth={2} />
+                                  ) : (
+                                    <Copy strokeWidth={2} />
+                                  )
+                                }
+                                onClick={() => void copyTracking(o)}
+                              >
+                                {copied === o.id ? "¡Copiado!" : "Copiar rastreo"}
+                              </Button>
+                            )}
+                            <button
+                              onClick={() => void toggleTimeline(o.id)}
+                              aria-expanded={expanded === o.id}
+                              className="text-xs text-text-tertiary transition duration-200 ease-brand hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                            >
+                              {expanded === o.id ? "Ocultar" : "Historial"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    )}
-                  </Fragment>
-                ))}
+                      {expanded === o.id && (
+                        <tr className={`bg-niebla/40 ${tableRowClass}`}>
+                          <td colSpan={5} className="px-4 py-3">
+                            <ol className="space-y-1 text-xs">
+                              {(events[o.id] ?? []).map((e, i) => (
+                                <li key={i} className="flex items-baseline gap-2">
+                                  <span className="font-mono text-text-tertiary">
+                                    {formatShortBogota(e.createdAt)}
+                                  </span>
+                                  <span
+                                    aria-hidden="true"
+                                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-lima"
+                                  />
+                                  <span className="font-medium">
+                                    {EVENT_LABELS[e.type] ?? e.type}
+                                  </span>
+                                  {e.details && (
+                                    <span className="text-text-secondary">{e.details}</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ol>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={6}>
-                      <EmptyState>
+                    <td colSpan={5}>
+                      <EmptyState
+                        icon={
+                          <PackageOpen
+                            aria-hidden="true"
+                            className="h-8 w-8"
+                            strokeWidth={1.75}
+                          />
+                        }
+                      >
                         Aún no tienes envíos. Crea el primero en «Nuevo envío».
                       </EmptyState>
                     </td>
