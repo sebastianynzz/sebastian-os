@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import type {
   ActionCatalogEntry,
   ApplyResult,
@@ -7,14 +8,18 @@ import type {
 } from "@moveos/shared";
 import { api, ApiError } from "../api";
 import { formatCop } from "../format";
-import { Banner, Button, Card } from "./ui";
+import { Banner, Button } from "./ui";
 
 /**
- * Botón reutilizable "Optimizar con IA". Llama POST /ai/actions/:id/run, pinta
- * el panel de resultado desde la propuesta (resumen + impacto + sin asignar /
- * excluidos) y ofrece Aplicar (/apply) · Ajustar (re-ejecuta) · Descartar. Solo
- * se renderiza si la acción aparece en GET /ai/actions para el tenant/rol —
- * mismo contrato que el Copiloto, una sola ruta de aplicación.
+ * Disparador reutilizable "Optimizar con IA". Llama POST /ai/actions/:id/run,
+ * pinta el panel de resultado desde la propuesta (resumen + impacto + sin
+ * asignar / excluidos) y ofrece Aplicar (/apply) · Ajustar (re-ejecuta) ·
+ * Descartar. Solo se renderiza si la acción aparece en GET /ai/actions para el
+ * tenant/rol — mismo contrato que el Copiloto, una sola ruta de aplicación.
+ *
+ * Dos presentaciones: `variant="button"` (botón navy, por defecto) y
+ * `variant="chip"` (píldora fantasma para la barra del Copiloto; el panel de
+ * propuesta ocupa una fila completa dentro del contenedor flex-wrap padre).
  */
 
 /** Catálogo de acciones disponibles (cacheado por sesión, una sola carga). */
@@ -50,6 +55,27 @@ function useAction(actionId: OptimizationActionId): ActionCatalogEntry | null {
     };
   }, [actionId]);
   return entry;
+}
+
+/**
+ * Verdadero si al menos una de las acciones está en el catálogo del tenant/rol.
+ * Permite ocultar contenedores (p. ej. la barra del Copiloto) cuando el módulo
+ * de IA no está activo — mismo gating que los propios botones.
+ */
+export function useAiActionsAvailable(
+  actionIds: readonly OptimizationActionId[],
+): boolean {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void loadCatalog().then((actions) => {
+      if (alive) setAvailable(actions.some((a) => actionIds.includes(a.id)));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [actionIds]);
+  return available;
 }
 
 function pct(n: number | undefined): string | null {
@@ -134,6 +160,8 @@ export interface AiOptimizeButtonProps {
   onApplied?: (result: ApplyResult) => void;
   /** Deshabilita el disparo (p. ej. selección vacía). */
   disabled?: boolean;
+  /** "chip" = píldora fantasma para la barra del Copiloto. */
+  variant?: "button" | "chip";
 }
 
 export function AiOptimizeButton({
@@ -141,6 +169,7 @@ export function AiOptimizeButton({
   context,
   onApplied,
   disabled,
+  variant = "button",
 }: AiOptimizeButtonProps) {
   const action = useAction(actionId);
   const [phase, setPhase] = useState<"idle" | "running" | "applying">("idle");
@@ -183,56 +212,97 @@ export function AiOptimizeButton({
     }
   }
 
+  const trigger =
+    variant === "chip" ? (
+      <button
+        type="button"
+        onClick={run}
+        disabled={disabled || phase !== "idle"}
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-navy/30 bg-surface px-3 py-1 text-[13px] font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Sparkles aria-hidden="true" className="h-3 w-3 text-lime-ink" strokeWidth={2} />
+        {phase === "running" ? "Analizando…" : action.labelEs}
+      </button>
+    ) : (
+      <Button
+        onClick={run}
+        disabled={disabled || phase !== "idle"}
+        icon={<Sparkles aria-hidden="true" strokeWidth={2} />}
+      >
+        {phase === "running" ? "Analizando…" : action.labelEs}
+      </Button>
+    );
+
+  const runError = error && !proposal && (
+    <Banner kind="error" onDismiss={() => setError(null)}>
+      {error}
+    </Banner>
+  );
+
+  const proposalPanel = proposal && (
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-soft">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-lime-ink"
+          strokeWidth={1.75}
+        />
+        <h3 className="text-sm font-semibold text-navy">{action.labelEs}</h3>
+      </div>
+      <div className="space-y-3">
+        <p className="text-sm text-navy">{proposal.summaryEs}</p>
+        <ImpactMetrics proposal={proposal} />
+        {error && (
+          <Banner kind="error" onDismiss={() => setError(null)}>
+            {error}
+          </Banner>
+        )}
+        {!proposal.feasible && (
+          <Banner kind="info">
+            La propuesta no es aplicable con la selección actual.
+          </Banner>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {proposal.mutates && (
+            <Button onClick={apply} disabled={phase !== "idle" || !proposal.feasible}>
+              {phase === "applying" ? "Aplicando…" : "Aplicar"}
+            </Button>
+          )}
+          <Button variant="secondary" onClick={run} disabled={phase !== "idle"}>
+            Ajustar
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setProposal(null);
+              setError(null);
+            }}
+            disabled={phase !== "idle"}
+          >
+            Descartar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (variant === "chip") {
+    // Dentro de la barra flex-wrap del Copiloto: el chip fluye en línea y los
+    // paneles caen a una fila completa (order-2 + basis-full) tras la leyenda.
+    return (
+      <>
+        {trigger}
+        {runError && <div className="order-2 basis-full">{runError}</div>}
+        {proposalPanel && <div className="order-2 basis-full">{proposalPanel}</div>}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      <Button onClick={run} disabled={disabled || phase !== "idle"}>
-        {phase === "running" ? "Analizando…" : `✨ ${action.labelEs}`}
-      </Button>
-
-      {error && !proposal && (
-        <Banner kind="error" onDismiss={() => setError(null)}>
-          {error}
-        </Banner>
-      )}
-
-      {proposal && (
-        <Card title={`✨ ${action.labelEs}`}>
-          <div className="space-y-3">
-            <p className="text-sm text-navy">{proposal.summaryEs}</p>
-            <ImpactMetrics proposal={proposal} />
-            {error && (
-              <Banner kind="error" onDismiss={() => setError(null)}>
-                {error}
-              </Banner>
-            )}
-            {!proposal.feasible && (
-              <Banner kind="info">
-                La propuesta no es aplicable con la selección actual.
-              </Banner>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {proposal.mutates && (
-                <Button onClick={apply} disabled={phase !== "idle" || !proposal.feasible}>
-                  {phase === "applying" ? "Aplicando…" : "Aplicar"}
-                </Button>
-              )}
-              <Button variant="secondary" onClick={run} disabled={phase !== "idle"}>
-                Ajustar
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setProposal(null);
-                  setError(null);
-                }}
-                disabled={phase !== "idle"}
-              >
-                Descartar
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
+      {trigger}
+      {runError}
+      {proposalPanel}
     </div>
   );
 }
