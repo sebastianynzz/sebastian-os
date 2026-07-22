@@ -1,7 +1,9 @@
 import { useRef, useState, type FormEvent } from "react";
+import { Check, CircleCheck, CircleStop, Lock, Send, Zap } from "lucide-react";
 import { api, BASE_URL, getToken } from "../api";
 import { useAuth } from "../auth";
 import {
+  Badge,
   Banner,
   Button,
   Card,
@@ -42,6 +44,28 @@ const SUGGESTIONS = [
   "¿Por qué no se entregó el último pedido fallido?",
   "¿Cuántas direcciones nuevas aprendió el grafo esta semana?",
 ];
+
+/** Qué hace de verdad cada tipo de propuesta al confirmarse (leyenda del CTA). */
+const KIND_HINTS: Record<CopilotAction["kind"], string> = {
+  PLAN_ROUTES: "llama al optimizador real — revisable en Rutas",
+  INSERT_ORDER: "inserta el pedido en la ruta existente",
+  DISPATCH_ROUTE: "el conductor la verá en su app",
+  FLAG_RECOVERY: "notifica al comercio para reprogramar",
+};
+
+/** Parámetros de la propuesta como chips legibles (solo presentación). */
+function paramChips(params: Record<string, unknown>): string[] {
+  return Object.entries(params)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => {
+      if (Array.isArray(v)) return `${k} · ${v.length}`;
+      if (typeof v === "object") return null;
+      const s = String(v);
+      return `${k}: ${s.length > 32 ? `${s.slice(0, 32)}…` : s}`;
+    })
+    .filter((c): c is string => c !== null)
+    .slice(0, 6);
+}
 
 export default function Copilot() {
   const { session } = useAuth();
@@ -177,27 +201,27 @@ export default function Copilot() {
           "/copilot/actions/confirm",
           { proposalId: action.proposalId },
         );
-        note = `✅ ${res.resultEs ?? "Propuesta aplicada."}`;
+        note = res.resultEs ?? "Propuesta aplicada.";
       } else if (action.kind === "PLAN_ROUTES") {
         const res = await api<{ routes: unknown[]; unassigned: unknown[] }>(
           "POST",
           "/optimization/plans",
           { ...action.params, depot: DEPOT },
         );
-        note = `✅ Plan ejecutado: ${res.routes.length} ruta(s) creada(s), ${res.unassigned.length} pedido(s) sin asignar. Revísalo en Rutas.`;
+        note = `Plan ejecutado: ${res.routes.length} ruta(s) creada(s), ${res.unassigned.length} pedido(s) sin asignar. Revísalo en Rutas.`;
       } else if (action.kind === "INSERT_ORDER") {
         await api("POST", `/optimization/routes/${String(action.params.routeId)}/insert`, {
           orderId: action.params.orderId,
         });
-        note = "✅ Pedido insertado en la ruta.";
+        note = "Pedido insertado en la ruta.";
       } else if (action.kind === "DISPATCH_ROUTE") {
         await api("POST", `/routes/${String(action.params.routeId)}/dispatch`, {
           driverId: action.params.driverId,
         });
-        note = "✅ Ruta despachada: el conductor ya la ve en su app.";
+        note = "Ruta despachada: el conductor ya la ve en su app.";
       } else {
         await api("POST", `/orders/${String(action.params.orderId)}/recovery/flag`);
-        note = "✅ Comercio notificado para reprogramar.";
+        note = "Comercio notificado para reprogramar.";
       }
       setExecuted((prev) => new Set(prev).add(key));
       setTranscript((prev) => [...prev, { role: "assistant", content: note }]);
@@ -214,11 +238,19 @@ export default function Copilot() {
     void send(input);
   }
 
+  const lastEntry = transcript[transcript.length - 1];
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Copiloto IA"
-        subtitle="Pídele planear, explicar fallos o vigilar la operación. Toda acción requiere tu confirmación."
+        subtitle="Planifica, explica fallos y vigila la operación en lenguaje natural"
+        actions={
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-navy px-3 py-1.5 text-[11.5px] text-cielo">
+            <Lock aria-hidden="true" className="h-3 w-3 shrink-0 text-lima" strokeWidth={2} />
+            El modelo nunca ejecuta solo: propone y tú confirmas
+          </span>
+        }
       />
       {banner && (
         <Banner kind={banner.kind} onDismiss={() => setBanner(null)}>
@@ -230,14 +262,14 @@ export default function Copilot() {
         <div className="flex h-[60vh] flex-col">
           <div className="flex-1 space-y-3 overflow-y-auto pr-1">
             {transcript.length === 0 && (
-              <div className="space-y-2 py-8 text-center text-sm text-navy/50">
-                <p>¿En qué te ayudo hoy?</p>
-                <div className="flex flex-wrap justify-center gap-2">
+              <div className="space-y-3 py-8 text-center">
+                <p className="text-sm text-text-secondary">¿En qué te ayudo hoy?</p>
+                <div className="flex flex-wrap justify-center gap-1.5">
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => void send(s)}
-                      className="rounded-full border border-cielo px-3 py-1.5 text-xs text-navy/70 hover:bg-cielo/20"
+                      className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs text-text-secondary transition duration-200 ease-brand hover:border-navy/25 hover:bg-lima/10 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
                     >
                       {s}
                     </button>
@@ -245,44 +277,103 @@ export default function Copilot() {
                 </div>
               </div>
             )}
-            {transcript.map((entry, i) => (
-              <div key={i}>
-                <div
-                  className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
-                    entry.role === "user"
-                      ? "ml-auto bg-navy text-white"
-                      : "bg-niebla text-navy"
-                  }`}
-                >
-                  {entry.content}
+            {transcript.map((entry, i) => {
+              const streaming =
+                busy && i === transcript.length - 1 && entry.role === "assistant" && !entry.actions;
+              return (
+                <div key={i}>
+                  <div
+                    className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                      entry.role === "user"
+                        ? "ml-auto rounded-br-[4px] bg-navy text-white"
+                        : "rounded-bl-[4px] bg-niebla text-navy"
+                    }`}
+                  >
+                    {entry.content}
+                    {streaming && (
+                      <span
+                        aria-hidden="true"
+                        className="ml-0.5 inline-block h-3.5 w-[7px] animate-livepulse bg-navy align-text-bottom"
+                      />
+                    )}
+                  </div>
+                  {entry.actions?.map((action, j) => {
+                    const key = `${i}-${j}`;
+                    const done = executed.has(key);
+                    if (done) {
+                      return (
+                        <div
+                          key={key}
+                          className="mt-2 flex max-w-[85%] flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm opacity-85"
+                        >
+                          <CircleCheck
+                            aria-hidden="true"
+                            className="h-4 w-4 flex-none text-success"
+                            strokeWidth={2}
+                          />
+                          <span className="font-medium text-navy">{action.summary}</span>
+                          <span className="ml-auto">
+                            <Badge tone="success">Aplicada</Badge>
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={key}
+                        className="mt-2 max-w-[85%] space-y-2 rounded-xl border border-lima bg-lima/20 px-3.5 py-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Zap
+                            aria-hidden="true"
+                            className="h-[15px] w-[15px] flex-none text-lime-ink"
+                            strokeWidth={2}
+                          />
+                          <span className="min-w-0 text-[13px] font-semibold text-navy">
+                            {action.summary}
+                          </span>
+                          <span className="ml-auto shrink-0 font-mono text-[11px] text-text-tertiary">
+                            {action.kind}
+                          </span>
+                        </div>
+                        {paramChips(action.params).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {paramChips(action.params).map((c) => (
+                              <span
+                                key={c}
+                                className="rounded-full border border-lima/70 bg-surface px-2.5 py-0.5 font-mono text-[11px] text-lime-ink"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant="cta"
+                            icon={<Check />}
+                            onClick={() => void confirm(action, key)}
+                            disabled={busy}
+                          >
+                            Confirmar y ejecutar
+                          </Button>
+                          <span className="text-[11.5px] text-text-tertiary">
+                            {KIND_HINTS[action.kind]}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {entry.actions?.map((action, j) => {
-                  const key = `${i}-${j}`;
-                  const done = executed.has(key);
-                  return (
-                    <div
-                      key={key}
-                      className="mt-2 flex max-w-[85%] flex-wrap items-center justify-between gap-2 rounded-xl border border-lima bg-lima/10 px-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-navy">
-                        {done ? "✅ " : "⚡ "}
-                        {action.summary}
-                      </span>
-                      {!done && (
-                        <Button onClick={() => void confirm(action, key)} disabled={busy}>
-                          Confirmar y ejecutar
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-            {busy && <div className="text-sm text-navy/40">El Copiloto está pensando…</div>}
+              );
+            })}
+            {busy && lastEntry?.role === "user" && (
+              <div className="text-sm text-text-tertiary">El Copiloto está pensando…</div>
+            )}
             <div ref={bottomRef} />
           </div>
 
-          <form onSubmit={onSubmit} className="mt-3 flex gap-2 border-t border-niebla pt-3">
+          <form onSubmit={onSubmit} className="mt-3 flex gap-2 border-t border-border pt-3">
             <input
               className={inputClass}
               placeholder='Ej: "Planea los pedidos de hoy en las 2 motos" o "¿qué pasó con MV-…?"'
@@ -292,11 +383,11 @@ export default function Copilot() {
               disabled={busy}
             />
             {busy ? (
-              <Button type="button" variant="secondary" onClick={stop}>
+              <Button type="button" variant="secondary" icon={<CircleStop />} onClick={stop}>
                 Detener
               </Button>
             ) : (
-              <Button type="submit" disabled={!input.trim()}>
+              <Button type="submit" icon={<Send />} disabled={!input.trim()}>
                 Enviar
               </Button>
             )}
