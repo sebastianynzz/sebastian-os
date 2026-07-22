@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Save } from "lucide-react";
 import {
   NOTIFICATION_EVENT_LABELS,
   messageTemplateSchema,
@@ -6,7 +7,16 @@ import {
 } from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
-import { Banner, Button, Card, Loading, PageHeader, PillToggle, inputClass } from "../components/ui";
+import { Badge, Banner, Button, Card, Loading, PageHeader, PillToggle, inputClass } from "../components/ui";
+
+/* Chip monoespaciado para las variables de plantilla del subtítulo. */
+function Var({ children }: { children: string }) {
+  return (
+    <code className="rounded bg-niebla px-1 py-0.5 font-mono text-[11px] text-navy">
+      {children}
+    </code>
+  );
+}
 
 /**
  * Controles › Notificaciones (Tier 2, B2B): por evento del ciclo de vida, el
@@ -69,7 +79,14 @@ export default function ControlesNotificaciones() {
     <div className="space-y-4">
       <PageHeader
         title="Notificaciones"
-        subtitle="Por cada evento del envío, decide si avisar al negocio cliente y con qué texto. Usa {{guia}}, {{destinatario}}, {{motivo}} y {{rastreo}}. MoveOS notifica al negocio, nunca al consumidor final."
+        subtitle={
+          <>
+            Por cada evento del envío, decide si avisar al negocio cliente y con qué
+            texto. Usa <Var>{"{{guia}}"}</Var>, <Var>{"{{destinatario}}"}</Var>,{" "}
+            <Var>{"{{motivo}}"}</Var> y <Var>{"{{rastreo}}"}</Var>. MoveOS notifica al
+            negocio, nunca al consumidor final.
+          </>
+        }
       />
       {error && (
         <Banner kind="error" onDismiss={() => void load()}>
@@ -83,13 +100,11 @@ export default function ControlesNotificaciones() {
           {rows.map((row) => (
             <Card key={row.event}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="font-semibold text-navy">
+                <div className="flex flex-wrap items-center gap-2 font-semibold text-navy">
                   {NOTIFICATION_EVENT_LABELS[row.event]}
-                  {row.isDefault && (
-                    <span className="ml-2 text-xs font-normal text-navy/40">(por defecto)</span>
-                  )}
+                  {row.isDefault && <Badge tone="neutral">Por defecto</Badge>}
                 </div>
-                <span className="flex items-center gap-2 text-sm text-navy/70">
+                <span className="flex items-center gap-2 text-sm text-text-secondary">
                   {row.enabled ? "Notifica" : "Silenciado"}
                   <PillToggle
                     checked={row.enabled}
@@ -104,9 +119,12 @@ export default function ControlesNotificaciones() {
                 maxLength={500}
                 onChange={(e) => update(row.event, { body: e.target.value })}
               />
+              {/* Navy (no CTA limón): hay un guardado por tarjeta y el límite es
+                  un solo CTA limón por página. */}
               <div className="mt-2 flex justify-end">
                 <Button
-                  variant="cta"
+                  variant="primary"
+                  icon={<Save strokeWidth={2} />}
                   onClick={() => void save(row)}
                   disabled={savingEvent === row.event}
                 >

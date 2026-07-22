@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
+import { Leaf, Printer, TreePine, Zap } from "lucide-react";
 import { api } from "../api";
 import { formatDateBogota } from "../format";
-import { Button, Card, EmptyState, Loading, PageHeader, inputClass } from "../components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  KpiCard,
+  Loading,
+  PageHeader,
+  inputClass,
+  tableRowClass,
+  theadRowClass,
+} from "../components/ui";
 
 /**
  * Portal de clientes — "Informe verde": CO₂ de los envíos del negocio en el
@@ -41,7 +52,19 @@ const VEHICLE_LABELS: Record<string, string> = {
 };
 
 export function vehicleLabel(v: { type: string; isElectric: boolean }) {
-  return `${VEHICLE_LABELS[v.type] ?? v.type}${v.isElectric ? " eléctrica ⚡" : ""}`;
+  return `${VEHICLE_LABELS[v.type] ?? v.type}${v.isElectric ? " eléctrica" : ""}`;
+}
+
+/** Etiqueta de vehículo con rayo Lucide (nunca emoji) cuando es eléctrico. */
+function VehicleCell({ vehicle }: { vehicle: GreenOrder["vehicle"] }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      {vehicleLabel(vehicle)}
+      {vehicle.isElectric && (
+        <Zap aria-hidden="true" className="h-3 w-3 text-olive" strokeWidth={2} />
+      )}
+    </span>
+  );
 }
 
 export default function PortalVerde() {
@@ -61,9 +84,9 @@ export default function PortalVerde() {
       <PageHeader
         title="Informe verde"
         subtitle="La huella de carbono de tus envíos del mes y lo que ahorras al
-          mover tu última milla con flota limpia. 🌱"
+          mover tu última milla con flota limpia."
         actions={
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
             <input
               type="month"
               value={month}
@@ -71,7 +94,11 @@ export default function PortalVerde() {
               className={inputClass}
               aria-label="Mes del informe"
             />
-            <Button variant="secondary" onClick={() => window.print()}>
+            <Button
+              variant="secondary"
+              icon={<Printer strokeWidth={2} />}
+              onClick={() => window.print()}
+            >
               Imprimir / PDF
             </Button>
           </div>
@@ -82,66 +109,87 @@ export default function PortalVerde() {
 
       {!loading && report && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Card>
-              <div className="text-2xl font-bold text-navy">{report.co2Kg} kg</div>
-              <div className="text-xs text-navy/50">CO₂e emitido en tus envíos</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-success">
-                −{report.co2SavedKg} kg
-              </div>
-              <div className="text-xs text-navy/50">
-                CO₂e evitado vs. flota a gasolina
-              </div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-navy">
-                {report.electricSharePct ?? 0}%
-              </div>
-              <div className="text-xs text-navy/50">de tus km en vehículo eléctrico</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-navy">
-                🌳 {report.treesEquivalent}
-              </div>
-              <div className="text-xs text-navy/50">
-                árboles equivalentes (absorción anual)
-              </div>
-            </Card>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.3fr_1fr_1fr]">
+            <KpiCard
+              tone="hero"
+              className="flex flex-col justify-center"
+              label="CO₂e evitado vs. gasolina"
+              value={`−${report.co2SavedKg} kg`}
+              hint={
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <TreePine
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 text-lima"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    equivale a{" "}
+                    <strong className="font-semibold text-lima">
+                      {report.treesEquivalent} árboles
+                    </strong>{" "}
+                    plantados/año
+                  </span>
+                </span>
+              }
+            />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+              <KpiCard label="km recorridos" value={report.totalKm} />
+              <KpiCard label="CO₂e emitido" value={`${report.co2Kg} kg`} />
+            </div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+              <KpiCard
+                label="km eléctricos"
+                value={`${report.electricSharePct ?? 0}%`}
+                accent
+              />
+              <KpiCard
+                label="CO₂ por entrega"
+                value={
+                  report.co2PerDeliveryKg === null
+                    ? "—"
+                    : `${report.co2PerDeliveryKg} kg`
+                }
+              />
+            </div>
           </div>
 
           <Card
             title={`Envíos entregados en ${report.month} (${report.deliveredOrders})`}
           >
             {report.orders.length === 0 ? (
-              <EmptyState>Sin entregas en este mes.</EmptyState>
+              <EmptyState
+                icon={<Leaf aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
+              >
+                Sin entregas en este mes.
+              </EmptyState>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm text-navy">
                   <thead>
-                    <tr className="border-b border-cielo/40 text-left text-xs uppercase tracking-wide text-navy/50">
-                      <th className="py-2">Guía</th>
-                      <th>Destinatario</th>
-                      <th>Entregado</th>
-                      <th>Vehículo</th>
-                      <th className="text-right">km</th>
-                      <th className="text-right">CO₂ (kg)</th>
-                      <th className="text-right">Ahorro (kg)</th>
+                    <tr className={theadRowClass}>
+                      <th className="py-2 font-semibold">Guía</th>
+                      <th className="font-semibold">Destinatario</th>
+                      <th className="font-semibold">Entregado</th>
+                      <th className="font-semibold">Vehículo</th>
+                      <th className="text-right font-semibold">km</th>
+                      <th className="text-right font-semibold">CO₂ (kg)</th>
+                      <th className="text-right font-semibold">Ahorro (kg)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {report.orders.map((o) => (
-                      <tr key={o.trackingNumber} className="border-b border-niebla">
+                      <tr key={o.trackingNumber} className={tableRowClass}>
                         <td className="py-2 font-mono text-xs">{o.trackingNumber}</td>
-                        <td>{o.customerName}</td>
-                        <td className="text-xs text-navy/50">
+                        <td className="font-medium">{o.customerName}</td>
+                        <td className="font-mono text-xs text-text-secondary">
                           {o.deliveredAt ? formatDateBogota(o.deliveredAt) : "—"}
                         </td>
-                        <td className="text-xs">{vehicleLabel(o.vehicle)}</td>
-                        <td className="text-right">{o.km}</td>
-                        <td className="text-right">{o.co2Kg}</td>
-                        <td className="text-right text-success">
+                        <td className="text-xs">
+                          <VehicleCell vehicle={o.vehicle} />
+                        </td>
+                        <td className="text-right font-mono text-xs">{o.km}</td>
+                        <td className="text-right font-mono text-xs">{o.co2Kg}</td>
+                        <td className="text-right font-mono text-xs font-semibold text-lime-ink">
                           {o.co2SavedKg > 0 ? `−${o.co2SavedKg}` : "0"}
                         </td>
                       </tr>
@@ -150,7 +198,7 @@ export default function PortalVerde() {
                 </table>
               </div>
             )}
-            <p className="mt-3 text-xs text-navy/40">
+            <p className="mt-3 text-[11px] leading-relaxed text-text-tertiary">
               Metodología: distancia de ruta repartida entre las entregas del
               recorrido; emisión según tipo y propulsión del vehículo; línea
               base = el mismo recorrido con el equivalente a gasolina. Red

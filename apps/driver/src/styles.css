@@ -53,8 +53,28 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
+  /* Verde Limón profundo (hover de CTA limón) — del handoff del revamp. */
+  --color-lima-deep: #b8c96d;
+
   /* Sombra suave de marca */
   --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
+  /* Glow del CTA limón. */
+  --shadow-glow: 0 4px 14px rgba(184, 201, 109, 0.45);
+
+  /* Easing de marca para transiciones (150–300 ms). */
+  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Pulso del indicador "En vivo" / geocerca. */
+  --animate-livepulse: livepulse 2s ease-in-out infinite;
+  @keyframes livepulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
 
   /* Tipografía: Aileron (pendiente self-host) → Inter → sistema. */
   --font-sans: "Aileron", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -128,4 +148,15 @@ body {
 }
 .moveos-stop-label::before {
   display: none;
+}
+
+/* Accesibilidad: sin animaciones para quien pide menos motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

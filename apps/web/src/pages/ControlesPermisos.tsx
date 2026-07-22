@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Save } from "lucide-react";
 import {
   NAV_APPS,
   NAV_APP_LABELS,
@@ -113,13 +114,14 @@ export default function ControlesPermisos() {
               </select>
             </Field>
 
-            <div className="space-y-3 rounded-lg border border-niebla p-3">
-              <div className="text-xs font-semibold uppercase text-navy/50">
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
                 Qué puede hacer el conductor con las rutas
               </div>
               <label className="flex items-start gap-2 text-sm text-navy/80">
                 <input
                   type="checkbox"
+                  className="mt-0.5 accent-navy"
                   checked={form.allowEditDispatcherRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowEditDispatcherRoutes: e.target.checked })
@@ -127,7 +129,7 @@ export default function ControlesPermisos() {
                 />
                 <span>
                   Editar rutas del despachador
-                  <span className="block text-xs text-navy/50">
+                  <span className="block text-xs text-text-tertiary">
                     Permite ajustar la ruta que le asignó el despachador.
                   </span>
                 </span>
@@ -135,6 +137,7 @@ export default function ControlesPermisos() {
               <label className="flex items-start gap-2 text-sm text-navy/80">
                 <input
                   type="checkbox"
+                  className="mt-0.5 accent-navy"
                   checked={form.allowCreateRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowCreateRoutes: e.target.checked })
@@ -142,7 +145,7 @@ export default function ControlesPermisos() {
                 />
                 <span>
                   Crear rutas ad-hoc
-                  <span className="block text-xs text-navy/50">
+                  <span className="block text-xs text-text-tertiary">
                     Desbloquea que el conductor arme su propia ruta para trabajo no planificado.
                   </span>
                 </span>
@@ -150,6 +153,7 @@ export default function ControlesPermisos() {
               <label className="flex items-start gap-2 text-sm text-navy/80">
                 <input
                   type="checkbox"
+                  className="mt-0.5 accent-navy"
                   checked={form.allowEditStartedRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowEditStartedRoutes: e.target.checked })
@@ -157,7 +161,7 @@ export default function ControlesPermisos() {
                 />
                 <span>
                   Editar rutas ya iniciadas
-                  <span className="block text-xs text-navy/50">
+                  <span className="block text-xs text-text-tertiary">
                     Permite cambios después de que la ruta arrancó.
                   </span>
                 </span>
@@ -165,7 +169,12 @@ export default function ControlesPermisos() {
             </div>
 
             <div>
-              <Button variant="cta" onClick={save} disabled={saving}>
+              <Button
+                variant="cta"
+                icon={<Save strokeWidth={2} />}
+                onClick={save}
+                disabled={saving}
+              >
                 {saving ? "Guardando…" : "Guardar permisos"}
               </Button>
             </div>

@@ -3,17 +3,22 @@ import {
   VEHICLE_STATUSES,
   VEHICLE_TYPES,
   VEHICLE_TYPE_PROFILES,
+  formatDateBogota,
   type VehicleStatus,
   type VehicleType,
 } from "@moveos/shared";
+import { Plus, Snowflake, TriangleAlert, Zap } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../toast";
 import {
+  Badge,
   Banner,
   Button,
   Card,
   EmptyState,
   Field,
+  FilterPill,
+  KpiCard,
   Loading,
   PageHeader,
   inputClass,
@@ -42,6 +47,25 @@ const STATUS_LABEL: Record<string, string> = {
   CHARGING: "Cargando",
 };
 
+/** Punto de color del estado (patrón del select inline del revamp). */
+const STATUS_DOT: Record<string, string> = {
+  ACTIVE: "bg-olive",
+  CHARGING: "bg-info",
+  MAINTENANCE: "bg-warning",
+};
+
+/** Descriptor corto de la carrocería, bajo el nombre de la configuración. */
+const BODY_LABEL: Record<string, string> = {
+  CLOSED_BOX: "caja cerrada",
+  REFRIGERATED_BOX: "caja refrigerada",
+  OPEN_FLATBED: "plataforma abierta",
+};
+
+/** Días (enteros) hasta el vencimiento de un documento; negativo = vencido. */
+function docDays(dateStr: string): number {
+  return Math.floor((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
 /** Documento vencido o por vencer (≤30 días): alimenta el recordatorio. */
 function docFlagged(dateStr: string | null): boolean {
   if (!dateStr) return false;
@@ -64,14 +88,83 @@ function defaultsFor(type: VehicleType) {
   };
 }
 
-function docBadge(dateStr: string | null) {
-  if (!dateStr) return <span className="text-navy/40">—</span>;
-  const days = Math.floor((new Date(dateStr).getTime() - Date.now()) / 86400000);
-  if (days < 0) return <span className="font-medium text-danger">Vencido</span>;
-  if (days < 30)
-    return <span className="font-medium text-warning">{days} días</span>;
-  return <span className="text-success">Vigente</span>;
+/** Badge semaforizado del documento, con la fecha en monoespaciado. */
+function DocBadge({ dateStr, feminine }: { dateStr: string | null; feminine?: boolean }) {
+  if (!dateStr) return <span className="text-text-tertiary">—</span>;
+  const days = docDays(dateStr);
+  const badge =
+    days < 0
+      ? { label: feminine ? "Vencida" : "Vencido", tone: "danger" as const }
+      : days === 0
+        ? { label: "Vence hoy", tone: "warning" as const }
+        : days < 30
+          ? { label: `${days} día${days === 1 ? "" : "s"}`, tone: "warning" as const }
+          : { label: "Vigente", tone: "success" as const };
+  return (
+    <span className="inline-flex flex-col items-start gap-0.5">
+      <Badge tone={badge.tone}>{badge.label}</Badge>
+      <span className="font-mono text-[10.5px] text-text-tertiary">
+        {formatDateBogota(dateStr)}
+      </span>
+    </span>
+  );
 }
+
+/** SoC como barra (consistente con las demás páginas de flota). */
+function SocBar({ soc, kwh }: { soc: number | null; kwh: number | null }) {
+  if (soc == null) {
+    return (
+      <span className="font-mono text-xs text-text-secondary">
+        {kwh != null ? `${kwh} kWh` : "—"}
+      </span>
+    );
+  }
+  const pct = Math.max(0, Math.min(100, soc));
+  const fill = pct < 20 ? "bg-danger" : pct < 40 ? "bg-warning" : "bg-lima";
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        role="img"
+        aria-label={`Carga ${soc}%`}
+        className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-niebla"
+      >
+        <span className={`block h-full ${fill}`} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="font-mono text-xs font-semibold text-navy">{soc}%</span>
+      {kwh != null && (
+        <span className="whitespace-nowrap text-[11px] text-text-tertiary">· {kwh} kWh</span>
+      )}
+    </span>
+  );
+}
+
+/** Detalle en español de los documentos en riesgo, para el banner. */
+function docRiskDetail(v: Vehicle): string {
+  const parts: string[] = [];
+  if (v.soatExpiresAt && docFlagged(v.soatExpiresAt)) {
+    const d = docDays(v.soatExpiresAt);
+    parts.push(
+      d < 0
+        ? `SOAT vencido hace ${-d} día${d === -1 ? "" : "s"}`
+        : d === 0
+          ? "SOAT vence hoy"
+          : `SOAT vence en ${d} día${d === 1 ? "" : "s"}`,
+    );
+  }
+  if (v.tecnoExpiresAt && docFlagged(v.tecnoExpiresAt)) {
+    const d = docDays(v.tecnoExpiresAt);
+    parts.push(
+      d < 0
+        ? `técnico-mecánica vencida hace ${-d} día${d === -1 ? "" : "s"}`
+        : d === 0
+          ? "técnico-mecánica vence hoy"
+          : `técnico-mecánica vence en ${d} día${d === 1 ? "" : "s"}`,
+    );
+  }
+  return parts.join(" y ");
+}
+
+type Filter = "ALL" | VehicleStatus | "RISK";
 
 export default function Vehiculos() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -79,7 +172,7 @@ export default function Vehiculos() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [filter, setFilter] = useState<"ALL" | VehicleStatus>("ALL");
+  const [filter, setFilter] = useState<Filter>("ALL");
   const [busyId, setBusyId] = useState<string | null>(null);
   // Depósito base del vehículo (multi-depot, D4 fast-follow).
   const [depots, setDepots] = useState<{ id: string; name: string }[]>([]);
@@ -145,14 +238,29 @@ export default function Vehiculos() {
     }
   }
 
-  const shown = useMemo(
-    () => vehicles.filter((v) => filter === "ALL" || v.status === filter),
-    [vehicles, filter],
-  );
   // Recordatorio de cumplimiento: SOAT o técnico-mecánica vencidos/por vencer.
   const docAlerts = useMemo(
     () => vehicles.filter((v) => docFlagged(v.soatExpiresAt) || docFlagged(v.tecnoExpiresAt)),
     [vehicles],
+  );
+
+  const counts = useMemo(
+    () => ({
+      ACTIVE: vehicles.filter((v) => v.status === "ACTIVE").length,
+      CHARGING: vehicles.filter((v) => v.status === "CHARGING").length,
+      MAINTENANCE: vehicles.filter((v) => v.status === "MAINTENANCE").length,
+    }),
+    [vehicles],
+  );
+
+  const shown = useMemo(
+    () =>
+      vehicles.filter((v) => {
+        if (filter === "RISK")
+          return docFlagged(v.soatExpiresAt) || docFlagged(v.tecnoExpiresAt);
+        return filter === "ALL" || v.status === filter;
+      }),
+    [vehicles, filter],
   );
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
@@ -187,11 +295,57 @@ export default function Vehiculos() {
       <PageHeader
         title="Vehículos"
         actions={
-          <Button onClick={() => setShowForm((v) => !v)}>
+          <Button
+            onClick={() => setShowForm((v) => !v)}
+            icon={showForm ? undefined : <Plus strokeWidth={2} />}
+          >
             {showForm ? "Cancelar" : "Nuevo vehículo"}
           </Button>
         }
       />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Activos" value={counts.ACTIVE} accent />
+        <KpiCard label="Cargando" value={counts.CHARGING} />
+        <KpiCard
+          label="Mantenimiento"
+          value={<span className="text-warning">{counts.MAINTENANCE}</span>}
+        />
+        <KpiCard
+          label="Docs en riesgo"
+          value={
+            <span className={filter === "RISK" ? undefined : "text-danger"}>
+              {docAlerts.length}
+            </span>
+          }
+          active={filter === "RISK"}
+          onClick={() => setFilter(filter === "RISK" ? "ALL" : "RISK")}
+        />
+      </div>
+
+      {docAlerts.length > 0 && (
+        <div
+          role="alert"
+          className="flex items-center gap-2.5 rounded-lg border border-danger/30 bg-danger-bg px-3.5 py-2 text-[12.5px] text-danger"
+        >
+          <TriangleAlert aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span>
+            {docAlerts.map((v, i) => (
+              <span key={v.id}>
+                {i > 0 && " · "}
+                <strong className="font-mono">{v.plate}</strong>: {docRiskDetail(v)}
+              </span>
+            ))}
+            . Renueva antes de despacharlos.
+          </span>
+          <button
+            onClick={() => setFilter("RISK")}
+            className="ml-auto whitespace-nowrap text-xs font-semibold text-danger underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+          >
+            Ver solo en riesgo →
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <Card title="Nuevo vehículo">
@@ -199,7 +353,7 @@ export default function Vehiculos() {
             <Field label="Placa">
               <input
                 name="plate"
-                className={inputClass}
+                className={`${inputClass} font-mono`}
                 required
                 minLength={5}
                 maxLength={8}
@@ -270,17 +424,28 @@ export default function Vehiculos() {
               </Field>
             )}
 
-            <div className="rounded-lg bg-success-bg px-3 py-2 text-sm text-success sm:col-span-3">
-              ⚡ Vehículo 100% eléctrico — exento de pico y placa (Ley 1964/2019).
-              Autonomía nominal: <strong>{batteryOption.rangeKm} km</strong>.
+            <div className="flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2 text-sm text-success sm:col-span-3">
+              <Zap
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0"
+                strokeWidth={2}
+                fill="currentColor"
+              />
+              <span>
+                Vehículo 100% eléctrico — exento de pico y placa (Ley 1964/2019).
+                Autonomía nominal: <strong>{batteryOption.rangeKm} km</strong>.
+              </span>
             </div>
 
             {/* Cold Box: configuración de zona refrigerada (solo lectura). */}
             {profile.reefer && (
-              <div className="rounded-lg border border-sky/40 bg-sky-50 px-3 py-2 text-sm text-info sm:col-span-3">
-                ❄️ Caja refrigerada <strong>{profile.reefer.unit}</strong> —{" "}
-                {profile.reefer.tempMinC}°C a {profile.reefer.tempMaxC}°C. Perfiles
-                soportados: {profile.reefer.modes.join(", ")}.
+              <div className="flex items-center gap-2 rounded-lg border border-sky/40 bg-sky-50 px-3 py-2 text-sm text-info sm:col-span-3">
+                <Snowflake aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
+                <span>
+                  Caja refrigerada <strong>{profile.reefer.unit}</strong> —{" "}
+                  {profile.reefer.tempMinC}°C a {profile.reefer.tempMaxC}°C. Perfiles
+                  soportados: {profile.reefer.modes.join(", ")}.
+                </span>
               </div>
             )}
 
@@ -313,30 +478,36 @@ export default function Vehiculos() {
         </Card>
       )}
 
-      {docAlerts.length > 0 && (
-        <Banner kind="error">
-          {docAlerts.length} vehículo(s) con SOAT o técnico-mecánica vencido o por
-          vencer (≤30 días). Renueva antes de despacharlos.
-        </Banner>
-      )}
+      <Card>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <FilterPill
+            active={filter === "ALL"}
+            onClick={() => setFilter("ALL")}
+            count={vehicles.length}
+          >
+            Todos
+          </FilterPill>
+          {VEHICLE_STATUSES.map((s) => (
+            <FilterPill
+              key={s}
+              active={filter === s}
+              onClick={() => setFilter(s)}
+              count={counts[s]}
+            >
+              {STATUS_LABEL[s] ?? s}
+            </FilterPill>
+          ))}
+          {docAlerts.length > 0 && (
+            <FilterPill
+              active={filter === "RISK"}
+              onClick={() => setFilter("RISK")}
+              count={docAlerts.length}
+            >
+              En riesgo
+            </FilterPill>
+          )}
+        </div>
 
-      <Card
-        actions={
-          <div className="flex flex-wrap gap-1 text-xs">
-            {(["ALL", ...VEHICLE_STATUSES] as ("ALL" | VehicleStatus)[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-full px-3 py-1 ${
-                  filter === f ? "bg-navy text-white" : "border border-cielo text-navy/70"
-                }`}
-              >
-                {f === "ALL" ? "Todos" : STATUS_LABEL[f]}
-              </button>
-            ))}
-          </div>
-        }
-      >
         {loading ? (
           <Loading label="Cargando vehículos…" />
         ) : loadError ? (
@@ -357,75 +528,123 @@ export default function Vehiculos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className={theadRowClass}>
-                  <th className="py-2">Placa</th>
+                  <th className="py-2">Vehículo</th>
                   <th>Configuración</th>
-                  <th>Estado</th>
                   <th>Capacidad</th>
-                  <th>EV</th>
+                  <th>Batería</th>
                   <th>Cadena de frío</th>
                   <th>SOAT</th>
                   <th>Técnico-mecánica</th>
+                  <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {shown.map((v) => {
                   const p = VEHICLE_TYPE_PROFILES[v.type as VehicleType];
+                  const atRisk =
+                    docFlagged(v.soatExpiresAt) || docFlagged(v.tecnoExpiresAt);
                   return (
-                    <tr key={v.id} className={tableRowClass}>
-                      <td className="py-2 font-mono font-medium">{v.plate}</td>
-                      <td>{typeLabel(v.type)}</td>
-                      <td>
-                        <select
-                          aria-label={`Estado de ${v.plate}`}
-                          className="rounded border border-cielo bg-white px-1.5 py-0.5 text-xs text-navy disabled:opacity-50"
-                          value={v.status}
-                          disabled={busyId === v.id}
-                          onChange={(e) => void patchVehicle(v.id, { status: e.target.value })}
-                        >
-                          {VEHICLE_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_LABEL[s]}
-                            </option>
-                          ))}
-                        </select>
+                    <tr
+                      key={v.id}
+                      className={`${tableRowClass} ${atRisk ? "bg-danger-bg/40" : ""}`}
+                    >
+                      <td
+                        className={`py-2 ${atRisk ? "border-l-[3px] border-l-danger pl-1" : ""}`}
+                      >
+                        <span className="block font-mono text-[13px] font-bold text-navy">
+                          {v.plate}
+                        </span>
+                        {v.nominalRangeKm != null && (
+                          <span className="block text-[11px] text-text-tertiary">
+                            Autonomía {v.nominalRangeKm} km
+                          </span>
+                        )}
                       </td>
                       <td>
+                        <span className="block font-medium">{typeLabel(v.type)}</span>
+                        {p && (
+                          <span className="block text-[11px] text-text-tertiary">
+                            {BODY_LABEL[p.body] ?? p.body}
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-[12.5px]">
                         {v.capacityKg} kg
                         {v.capacityM3 != null ? ` · ${v.capacityM3} m³` : ""}
                       </td>
                       <td>
-                        {v.isElectric ? (
-                          <span className="text-success">
-                            ⚡ {v.socPercent != null ? `${v.socPercent}% SoC` : "Sí"}
-                            {v.nominalRangeKm ? ` · ${v.nominalRangeKm} km` : ""}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
+                        <SocBar soc={v.socPercent} kwh={v.batteryKwh} />
                       </td>
                       <td>
                         {p?.reefer ? (
-                          <span className="text-info">
-                            ❄️ {p.reefer.modes.join("/")}
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10.5px] font-semibold text-info">
+                            <Snowflake
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5"
+                              strokeWidth={2}
+                            />
+                            {p.reefer.modes.join("/")}
                           </span>
                         ) : (
-                          <span className="text-navy/40">—</span>
+                          <span className="text-text-tertiary">—</span>
                         )}
                       </td>
-                      <td>{docBadge(v.soatExpiresAt)}</td>
-                      <td>{docBadge(v.tecnoExpiresAt)}</td>
+                      <td>
+                        <DocBadge dateStr={v.soatExpiresAt} />
+                      </td>
+                      <td>
+                        <DocBadge dateStr={v.tecnoExpiresAt} feminine />
+                      </td>
+                      <td>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            aria-hidden="true"
+                            className={`h-[7px] w-[7px] shrink-0 rounded-full ${STATUS_DOT[v.status] ?? "bg-border-strong"}`}
+                          />
+                          <select
+                            aria-label={`Estado de ${v.plate}`}
+                            className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25 disabled:opacity-50"
+                            value={v.status}
+                            disabled={busyId === v.id}
+                            onChange={(e) => void patchVehicle(v.id, { status: e.target.value })}
+                          >
+                            {VEHICLE_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {STATUS_LABEL[s] ?? s}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-6 text-center text-navy/40">
-                      Ningún vehículo en estado «{filter === "ALL" ? "—" : STATUS_LABEL[filter]}».
+                    <td colSpan={8} className="py-6 text-center text-text-tertiary">
+                      Ningún vehículo en estado «
+                      {filter === "ALL"
+                        ? "—"
+                        : filter === "RISK"
+                          ? "en riesgo"
+                          : (STATUS_LABEL[filter] ?? filter)}
+                      ».
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+            <p className="mt-3 flex items-center gap-1.5 text-[11.5px] text-text-tertiary">
+              <Zap
+                aria-hidden="true"
+                className="h-3 w-3 shrink-0 text-lime-ink"
+                strokeWidth={1}
+                fill="currentColor"
+              />
+              Flota 100% eléctrica — exenta de pico y placa (Ley 1964/2019). La
+              configuración define capacidad, pack de batería y autonomía nominal
+              desde el catálogo.
+            </p>
           </div>
         )}
       </Card>

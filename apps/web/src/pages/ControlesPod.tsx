@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Camera, Save, Signature } from "lucide-react";
 import {
   DELIVERY_TYPES,
   DELIVERY_TYPE_LABELS,
@@ -11,7 +12,7 @@ import {
 } from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
-import { Banner, Button, Card, Loading, PageHeader } from "../components/ui";
+import { Banner, Button, Card, Loading, PageHeader, tableRowClass, theadRowClass } from "../components/ui";
 
 const REQ_LABELS: Record<PodReq, string> = {
   MANDATORY: "Obligatoria",
@@ -91,7 +92,7 @@ export default function ControlesPod() {
     >;
     const value = group[type] ?? { signature: "OPTIONAL", photo: "OPTIONAL" };
     return (
-      <tr className="border-b border-border/60">
+      <tr className={tableRowClass}>
         <td className="py-2 pr-4 text-sm font-medium text-navy">{label}</td>
         {(["signature", "photo"] as const).map((field) => (
           <td key={field} className="py-2 pr-4">
@@ -129,10 +130,20 @@ export default function ControlesPod() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
+              <tr className={theadRowClass}>
                 <th className="py-2 pr-4 font-medium">Tipo</th>
-                <th className="py-2 pr-4 font-medium">Firma</th>
-                <th className="py-2 pr-4 font-medium">Foto</th>
+                <th className="py-2 pr-4 font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Signature aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Firma
+                  </span>
+                </th>
+                <th className="py-2 pr-4 font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Camera aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Foto
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -152,7 +163,12 @@ export default function ControlesPod() {
         title="Prueba de entrega"
         subtitle="Define qué evidencia (firma/foto) se exige por tipo de entrega y recogida. La app del conductor bloquea la finalización si falta una prueba obligatoria."
         actions={
-          <Button variant="cta" onClick={save} disabled={saving || !config}>
+          <Button
+            variant="cta"
+            icon={<Save strokeWidth={2} />}
+            onClick={save}
+            disabled={saving || !config}
+          >
             {saving ? "Guardando…" : "Guardar política"}
           </Button>
         }

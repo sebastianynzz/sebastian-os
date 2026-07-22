@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { KeyRound, Plus, Send, Trash2, Webhook as WebhookIcon } from "lucide-react";
 import {
   API_KEY_SCOPES,
   API_KEY_SCOPE_LABELS,
@@ -53,6 +54,19 @@ function toggle<T>(set: Set<T>, v: T): Set<T> {
   if (next.has(v)) next.delete(v);
   else next.add(v);
   return next;
+}
+
+/* Botón fantasma de peligro (reemplaza el enlace de texto rojo). */
+const dangerGhostClass =
+  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-danger transition duration-200 ease-brand hover:bg-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
+
+/* Chips multiselección (eventos/permisos): patrón de pastilla del revamp. */
+function chipClass(selected: boolean): string {
+  return `rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+    selected
+      ? "bg-navy text-white"
+      : "border border-border bg-surface text-navy/70 hover:border-border-strong hover:text-navy"
+  }`;
 }
 
 export default function ControlesIntegraciones() {
@@ -201,7 +215,7 @@ export default function ControlesIntegraciones() {
             />
           </Field>
           <div>
-            <span className="mb-1 block text-sm font-medium text-navy/70">Eventos</span>
+            <span className="mb-1 block text-sm font-medium text-text-secondary">Eventos</span>
             <div className="flex flex-wrap gap-2">
               {NOTIFICATION_EVENTS.map((ev) => (
                 <button
@@ -209,9 +223,7 @@ export default function ControlesIntegraciones() {
                   type="button"
                   aria-pressed={whEvents.has(ev)}
                   onClick={() => setWhEvents((s) => toggle(s, ev))}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    whEvents.has(ev) ? "bg-navy text-white" : "bg-niebla text-navy/70 hover:bg-cielo/40"
-                  }`}
+                  className={chipClass(whEvents.has(ev))}
                 >
                   {NOTIFICATION_EVENT_LABELS[ev]}
                 </button>
@@ -219,8 +231,15 @@ export default function ControlesIntegraciones() {
             </div>
           </div>
         </div>
+        {/* Dos acciones de creación equivalentes en la página → navy para ambas
+            (máximo un CTA limón por página; aquí ninguna domina). */}
         <div className="mt-3">
-          <Button variant="cta" onClick={createWebhook} disabled={whBusy}>
+          <Button
+            variant="primary"
+            icon={<Plus strokeWidth={2} />}
+            onClick={createWebhook}
+            disabled={whBusy}
+          >
             {whBusy ? "Creando…" : "Agregar webhook"}
           </Button>
         </div>
@@ -229,14 +248,18 @@ export default function ControlesIntegraciones() {
           {webhooks === null ? (
             <Loading label="Cargando webhooks…" />
           ) : webhooks.length === 0 ? (
-            <EmptyState>Aún no hay webhooks.</EmptyState>
+            <EmptyState
+              icon={<WebhookIcon aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
+            >
+              Aún no hay webhooks.
+            </EmptyState>
           ) : (
             <div className="space-y-2">
               {webhooks.map((w) => (
-                <div key={w.id} className="rounded-lg border border-border/60 p-3">
+                <div key={w.id} className="rounded-lg border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="break-all font-mono text-sm text-navy">{w.url}</span>
-                    <span className="flex items-center gap-2 text-xs text-navy/60">
+                    <span className="flex items-center gap-2 text-xs text-text-secondary">
                       {w.enabled ? "Activo" : "Pausado"}
                       <PillToggle
                         checked={w.enabled}
@@ -252,22 +275,27 @@ export default function ControlesIntegraciones() {
                       </Badge>
                     ))}
                   </div>
-                  <div className="mt-2 break-all text-xs text-navy/50">
-                    Secreto: <code className="font-mono">{w.secret}</code>
+                  <div className="mt-2 break-all text-xs text-text-tertiary">
+                    Secreto: <code className="font-mono text-navy/70">{w.secret}</code>
                   </div>
                   {w.lastStatus !== null && (
-                    <div className="mt-1 text-xs text-navy/50">
-                      Última entrega: HTTP {w.lastStatus}
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-text-tertiary">
+                      Última entrega:
+                      <Badge tone={w.lastStatus >= 200 && w.lastStatus < 300 ? "success" : "danger"}>
+                        <span className="font-mono">HTTP {w.lastStatus}</span>
+                      </Badge>
                     </div>
                   )}
                   <div className="mt-2 flex gap-2">
-                    <Button variant="secondary" onClick={() => void testWebhook(w)}>
+                    <Button
+                      variant="secondary"
+                      icon={<Send strokeWidth={2} />}
+                      onClick={() => void testWebhook(w)}
+                    >
                       Enviar prueba
                     </Button>
-                    <button
-                      onClick={() => void deleteWebhook(w)}
-                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger-bg"
-                    >
+                    <button onClick={() => void deleteWebhook(w)} className={dangerGhostClass}>
+                      <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                       Eliminar
                     </button>
                   </div>
@@ -289,7 +317,7 @@ export default function ControlesIntegraciones() {
             />
           </Field>
           <div>
-            <span className="mb-1 block text-sm font-medium text-navy/70">Permisos</span>
+            <span className="mb-1 block text-sm font-medium text-text-secondary">Permisos</span>
             <div className="flex flex-wrap gap-2">
               {API_KEY_SCOPES.map((sc) => (
                 <button
@@ -297,9 +325,7 @@ export default function ControlesIntegraciones() {
                   type="button"
                   aria-pressed={keyScopes.has(sc)}
                   onClick={() => setKeyScopes((s) => toggle(s, sc))}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    keyScopes.has(sc) ? "bg-navy text-white" : "bg-niebla text-navy/70 hover:bg-cielo/40"
-                  }`}
+                  className={chipClass(keyScopes.has(sc))}
                 >
                   {API_KEY_SCOPE_LABELS[sc]}
                 </button>
@@ -308,7 +334,12 @@ export default function ControlesIntegraciones() {
           </div>
         </div>
         <div className="mt-3">
-          <Button variant="cta" onClick={createKey} disabled={keyBusy}>
+          <Button
+            variant="primary"
+            icon={<Plus strokeWidth={2} />}
+            onClick={createKey}
+            disabled={keyBusy}
+          >
             {keyBusy ? "Creando…" : "Crear API key"}
           </Button>
         </div>
@@ -317,17 +348,21 @@ export default function ControlesIntegraciones() {
           {keys === null ? (
             <Loading label="Cargando API keys…" />
           ) : keys.length === 0 ? (
-            <EmptyState>Aún no hay API keys.</EmptyState>
+            <EmptyState
+              icon={<KeyRound aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
+            >
+              Aún no hay API keys.
+            </EmptyState>
           ) : (
             <div className="space-y-2">
               {keys.map((k) => (
                 <div
                   key={k.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
                 >
                   <div>
                     <div className="font-medium text-navy">{k.name}</div>
-                    <div className="font-mono text-xs text-navy/50">{k.prefix}…</div>
+                    <div className="font-mono text-xs text-text-tertiary">{k.prefix}…</div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {k.scopes.map((s) => (
                         <Badge key={s} tone="neutral">
@@ -336,10 +371,8 @@ export default function ControlesIntegraciones() {
                       ))}
                     </div>
                   </div>
-                  <button
-                    onClick={() => void deleteKey(k)}
-                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger-bg"
-                  >
+                  <button onClick={() => void deleteKey(k)} className={dangerGhostClass}>
+                    <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                     Revocar
                   </button>
                 </div>
@@ -351,10 +384,11 @@ export default function ControlesIntegraciones() {
 
       {/* Conectores (Tier 2 §8): order-ingestion desde donde vende el cliente. */}
       <Card title="Conectores de pedidos">
-        <p className="text-sm text-navy/70">
+        <p className="text-sm text-text-secondary">
           Conecta tu tienda o marketplace para que sus pedidos entren a MoveOS.
           Configura el webhook de la plataforma apuntando a la URL del conector y
-          autentícalo con una API key con permiso <code>orders:write</code>.
+          autentícalo con una API key con permiso{" "}
+          <code className="font-mono text-navy">orders:write</code>.
         </p>
         <div className="mt-3 space-y-2">
           {[
@@ -365,10 +399,10 @@ export default function ControlesIntegraciones() {
           ].map(([label, source]) => (
             <div
               key={source}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-niebla p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
             >
               <span className="font-medium text-navy">{label}</span>
-              <code className="rounded bg-niebla px-2 py-1 text-xs text-navy">
+              <code className="break-all rounded-md bg-niebla px-2 py-1 font-mono text-xs text-navy">
                 POST {BASE_URL}/ingest/orders/{source}
               </code>
             </div>

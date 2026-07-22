@@ -1,4 +1,16 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  Check,
+  CircleCheck,
+  CircleX,
+  Link2,
+  Mail,
+  Monitor,
+  Phone,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../toast";
 import {
@@ -10,8 +22,6 @@ import {
   Loading,
   PageHeader,
   inputClass,
-  tableRowClass,
-  theadRowClass,
 } from "../components/ui";
 
 interface Client {
@@ -23,6 +33,8 @@ interface Client {
   notifyChannel: string;
   webhookUrl: string | null;
   pickupAddressRaw: string | null;
+  // Política POD del negocio (el API la incluye en el listado).
+  podRequired?: string[];
   _count: { orders: number; portalUsers: number };
 }
 
@@ -41,6 +53,27 @@ const CHANNEL_LABELS: Record<string, string> = {
   WEBHOOK: "Webhook (API)",
 };
 
+/** Ícono Lucide del canal de aviso (chip del revamp). */
+function ChannelIcon({ channel }: { channel: string }) {
+  const cls = "h-3 w-3";
+  const props = { "aria-hidden": true, className: cls, strokeWidth: 2 } as const;
+  switch (channel) {
+    case "EMAIL":
+      return <Mail {...props} />;
+    case "WHATSAPP":
+      return <Phone {...props} />;
+    case "WEBHOOK":
+      return <Link2 {...props} />;
+    default:
+      return <Monitor {...props} />;
+  }
+}
+
+const POD_LABELS: Record<string, string> = {
+  PHOTO: "foto",
+  RECEIVER_NAME: "nombre",
+};
+
 // Tamaño de página del feed de avisos (paginación por ventana).
 const FEED_PAGE = 20;
 
@@ -49,6 +82,16 @@ const TEMPLATE_LABELS: Record<string, string> = {
   envio_entregado: "Envío entregado",
   envio_fallido: "Envío fallido",
 };
+
+/** Iniciales para el avatar cuadrado (máx. 2 letras). */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export default function Clientes() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -207,10 +250,12 @@ export default function Clientes() {
     <div className="space-y-4">
       <PageHeader
         title="Negocios cliente"
-        subtitle="Las empresas que originan los envíos. Reciben la confirmación de
-          entrega por el canal que definas."
+        subtitle="Quienes originan los envíos · reciben confirmación por su canal"
         actions={
-          <Button onClick={() => setShowForm((v) => !v)}>
+          <Button
+            onClick={() => setShowForm((v) => !v)}
+            icon={showForm ? undefined : <Plus strokeWidth={2} />}
+          >
             {showForm ? "Cancelar" : "Nuevo cliente"}
           </Button>
         }
@@ -273,11 +318,19 @@ export default function Clientes() {
                 {webhookTest && !webhookTest.testing && (
                   <p
                     role="status"
-                    className={`mt-1 text-sm ${webhookTest.ok ? "text-success" : "text-danger"}`}
+                    className={`mt-1 flex items-center gap-1.5 text-sm ${webhookTest.ok ? "text-success" : "text-danger"}`}
                   >
-                    {webhookTest.ok
-                      ? `✅ Respondió correctamente (HTTP ${webhookTest.status})`
-                      : `❌ ${webhookTest.error ?? `Respuesta HTTP ${webhookTest.status}`}`}
+                    {webhookTest.ok ? (
+                      <>
+                        <CircleCheck aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
+                        Respondió correctamente (HTTP {webhookTest.status})
+                      </>
+                    ) : (
+                      <>
+                        <CircleX aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
+                        {webhookTest.error ?? `Respuesta HTTP ${webhookTest.status}`}
+                      </>
+                    )}
                   </p>
                 )}
               </div>
@@ -317,199 +370,227 @@ export default function Clientes() {
         </Banner>
       )}
 
-      <Card
-        actions={
-          <input
-            type="search"
-            className={`${inputClass} sm:w-64`}
-            placeholder="Buscar negocio, contacto o correo…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Buscar negocios cliente"
-          />
-        }
-      >
-        {loading ? (
-          <Loading label="Cargando negocios cliente…" />
-        ) : (
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className={theadRowClass}>
-              <th className="py-2">Negocio</th>
-              <th>Contacto</th>
-              <th>Canal de aviso</th>
-              <th>Envíos</th>
-              <th>Portal</th>
-              <th>
-                <span className="sr-only">Acciones</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((c) => (
-              <Fragment key={c.id}>
-                <tr className={tableRowClass}>
-                  <td className="py-2 font-medium">{c.name}</td>
-                  <td>{c.contactName ?? "—"}</td>
-                  <td>
-                    <span className="rounded-full bg-cielo/40 px-2 py-0.5 text-xs">
-                      {CHANNEL_LABELS[c.notifyChannel] ?? c.notifyChannel}
+      <div className="relative">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary"
+          strokeWidth={2}
+        />
+        <input
+          type="search"
+          className={`${inputClass} pl-8`}
+          placeholder="Buscar negocio, contacto o correo…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Buscar negocios cliente"
+        />
+      </div>
+
+      {loading ? (
+        <Loading label="Cargando negocios cliente…" />
+      ) : clients.length === 0 ? (
+        <Card>
+          <EmptyState
+            phrase="Entregas rápidas, operaciones inteligentes."
+            action={<Button onClick={() => setShowForm(true)}>Nuevo cliente</Button>}
+          >
+            Sin negocios cliente aún. Cree el primero.
+          </EmptyState>
+        </Card>
+      ) : shown.length === 0 ? (
+        <Card>
+          <p className="py-6 text-center text-sm text-text-tertiary">
+            Ningún negocio coincide con «{query}».
+          </p>
+        </Card>
+      ) : (
+        shown.map((c) => {
+          const test = notifTest[c.id];
+          const pod = c.podRequired ?? [];
+          const contact = [c.contactName, c.email ?? c.phone].filter(Boolean).join(" · ");
+          return (
+            <Card key={c.id}>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-navy text-[13px] font-bold text-lima"
+                  >
+                    {initials(c.name)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-navy">
+                      {c.name}
                     </span>
-                  </td>
-                  <td>{c._count.orders}</td>
-                  <td>
-                    {c._count.portalUsers > 0 ? (
-                      <span className="rounded-full bg-lima/40 px-2 py-0.5 text-xs">
-                        {c._count.portalUsers} usuario{c._count.portalUsers > 1 ? "s" : ""}
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setPortalMsg(null);
-                          setPortalFor(portalFor === c.id ? null : c.id);
-                        }}
-                        aria-expanded={portalFor === c.id}
-                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                    <span className="block truncate text-[11.5px] text-text-tertiary">
+                      {contact || "Sin contacto registrado"}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs text-text-secondary">
+                    <strong className="text-[15px] font-semibold text-navy">
+                      {c._count.orders}
+                    </strong>{" "}
+                    envíos
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-info">
+                    <ChannelIcon channel={c.notifyChannel} />
+                    {CHANNEL_LABELS[c.notifyChannel] ?? c.notifyChannel}
+                  </span>
+                  <span
+                    className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
+                      pod.length > 0
+                        ? "bg-sky-50 text-info"
+                        : "bg-niebla text-text-secondary"
+                    }`}
+                  >
+                    POD:{" "}
+                    {pod.length > 0
+                      ? pod.map((p) => POD_LABELS[p] ?? p.toLowerCase()).join(" + ")
+                      : "no exigida"}
+                  </span>
+                  {c._count.portalUsers > 0 ? (
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-lima/45 px-2.5 py-0.5 text-[11.5px] font-semibold text-lime-ink">
+                      <Check aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                      Portal · {c._count.portalUsers} usuario
+                      {c._count.portalUsers > 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setPortalMsg(null);
+                        setPortalFor(portalFor === c.id ? null : c.id);
+                      }}
+                      aria-expanded={portalFor === c.id}
+                      className="inline-flex items-center whitespace-nowrap rounded-full border border-dashed border-border-strong bg-surface px-2.5 py-0.5 text-[11.5px] font-medium text-text-tertiary transition duration-200 ease-brand hover:border-navy/40 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                    >
+                      Sin portal — dar acceso
+                    </button>
+                  )}
+                  <span className="ml-auto inline-flex items-center gap-2">
+                    {test && !test.testing && (
+                      <span
+                        role="status"
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                          test.ok ? "text-lime-ink" : "text-danger"
+                        }`}
                       >
-                        Dar acceso
+                        {test.ok ? (
+                          <>
+                            <Check aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                            {CHANNEL_LABELS[test.channel ?? ""] ?? test.channel}
+                          </>
+                        ) : (
+                          <>
+                            <X aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
+                            falló
+                          </>
+                        )}
+                      </span>
+                    )}
+                    <Button
+                      variant="secondary"
+                      onClick={() => void testNotification(c.id)}
+                      disabled={test?.testing}
+                    >
+                      {test?.testing ? "Enviando…" : "Probar aviso"}
+                    </Button>
+                    {/* Botón nativo (estilo fantasma) para poder exponer aria-expanded. */}
+                    <button
+                      onClick={() => void toggleFeed(c.id)}
+                      aria-expanded={openClient === c.id}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-sm font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                    >
+                      {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
+                    </button>
+                  </span>
+                </div>
+
+                {portalFor === c.id && (
+                  <div className="border-t border-border pt-3">
+                    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-text-tertiary">
+                      Acceso al portal de clientes para {c.name}
+                    </div>
+                    <form
+                      onSubmit={(e) => void onCreatePortalAccess(e, c.id)}
+                      className="flex flex-wrap items-end gap-3"
+                    >
+                      <Field label="Correo del negocio">
+                        <input name="email" type="email" className={inputClass} required />
+                      </Field>
+                      <Field label="Contraseña inicial (mín. 8)">
+                        <input
+                          name="password"
+                          type="text"
+                          className={inputClass}
+                          required
+                          minLength={8}
+                        />
+                      </Field>
+                      <Button type="submit">Crear acceso</Button>
+                    </form>
+                    <p className="mt-2 text-xs text-text-tertiary">
+                      El negocio entra con estas credenciales en esta misma
+                      página de login y solo ve sus propios envíos.
+                    </p>
+                  </div>
+                )}
+
+                {openClient === c.id && (
+                  <div className="border-t border-border pt-2">
+                    <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-text-tertiary">
+                      Confirmaciones enviadas
+                    </div>
+                    {(feed[c.id]?.length ?? 0) === 0 ? (
+                      <p className="text-sm text-text-tertiary">
+                        Aún no se ha enviado ningún aviso.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-1 text-xs text-navy">
+                        {feed[c.id]!.map((n) => (
+                          <li key={n.id} className="flex items-baseline gap-2">
+                            <span className="font-mono text-[11px] text-text-tertiary">
+                              {new Date(n.createdAt).toLocaleString("es-CO", {
+                                timeZone: "America/Bogota",
+                                day: "2-digit",
+                                month: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className={`h-[7px] w-[7px] shrink-0 self-center rounded-full ${
+                                n.template === "envio_fallido" ? "bg-danger" : "bg-lima"
+                              }`}
+                            />
+                            <span className="font-medium">
+                              {TEMPLATE_LABELS[n.template] ?? n.template}
+                            </span>
+                            <span className="text-[11px] text-text-tertiary">
+                              {n.channel} · {n.status}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {(feed[c.id]?.length ?? 0) > 0 && !feedExhausted.has(c.id) && (
+                      <button
+                        onClick={() => void loadMoreFeed(c.id)}
+                        className="mt-2 text-xs font-semibold text-navy underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      >
+                        Ver más avisos
                       </button>
                     )}
-                  </td>
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      {notifTest[c.id] && !notifTest[c.id]!.testing && (
-                        <span
-                          className={`text-xs ${notifTest[c.id]!.ok ? "text-success" : "text-danger"}`}
-                        >
-                          {notifTest[c.id]!.ok
-                            ? `✓ ${notifTest[c.id]!.channel}`
-                            : "✕ falló"}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => void testNotification(c.id)}
-                        disabled={notifTest[c.id]?.testing}
-                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:opacity-50"
-                      >
-                        {notifTest[c.id]?.testing ? "Enviando…" : "Probar aviso"}
-                      </button>
-                      <button
-                        onClick={() => toggleFeed(c.id)}
-                        aria-expanded={openClient === c.id}
-                        className="text-xs text-navy/60 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
-                      >
-                        {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {portalFor === c.id && (
-                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={6} className="px-4 py-3">
-                      <div className="mb-2 text-xs font-semibold uppercase text-navy/50">
-                        Acceso al portal de clientes para {c.name}
-                      </div>
-                      <form
-                        onSubmit={(e) => void onCreatePortalAccess(e, c.id)}
-                        className="flex flex-wrap items-end gap-3"
-                      >
-                        <Field label="Correo del negocio">
-                          <input name="email" type="email" className={inputClass} required />
-                        </Field>
-                        <Field label="Contraseña inicial (mín. 8)">
-                          <input
-                            name="password"
-                            type="text"
-                            className={inputClass}
-                            required
-                            minLength={8}
-                          />
-                        </Field>
-                        <Button type="submit">Crear acceso</Button>
-                      </form>
-                      <p className="mt-2 text-xs text-navy/40">
-                        El negocio entra con estas credenciales en esta misma
-                        página de login y solo ve sus propios envíos.
-                      </p>
-                    </td>
-                  </tr>
+                  </div>
                 )}
-                {openClient === c.id && (
-                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={6} className="px-4 py-3">
-                      <div className="text-xs font-semibold uppercase text-navy/50">
-                        Confirmaciones enviadas a {c.name}
-                      </div>
-                      {(feed[c.id]?.length ?? 0) === 0 ? (
-                        <p className="mt-1 text-sm text-navy/40">
-                          Aún no se ha enviado ningún aviso.
-                        </p>
-                      ) : (
-                        <ul className="mt-2 space-y-1 text-sm">
-                          {feed[c.id]!.map((n) => (
-                            <li key={n.id} className="flex items-baseline gap-3">
-                              <span className="font-mono text-xs text-navy/50">
-                                {new Date(n.createdAt).toLocaleString("es-CO", {
-                                  timeZone: "America/Bogota",
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-lima" />
-                              <span className="font-medium">
-                                {TEMPLATE_LABELS[n.template] ?? n.template}
-                              </span>
-                              <span className="text-xs text-navy/50">
-                                {n.channel} · {n.status}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {(feed[c.id]?.length ?? 0) > 0 && !feedExhausted.has(c.id) && (
-                        <button
-                          onClick={() => void loadMoreFeed(c.id)}
-                          className="mt-2 text-xs font-medium text-navy underline hover:text-navy/70"
-                        >
-                          Ver más avisos
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-            {clients.length === 0 && (
-              <tr>
-                <td colSpan={6}>
-                  <EmptyState
-                    phrase="Entregas rápidas, operaciones inteligentes."
-                    action={
-                      <Button onClick={() => setShowForm(true)}>
-                        Nuevo cliente
-                      </Button>
-                    }
-                  >
-                    Sin negocios cliente aún. Cree el primero.
-                  </EmptyState>
-                </td>
-              </tr>
-            )}
-            {clients.length > 0 && shown.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-navy/40">
-                  Ningún negocio coincide con «{query}».
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        </div>
-        )}
-      </Card>
+              </div>
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }

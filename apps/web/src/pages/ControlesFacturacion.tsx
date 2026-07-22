@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ReceiptText, Save } from "lucide-react";
 import {
   INVOICE_STATUS_LABELS,
   billingProfileSchema,
@@ -16,6 +17,8 @@ import {
   Loading,
   PageHeader,
   inputClass,
+  tableRowClass,
+  theadRowClass,
 } from "../components/ui";
 import { formatDateTimeBogota } from "../format";
 
@@ -173,7 +176,12 @@ export default function ControlesFacturacion() {
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Button variant="cta" onClick={save} disabled={saving}>
+                <Button
+                  variant="cta"
+                  icon={<Save strokeWidth={2} />}
+                  onClick={save}
+                  disabled={saving}
+                >
                   {saving ? "Guardando…" : "Guardar datos"}
                 </Button>
               </div>
@@ -182,14 +190,17 @@ export default function ControlesFacturacion() {
 
           <Card title="Historial de facturas">
             {data.invoices.length === 0 ? (
-              <EmptyState phrase="Tu operación, siempre en orden.">
+              <EmptyState
+                icon={<ReceiptText aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
+                phrase="Tu operación, siempre en orden."
+              >
                 Aún no hay facturas. Aparecerán aquí cuando el operador las emita.
               </EmptyState>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
+                    <tr className={theadRowClass}>
                       <th className="py-2 pr-4 font-medium">Factura</th>
                       <th className="py-2 pr-4 font-medium">Periodo</th>
                       <th className="py-2 pr-4 font-medium">Monto</th>
@@ -200,16 +211,18 @@ export default function ControlesFacturacion() {
                   </thead>
                   <tbody>
                     {data.invoices.map((inv) => (
-                      <tr key={inv.id} className="border-b border-border/60">
-                        <td className="py-2 pr-4 font-mono text-xs font-semibold">
+                      <tr key={inv.id} className={tableRowClass}>
+                        <td className="py-2 pr-4 font-mono text-xs font-semibold text-navy">
                           {inv.number}
                         </td>
-                        <td className="py-2 pr-4">{inv.periodMonth}</td>
-                        <td className="py-2 pr-4">{COP.format(inv.amountCop)}</td>
-                        <td className="py-2 pr-4 text-xs text-navy/60">
+                        <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
+                          {inv.periodMonth}
+                        </td>
+                        <td className="py-2 pr-4 text-navy">{COP.format(inv.amountCop)}</td>
+                        <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {formatDateTimeBogota(inv.issuedAt)}
                         </td>
-                        <td className="py-2 pr-4 text-xs text-navy/60">
+                        <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {inv.dueAt ? formatDateTimeBogota(inv.dueAt) : "—"}
                         </td>
                         <td className="py-2">

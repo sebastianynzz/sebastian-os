@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Rows3, Trash2 } from "lucide-react";
 import {
   customPropertySchema,
   type CustomPropertyInput,
@@ -15,7 +16,13 @@ import {
   Loading,
   PageHeader,
   inputClass,
+  tableRowClass,
+  theadRowClass,
 } from "../components/ui";
+
+/* Botón fantasma de peligro (reemplaza el enlace de texto rojo). */
+const dangerGhostClass =
+  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-danger transition duration-200 ease-brand hover:bg-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
 
 /**
  * Controles › Campos personalizados (Tier 2 §9): el operador define campos
@@ -146,7 +153,12 @@ export default function ControlesCampos() {
         title="Campos personalizados"
         subtitle="Agrega datos extra a cada pedido (p. ej. piso, número de factura) y decide, por campo, si lo ve el conductor en la app y/o el destinatario en la página de rastreo. Se rellenan al crear el pedido, importar CSV o desde el portal."
         actions={
-          <Button variant="cta" onClick={openCreate} disabled={atCap}>
+          <Button
+            variant="cta"
+            icon={<Plus strokeWidth={2} />}
+            onClick={openCreate}
+            disabled={atCap}
+          >
             Nuevo campo
           </Button>
         }
@@ -187,6 +199,7 @@ export default function ControlesCampos() {
             <label className="flex items-center gap-2 text-sm text-navy/80">
               <input
                 type="checkbox"
+                className="accent-navy"
                 checked={form.visibleToDriver}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, visibleToDriver: e.target.checked }))
@@ -197,6 +210,7 @@ export default function ControlesCampos() {
             <label className="flex items-center gap-2 text-sm text-navy/80">
               <input
                 type="checkbox"
+                className="accent-navy"
                 checked={form.visibleToRecipient}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, visibleToRecipient: e.target.checked }))
@@ -205,7 +219,7 @@ export default function ControlesCampos() {
               Visible para el destinatario (página de rastreo)
             </label>
             <div className="flex gap-2">
-              <Button variant="cta" onClick={save} disabled={saving}>
+              <Button variant="primary" onClick={save} disabled={saving}>
                 {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear campo"}
               </Button>
               <Button
@@ -227,8 +241,13 @@ export default function ControlesCampos() {
           <Loading label="Cargando campos…" />
         ) : data.items.length === 0 ? (
           <EmptyState
+            icon={<Rows3 aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
             phrase="Cada entrega cuenta su propia historia."
-            action={<Button onClick={openCreate}>Crear campo</Button>}
+            action={
+              <Button onClick={openCreate} icon={<Plus strokeWidth={2} />}>
+                Crear campo
+              </Button>
+            }
           >
             Aún no hay campos personalizados. Crea el primero para capturar datos extra
             en tus pedidos.
@@ -237,7 +256,7 @@ export default function ControlesCampos() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
+                <tr className={theadRowClass}>
                   <th className="py-2 pr-4 font-medium">Campo</th>
                   <th className="py-2 pr-4 font-medium">Visibilidad</th>
                   <th className="py-2 font-medium" />
@@ -245,7 +264,7 @@ export default function ControlesCampos() {
               </thead>
               <tbody>
                 {data.items.map((p) => (
-                  <tr key={p.id} className="border-b border-border/60">
+                  <tr key={p.id} className={tableRowClass}>
                     <td className="py-2 pr-4 font-medium text-navy">{p.name}</td>
                     <td className="py-2 pr-4">
                       <div className="flex flex-wrap gap-1.5">
@@ -260,13 +279,15 @@ export default function ControlesCampos() {
                     </td>
                     <td className="py-2">
                       <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => openEdit(p)}>
+                        <Button
+                          variant="secondary"
+                          icon={<Pencil strokeWidth={2} />}
+                          onClick={() => openEdit(p)}
+                        >
                           Editar
                         </Button>
-                        <button
-                          onClick={() => void remove(p)}
-                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger-bg"
-                        >
+                        <button onClick={() => void remove(p)} className={dangerGhostClass}>
+                          <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                           Eliminar
                         </button>
                       </div>

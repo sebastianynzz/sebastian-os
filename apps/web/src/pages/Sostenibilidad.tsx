@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { Download, Leaf, Printer, RotateCcw } from "lucide-react";
 import { api, ApiError } from "../api";
 import {
   Button,
   Card,
   EmptyState,
+  KpiCard,
   Loading,
   ModuleDisabled,
   PageHeader,
@@ -15,7 +17,8 @@ import { vehicleLabel } from "./PortalVerde";
  * Informe verde mensual del tenant (módulo Analítica Pro): CO₂ de la flota
  * por tipo de vehículo y por negocio cliente — el argumento ESG para vender
  * última milla eléctrica. Imprimible y exportable (CSV) para enviarlo a cada
- * cliente.
+ * cliente. Las cifras ICE existen SOLO como línea base contrafactual
+ * ("emisiones evitadas"), nunca como vehículos propios.
  */
 
 interface TypeRow {
@@ -100,6 +103,24 @@ function reportToCsv(r: GreenReport): string {
   return "﻿" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
+/** Etiqueta de vehículo para pantalla: sin glifos emoji (regla del revamp). */
+function displayVehicleLabel(v: { type: string; isElectric: boolean }): string {
+  return vehicleLabel(v).replace("⚡", "").trim();
+}
+
+/** Barra de ahorro comparable (relativa al mayor ahorro del grupo). */
+function SavingsBar({ value, max }: { value: number; max: number }) {
+  const pct = Math.max(0, Math.min(100, max > 0 ? (value / max) * 100 : 0));
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-niebla"
+    >
+      <span className="block h-full bg-lima" style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
+
 export default function Sostenibilidad() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [report, setReport] = useState<GreenReport | null>(null);
@@ -143,26 +164,37 @@ export default function Sostenibilidad() {
     return <ModuleDisabled title="Sostenibilidad" moduleName="Analítica Pro" />;
   }
 
+  const maxTypeSaved = Math.max(0, ...(report?.byVehicleType.map((t) => t.co2SavedKg) ?? []));
+  const maxClientSaved = Math.max(0, ...(report?.byClient.map((c) => c.co2SavedKg) ?? []));
+
   return (
     <div className="space-y-4">
       <PageHeader
         title="Sostenibilidad"
-        subtitle="Informe verde mensual de la operación: huella de CO₂, ahorro por
-          electrificación y desglose por negocio cliente (listo para enviar
-          como argumento ESG)."
+        subtitle="Informe verde mensual · listo para enviar como argumento ESG"
         actions={
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className={inputClass}
+              className={`${inputClass} w-auto font-mono`}
               aria-label="Mes del informe"
             />
-            <Button variant="secondary" onClick={exportCsv} disabled={!report}>
-              Exportar CSV
+            <Button
+              variant="secondary"
+              onClick={exportCsv}
+              disabled={!report}
+              icon={<Download strokeWidth={2} />}
+            >
+              CSV
             </Button>
-            <Button variant="secondary" onClick={() => window.print()} disabled={!report}>
+            <Button
+              variant="secondary"
+              onClick={() => window.print()}
+              disabled={!report}
+              icon={<Printer strokeWidth={2} />}
+            >
               Imprimir / PDF
             </Button>
           </div>
@@ -175,7 +207,7 @@ export default function Sostenibilidad() {
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-danger">No se pudo calcular el informe verde.</span>
-            <Button variant="secondary" onClick={load}>
+            <Button variant="secondary" onClick={load} icon={<RotateCcw strokeWidth={2} />}>
               Reintentar
             </Button>
           </div>
@@ -184,33 +216,48 @@ export default function Sostenibilidad() {
 
       {!loading && !error && report && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Card>
-              <div className="text-2xl font-bold text-navy">{report.totalKm}</div>
-              <div className="text-xs text-navy/50">km recorridos</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-navy">{report.co2Kg} kg</div>
-              <div className="text-xs text-navy/50">CO₂e emitido</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-success">
-                −{report.co2SavedKg} kg
-              </div>
-              <div className="text-xs text-navy/50">CO₂e evitado vs. gasolina</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-navy">
-                {report.electricSharePct ?? 0}%
-              </div>
-              <div className="text-xs text-navy/50">km eléctricos</div>
-            </Card>
-            <Card>
-              <div className="text-2xl font-bold text-navy">
-                🌳 {report.treesEquivalent}
-              </div>
-              <div className="text-xs text-navy/50">árboles equivalentes/año</div>
-            </Card>
+          {/* Héroe ESG: el ahorro es el protagonista (navy + cifra limón). */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_1fr_1fr]">
+            <KpiCard
+              tone="hero"
+              label="CO₂e evitado vs. gasolina"
+              value={`−${report.co2SavedKg} kg`}
+              hint={
+                <span className="inline-flex items-center gap-1.5">
+                  <Leaf
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 text-lima"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    equivale a{" "}
+                    <strong className="font-semibold text-lima">
+                      {report.treesEquivalent} árboles
+                    </strong>{" "}
+                    plantados/año
+                  </span>
+                </span>
+              }
+            />
+            <div className="flex flex-col gap-3">
+              <KpiCard className="flex-1" label="km recorridos" value={report.totalKm} />
+              <KpiCard className="flex-1" label="CO₂e emitido" value={`${report.co2Kg} kg`} />
+            </div>
+            <div className="flex flex-col gap-3">
+              <KpiCard
+                className="flex-1"
+                label="km eléctricos"
+                value={`${report.electricSharePct ?? 0}%`}
+                accent
+              />
+              <KpiCard
+                className="flex-1"
+                label="CO₂ por entrega"
+                value={
+                  report.co2PerDeliveryKg === null ? "—" : `${report.co2PerDeliveryKg} kg`
+                }
+              />
+            </div>
           </div>
 
           {report.routes === 0 && (
@@ -222,77 +269,80 @@ export default function Sostenibilidad() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card title="Por tipo de vehículo">
-              {report.byVehicleType.length === 0 ? (
-                <EmptyState>Sin rutas en este mes.</EmptyState>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-cielo/40 text-left text-xs uppercase tracking-wide text-navy/50">
-                      <th className="py-2">Vehículo</th>
-                      <th className="text-right">Rutas</th>
-                      <th className="text-right">km</th>
-                      <th className="text-right">CO₂ (kg)</th>
-                      <th className="text-right">Ahorro (kg)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.byVehicleType.map((t) => (
-                      <tr
-                        key={`${t.type}-${t.isElectric}`}
-                        className="border-b border-niebla"
-                      >
-                        <td className="py-2">{vehicleLabel(t)}</td>
-                        <td className="text-right">{t.routes}</td>
-                        <td className="text-right">{t.km}</td>
-                        <td className="text-right">{t.co2Kg}</td>
-                        <td className="text-right text-success">
-                          {t.co2SavedKg > 0 ? `−${t.co2SavedKg}` : "0"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </Card>
+          <Card title="Por tipo de vehículo">
+            {report.byVehicleType.length === 0 ? (
+              <EmptyState>Sin rutas en este mes.</EmptyState>
+            ) : (
+              <div className="flex flex-col gap-2 text-[12.5px] text-navy">
+                {report.byVehicleType.map((t) => (
+                  <div
+                    key={`${t.type}-${t.isElectric}`}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="w-44 shrink-0 truncate font-medium">
+                      {displayVehicleLabel(t)}{" "}
+                      <span className="font-normal text-text-tertiary">
+                        · {t.routes} ruta{t.routes === 1 ? "" : "s"} · {t.km} km ·{" "}
+                        {t.co2Kg} kg CO₂
+                      </span>
+                    </span>
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-niebla">
+                      <span
+                        className="block h-full bg-lima"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, maxTypeSaved > 0 ? (t.co2SavedKg / maxTypeSaved) * 100 : 0))}%`,
+                        }}
+                      />
+                    </span>
+                    <span className="w-16 shrink-0 text-right font-mono text-[11px] text-lime-ink">
+                      {t.co2SavedKg > 0 ? `−${t.co2SavedKg} kg` : "0 kg"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
 
-            <Card title="Por negocio cliente (entregas del mes)">
-              {report.byClient.length === 0 ? (
-                <EmptyState>Sin entregas atribuibles en este mes.</EmptyState>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-cielo/40 text-left text-xs uppercase tracking-wide text-navy/50">
-                      <th className="py-2">Negocio</th>
-                      <th className="text-right">Entregas</th>
-                      <th className="text-right">km</th>
-                      <th className="text-right">CO₂ (kg)</th>
-                      <th className="text-right">Ahorro (kg)</th>
+          <Card title="Por negocio cliente (entregas del mes)">
+            {report.byClient.length === 0 ? (
+              <EmptyState>Sin entregas atribuibles en este mes.</EmptyState>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-[10.5px] uppercase tracking-wide text-text-tertiary">
+                    <th className="py-2 font-semibold">Negocio</th>
+                    <th className="text-right font-semibold">Entregas</th>
+                    <th className="text-right font-semibold">km</th>
+                    <th className="text-right font-semibold">CO₂ (kg)</th>
+                    <th className="text-right font-semibold">Ahorro</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byClient.map((c) => (
+                    <tr key={c.clientId ?? "none"} className="border-b border-border/60">
+                      <td className="py-2 font-medium">{c.name}</td>
+                      <td className="text-right">{c.deliveredOrders}</td>
+                      <td className="text-right">{c.km}</td>
+                      <td className="text-right font-mono text-xs">{c.co2Kg}</td>
+                      <td className="text-right">
+                        <span className="inline-flex items-center justify-end gap-2">
+                          <SavingsBar value={c.co2SavedKg} max={maxClientSaved} />
+                          <span className="w-16 text-right font-mono text-xs font-semibold text-lime-ink">
+                            {c.co2SavedKg > 0 ? `−${c.co2SavedKg} kg` : "0 kg"}
+                          </span>
+                        </span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {report.byClient.map((c) => (
-                      <tr key={c.clientId ?? "none"} className="border-b border-niebla">
-                        <td className="py-2 font-medium">{c.name}</td>
-                        <td className="text-right">{c.deliveredOrders}</td>
-                        <td className="text-right">{c.km}</td>
-                        <td className="text-right">{c.co2Kg}</td>
-                        <td className="text-right text-success">
-                          {c.co2SavedKg > 0 ? `−${c.co2SavedKg}` : "0"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <p className="mt-3 text-xs text-navy/40">
-                Cada negocio cliente ve este mismo informe (solo con sus envíos)
-                en su portal. Metodología: distancia de ruta repartida entre las
-                entregas; línea base = mismo recorrido a gasolina.
-              </p>
-            </Card>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-3 text-[11px] text-text-tertiary">
+              Cada negocio ve este informe (solo sus envíos) en su portal.
+              Metodología: distancia de ruta repartida entre entregas; línea
+              base = mismo recorrido a gasolina.
+            </p>
+          </Card>
         </>
       )}
     </div>

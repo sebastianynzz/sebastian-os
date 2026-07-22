@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
+import {
+  Ban,
+  Bell,
+  BellOff,
+  Clock,
+  Phone,
+  RefreshCw,
+  Route,
+  ShieldCheck,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { api, ApiError } from "../api";
 import { formatDateTimeBogota } from "../format";
 import { useRealtimeReload } from "../realtime";
@@ -8,6 +21,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FilterPill,
   Loading,
   ModuleDisabled,
   PageHeader,
@@ -27,10 +41,16 @@ interface Alert {
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM";
 
 const TYPE_LABELS: Record<string, string> = {
-  PANIC: "🚨 Pánico",
-  ROUTE_DEVIATION: "↪ Desviación de ruta",
-  LONG_STOP: "⏱ Parada prolongada",
-  GEOFENCE_EXIT: "⛔ Salida de geocerca",
+  PANIC: "Pánico",
+  ROUTE_DEVIATION: "Desviación de ruta",
+  LONG_STOP: "Parada prolongada",
+  GEOFENCE_EXIT: "Salida de geocerca",
+};
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  PANIC: TriangleAlert,
+  ROUTE_DEVIATION: Route,
+  LONG_STOP: Clock,
+  GEOFENCE_EXIT: Ban,
 };
 const SEVERITY_BY_TYPE: Record<string, Severity> = {
   PANIC: "CRITICAL",
@@ -42,10 +62,21 @@ function severityOf(type: string): Severity {
   return SEVERITY_BY_TYPE[type] ?? "MEDIUM";
 }
 const SEV_RANK: Record<Severity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
+/** Hex solo para los divIcon de Leaflet (HTML en cadena, sin utilidades). */
 const SEV_COLOR: Record<Severity, string> = {
   CRITICAL: "#a32d2d",
   HIGH: "#8a5a12",
   MEDIUM: "#3a5169",
+};
+const SEV_BORDER: Record<Severity, string> = {
+  CRITICAL: "border-l-danger",
+  HIGH: "border-l-warning",
+  MEDIUM: "border-l-info",
+};
+const SEV_TEXT: Record<Severity, string> = {
+  CRITICAL: "text-danger",
+  HIGH: "text-warning",
+  MEDIUM: "text-info",
 };
 const SEVERITIES: Severity[] = ["CRITICAL", "HIGH", "MEDIUM"];
 const SEV_LABELS: Record<Severity, string> = {
@@ -79,6 +110,16 @@ function FocusOnAlert({ target }: { target: { lat: number; lng: number } | null 
     if (target) map.panTo([target.lat, target.lng], { animate: true });
   }, [target?.lat, target?.lng, map]);
   return null;
+}
+
+/** Tiempo relativo corto ("hace 2 min") para la cabecera de cada alerta. */
+function timeAgo(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "ahora";
+  if (mins < 60) return `hace ${mins} min`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.floor(h / 24)} d`;
 }
 
 /** Pitido con Web Audio (sin asset): patrón urgente para pánico. */
@@ -205,21 +246,15 @@ export default function Seguridad() {
     return <ModuleDisabled title="Seguridad de carga" moduleName="de seguridad" />;
   }
 
-  const chip = (active: boolean) =>
-    `rounded-full px-3 py-1 text-xs font-medium transition ${
-      active ? "bg-navy text-white" : "bg-niebla text-navy/70 hover:bg-cielo/40"
-    }`;
-
   return (
     <div className="space-y-4">
       <PageHeader
         title="Seguridad de carga"
-        subtitle="Alertas de pánico y desviaciones de ruta (detección automática sobre la
-          telemetría). En producción se integra con central de monitoreo y PONAL."
+        subtitle="Pánico y desviaciones sobre la telemetría · central de monitoreo + PONAL en producción"
         actions={
-          <div className="flex items-center gap-2">
+          <>
             {openCount > 0 && (
-              <span className="rounded-full bg-danger-bg px-3 py-1 text-xs font-semibold text-danger">
+              <span className="whitespace-nowrap rounded-full bg-danger-bg px-3 py-1 text-xs font-semibold text-danger">
                 {openCount} abiertas
               </span>
             )}
@@ -227,61 +262,66 @@ export default function Seguridad() {
               onClick={() => setMuted((m) => !m)}
               aria-pressed={muted}
               title={muted ? "Activar sonido" : "Silenciar"}
-              className="rounded-lg border border-cielo bg-white px-3 py-1.5 text-sm"
+              className={`inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+                muted ? "text-text-tertiary" : "text-navy"
+              }`}
             >
-              {muted ? "🔕 Silenciado" : "🔔 Sonido"}
+              {muted ? (
+                <BellOff aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              ) : (
+                <Bell aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              )}
+              {muted ? "Silenciado" : "Sonido activo"}
             </button>
-          </div>
+          </>
         }
       />
 
-      <Card>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase text-navy/40">Severidad</span>
-            {SEVERITIES.map((s) => (
-              <button
-                key={s}
-                aria-pressed={sevFilter.has(s)}
-                onClick={() => setSevFilter((f) => toggle(f, s))}
-                className={chip(sevFilter.has(s))}
-              >
-                {SEV_LABELS[s]}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase text-navy/40">Estado</span>
-            {STATUSES.map((s) => (
-              <button
-                key={s}
-                aria-pressed={statusFilter.has(s)}
-                onClick={() => setStatusFilter((f) => toggle(f, s))}
-                className={chip(statusFilter.has(s))}
-              >
-                {STATUS_LABELS[s]}
-              </button>
-            ))}
-            {(sevFilter.size > 0 || statusFilter.size > 0) && (
-              <button
-                onClick={() => {
-                  setSevFilter(new Set());
-                  setStatusFilter(new Set());
-                }}
-                className="text-xs font-medium text-navy/50 underline"
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-        </div>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
+          Severidad
+        </span>
+        {SEVERITIES.map((s) => (
+          <FilterPill
+            key={s}
+            active={sevFilter.has(s)}
+            onClick={() => setSevFilter((f) => toggle(f, s))}
+          >
+            {SEV_LABELS[s]}
+          </FilterPill>
+        ))}
+        <span aria-hidden="true" className="mx-1 h-[18px] w-px bg-border" />
+        <span className="text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary">
+          Estado
+        </span>
+        {STATUSES.map((s) => (
+          <FilterPill
+            key={s}
+            active={statusFilter.has(s)}
+            onClick={() => setStatusFilter((f) => toggle(f, s))}
+          >
+            {STATUS_LABELS[s]}
+          </FilterPill>
+        ))}
+        {(sevFilter.size > 0 || statusFilter.size > 0) && (
+          <button
+            onClick={() => {
+              setSevFilter(new Set());
+              setStatusFilter(new Set());
+            }}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:bg-niebla hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+          >
+            <X aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
+            Limpiar
+          </button>
+        )}
+      </div>
 
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-danger">No se pudieron cargar las alertas.</span>
-            <Button variant="secondary" onClick={() => void load()}>
+            <Button variant="secondary" icon={<RefreshCw />} onClick={() => void load()}>
               Reintentar
             </Button>
           </div>
@@ -292,7 +332,11 @@ export default function Seguridad() {
         <Card>
           {loading && <Loading label="Cargando alertas…" />}
           {!loading && alerts.length === 0 && (
-            <EmptyState>Sin alertas. Operación tranquila ✓</EmptyState>
+            <EmptyState
+              icon={<ShieldCheck aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
+            >
+              Sin alertas. Operación tranquila.
+            </EmptyState>
           )}
           {!loading && alerts.length > 0 && visible.length === 0 && (
             <EmptyState>Ninguna alerta coincide con los filtros.</EmptyState>
@@ -301,52 +345,146 @@ export default function Seguridad() {
             {visible.map((a) => {
               const sev = severityOf(a.type);
               const isSel = a.id === selectedId;
+              const Icon = TYPE_ICONS[a.type] ?? TriangleAlert;
+              const actionable = a.status === "OPEN" || a.status === "ACKNOWLEDGED";
+
+              // Pánico abierto: alerta protagonista, expandida con sus 3
+              // resoluciones jerarquizadas (Atender navy · Resolver · Falsa).
+              if (a.type === "PANIC" && a.status === "OPEN") {
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => setSelectedId(a.id)}
+                    className={`cursor-pointer rounded-xl border border-l-4 bg-danger-bg p-3.5 transition duration-200 ease-brand ${
+                      isSel ? "border-danger" : "border-danger/40"
+                    } border-l-danger`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-danger text-white">
+                        <Icon aria-hidden="true" className="h-[17px] w-[17px]" strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <span className="text-[14.5px] font-bold text-navy">
+                            {TYPE_LABELS[a.type] ?? a.type}
+                          </span>
+                          <span className="text-[11.5px] font-bold text-danger">
+                            {timeAgo(a.createdAt)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-text-secondary">
+                          {a.details}
+                          {a.lat !== null && (
+                            <>
+                              {" · "}
+                              <span className="font-mono">
+                                ({a.lat.toFixed(4)}, {a.lng?.toFixed(4)})
+                              </span>
+                            </>
+                          )}
+                          {" · "}
+                          <span className="font-mono">{formatDateTimeBogota(a.createdAt)}</span>
+                        </div>
+                      </div>
+                      <StatusBadge status={a.status} />
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="primary"
+                        icon={<Phone />}
+                        onClick={() => void setStatus(a.id, "ACKNOWLEDGED")}
+                      >
+                        Atender — llamar al conductor
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => void setStatus(a.id, "RESOLVED")}
+                      >
+                        Resolver
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => void setStatus(a.id, "FALSE_ALARM")}
+                      >
+                        Falsa alarma
+                      </Button>
+                      {!muted && (
+                        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-danger">
+                          <span
+                            aria-hidden="true"
+                            className="h-[7px] w-[7px] animate-livepulse rounded-full bg-danger"
+                          />
+                          sonando en central
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Resto de alertas: fila compacta con icono de tipo y acciones fantasma.
               return (
                 <div
                   key={a.id}
                   onClick={() => setSelectedId(a.id)}
-                  className={`cursor-pointer rounded-lg border p-3 ${
-                    isSel ? "border-navy bg-cielo/20" : "border-niebla"
-                  }`}
-                  style={{ borderLeft: `4px solid ${SEV_COLOR[sev]}` }}
+                  className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-l-4 bg-surface px-3.5 py-2.5 transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg ${
+                    isSel ? "border-navy bg-sky-50/60" : "border-border"
+                  } ${SEV_BORDER[sev]} ${actionable ? "" : "opacity-75"}`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="font-medium">{TYPE_LABELS[a.type] ?? a.type}</div>
-                      <div className="text-xs text-navy/50">
-                        {a.details}
-                        {a.lat !== null && ` · (${a.lat.toFixed(4)}, ${a.lng?.toFixed(4)})`}
-                        {" · "}
-                        {formatDateTimeBogota(a.createdAt)}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={a.status} />
-                      {(a.status === "OPEN" || a.status === "ACKNOWLEDGED") && (
+                  <Icon
+                    aria-hidden="true"
+                    className={`h-4 w-4 flex-none ${SEV_TEXT[sev]}`}
+                    strokeWidth={2}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-navy">
+                      {TYPE_LABELS[a.type] ?? a.type}
+                    </span>
+                    <span className="block text-[11.5px] text-text-tertiary">
+                      {a.details}
+                      {a.lat !== null && (
                         <>
-                          {a.status === "OPEN" && (
-                            <Button
-                              variant="secondary"
-                              onClick={() => void setStatus(a.id, "ACKNOWLEDGED")}
-                            >
-                              Atender
-                            </Button>
-                          )}
-                          <Button
-                            variant="secondary"
-                            onClick={() => void setStatus(a.id, "RESOLVED")}
-                          >
-                            Resolver
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => void setStatus(a.id, "FALSE_ALARM")}
-                          >
-                            Falsa alarma
-                          </Button>
+                          {" · "}
+                          <span className="font-mono">
+                            ({a.lat.toFixed(4)}, {a.lng?.toFixed(4)})
+                          </span>
                         </>
                       )}
-                    </div>
+                      {" · "}
+                      <span className="font-mono">{formatDateTimeBogota(a.createdAt)}</span>
+                      {" · "}
+                      {timeAgo(a.createdAt)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={a.status} />
+                    {actionable && (
+                      <>
+                        {a.status === "OPEN" && (
+                          <Button
+                            variant="secondary"
+                            className="px-2.5 py-1 text-xs"
+                            onClick={() => void setStatus(a.id, "ACKNOWLEDGED")}
+                          >
+                            Atender
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          className="px-2.5 py-1 text-xs"
+                          onClick={() => void setStatus(a.id, "RESOLVED")}
+                        >
+                          Resolver
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="px-2.5 py-1 text-xs"
+                          onClick={() => void setStatus(a.id, "FALSE_ALARM")}
+                        >
+                          Falsa alarma
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

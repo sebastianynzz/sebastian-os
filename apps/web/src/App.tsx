@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -8,9 +8,25 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import {
+  BarChart3,
+  BatteryCharging,
+  ChevronRight,
+  LifeBuoy,
+  MapPin,
+  Menu,
+  Package,
+  Route as RouteIcon,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
+import { api } from "./api";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
-import { ToastProvider } from "./toast";import { Loading } from "./components/ui";
+import { ToastProvider } from "./toast";
+import { Loading } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import ControlesShell from "./components/ControlesShell";
+import { useRealtimeReload } from "./realtime";
 import Login from "./pages/Login";
 import Pedidos from "./pages/Pedidos";
 import Clientes from "./pages/Clientes";
@@ -54,6 +70,8 @@ type NavItem = {
   label: string;
   module?: string;
   roles?: string[];
+  /** Insignia numérica en vivo (p. ej. excepciones abiertas). */
+  badge?: "exceptions";
 };
 
 // La navegación del equipo se organiza como una "cascada": grupos colapsables
@@ -67,7 +85,8 @@ type NavItem = {
 type NavGroup = {
   id: string;
   label: string;
-  icon: string;
+  /** Ícono Lucide del grupo (14px, trazo 1.75 — lineamiento del revamp). */
+  icon: LucideIcon;
   /** Número de etapa (refuerza el orden de la operación). Sin número = ajustes. */
   step?: number;
   /** Estado inicial de expansión antes de que el usuario lo cambie. */
@@ -80,12 +99,12 @@ const NAV_GROUPS: NavGroup[] = [
     // 1) Lo que entra: pedidos por procesar + el contexto para hacerlo bien.
     id: "pedidos",
     label: "Pedidos",
-    icon: "📦",
+    icon: Package,
     step: 1,
     defaultOpen: true,
     items: [
       // Cabina de pendientes / recuperación de entregas fallidas: el home del equipo.
-      { to: "/excepciones", label: "Excepciones" },
+      { to: "/excepciones", label: "Excepciones", badge: "exceptions" },
       { to: "/pedidos", label: "Pedidos" },
       { to: "/direcciones", label: "Direcciones" },
       { to: "/clientes", label: "Clientes" },
@@ -95,7 +114,7 @@ const NAV_GROUPS: NavGroup[] = [
     // 2) Armar las rutas del día.
     id: "planificacion",
     label: "Planificación",
-    icon: "🗺️",
+    icon: RouteIcon,
     step: 2,
     defaultOpen: true,
     items: [
@@ -107,7 +126,7 @@ const NAV_GROUPS: NavGroup[] = [
     // 3) La operación en la calle: seguir, vigilar y pedir ayuda al copiloto.
     id: "en-vivo",
     label: "En vivo",
-    icon: "📍",
+    icon: MapPin,
     step: 3,
     defaultOpen: true,
     items: [
@@ -120,7 +139,7 @@ const NAV_GROUPS: NavGroup[] = [
     // 4) Los recursos de la operación: quién y con qué se entrega.
     id: "flota",
     label: "Flota",
-    icon: "🔋",
+    icon: BatteryCharging,
     step: 4,
     defaultOpen: true,
     items: [
@@ -134,7 +153,7 @@ const NAV_GROUPS: NavGroup[] = [
     // 5) Resultados: qué pasó y cuánto se ahorró.
     id: "analisis",
     label: "Análisis",
-    icon: "📊",
+    icon: BarChart3,
     step: 5,
     defaultOpen: false,
     items: [
@@ -147,37 +166,13 @@ const NAV_GROUPS: NavGroup[] = [
     // y colapsado para no estorbar a quien despacha.
     id: "configuracion",
     label: "Configuración",
-    icon: "⚙️",
+    icon: SlidersHorizontal,
     defaultOpen: false,
     items: [
-      // Primeros pasos (onboarding guiado): checklist del tenant.
-      { to: "/controles/primeros-pasos", label: "Primeros pasos", roles: ["ADMIN"] },
-      // Servicios (promesas de entrega + SLA): catálogo de tenant.
-      { to: "/controles/servicios", label: "Servicios", roles: ["ADMIN"] },
-      // Depósitos (multi-depot): centros de salida/regreso de rutas.
-      { to: "/controles/depositos", label: "Depósitos", roles: ["ADMIN"] },
-      // Zonas de entrega: polígonos + conductores asignados.
-      { to: "/controles/zonas", label: "Zonas", roles: ["ADMIN"] },
-      // Costos (energía-nativo): parámetros del costo por entrega.
-      { to: "/controles/costos", label: "Costos", roles: ["ADMIN"] },
-      // Seguimiento público (privacidad del rastreo B2B).
-      { to: "/controles/seguimiento", label: "Seguimiento", roles: ["ADMIN"] },
-      // Notificaciones B2B por evento (motor de notificaciones).
-      { to: "/controles/notificaciones", label: "Notificaciones", roles: ["ADMIN"] },
-      // Prueba de entrega (POD por tipo): configuración de tenant.
-      { to: "/controles/prueba-entrega", label: "Prueba de entrega", roles: ["ADMIN"] },
-      // Campos personalizados de parada (Tier 2 §9): datos extra por pedido.
-      { to: "/controles/campos", label: "Campos personalizados", roles: ["ADMIN"] },
-      // Permisos de la app del conductor (Tier 2 §10): navegación + edición de rutas.
-      { to: "/controles/permisos-conductor", label: "Permisos de conductor", roles: ["ADMIN"] },
-      // Integraciones (webhooks + API keys, plataforma de desarrolladores).
-      { to: "/controles/integraciones", label: "Integraciones", roles: ["ADMIN"] },
-      // Uso y plan (Tier 3 §12): consumo del mes vs límites del plan + upsell.
-      { to: "/controles/uso", label: "Uso y plan", roles: ["ADMIN"] },
-      // Facturación (Tier 3 §13): datos fiscales + historial de facturas.
-      { to: "/controles/facturacion", label: "Facturación", roles: ["ADMIN"] },
-      // Módulos = entitlements/facturación: el API exige ADMIN para alternarlos.
-      { to: "/modulos", label: "Módulos", roles: ["ADMIN"] },
+      // Revamp 6a: los 14 enlaces planos viven ahora en el shell de Controles
+      // (sub-nav agrupada Operación / Comunicación / Plataforma). El sidebar
+      // principal solo conserva la puerta de entrada.
+      { to: "/controles", label: "Controles", roles: ["ADMIN"] },
     ],
   },
 ];
@@ -206,18 +201,89 @@ function loadOpenGroups(): Record<string, boolean> {
 
 /** ¿La ruta activa vive dentro de este grupo? (para forzarlo abierto). */
 function groupHasActive(group: NavGroup, pathname: string): boolean {
+  // /modulos vive dentro del shell de Controles (grupo Configuración).
+  if (group.id === "configuracion" && pathname === "/modulos") return true;
   return group.items.some(
     (i) => pathname === i.to || pathname.startsWith(i.to + "/"),
   );
 }
 
-/** Clase compartida de los enlaces de navegación (activo = limón sobre navy). */
+/** Clase compartida de los enlaces de navegación (activo = limón con navy). */
 function navLinkClass(isActive: boolean): string {
-  return `block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima ${
+  return `flex items-center justify-between gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima ${
     isActive
-      ? "bg-lima text-navy"
-      : "text-cielo hover:bg-white/10 hover:text-white"
+      ? "bg-lima font-semibold text-navy"
+      : "font-medium text-cielo hover:bg-white/10 hover:text-white"
   }`;
+}
+
+/**
+ * Conteo de excepciones abiertas para la insignia del sidebar (revamp 1b),
+ * alimentado por el mismo SSE que la página de Excepciones.
+ */
+function useExceptionsCount(): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const res = await api<{ items: unknown[] }>("GET", "/exceptions");
+      setCount(res.items.length);
+    } catch {
+      // sin conteo: la insignia simplemente no se muestra
+    }
+  }, []);
+  useRealtimeReload(["order", "safety", "telemetry"], load, { fallbackMs: 60_000 });
+  return count;
+}
+
+/** Iniciales para el avatar (2 letras, navy con limón — revamp 5c). */
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  const a = parts[0]?.[0] ?? "";
+  const b = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : (parts[0]?.[1] ?? "");
+  return (a + b).toUpperCase();
+}
+
+/** Insignia de excepciones abiertas junto al ítem del sidebar (revamp 1b). */
+function ExceptionsNavBadge({ active }: { active: boolean }) {
+  const count = useExceptionsCount();
+  if (!count) return null;
+  return (
+    <span
+      className={`rounded-full px-1.5 py-px text-[11px] font-bold ${
+        active ? "bg-navy text-lima" : "bg-white/10 text-cielo"
+      }`}
+    >
+      {count}
+    </span>
+  );
+}
+
+/** Aviso de sesión de soporte (impersonación), común a ambos layouts. */
+function ImpersonationNotice({
+  email,
+  onLogout,
+}: {
+  email: string;
+  onLogout: () => void;
+}) {
+  if (!getImpersonatedBy()) return null;
+  return (
+    <div
+      role="status"
+      className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-bg px-4 py-2 text-sm text-warning"
+    >
+      <span className="flex items-center gap-2">
+        <LifeBuoy aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <span>
+          Sesión de soporte: actuando como <b>{email}</b> (operador: {getImpersonatedBy()},
+          expira en ≤30 min)
+        </span>
+      </span>
+      <button onClick={onLogout} className="shrink-0 font-bold underline">
+        Salir
+      </button>
+    </div>
+  );
 }
 
 function Shell() {
@@ -226,7 +292,7 @@ function Shell() {
   // Qué grupos están desplegados (la "cascada"); se recuerda entre sesiones.
   const [openGroups, setOpenGroups] =
     useState<Record<string, boolean>>(loadOpenGroups);
-  // En móvil la barra lateral se oculta tras un botón de menú (☰).
+  // En móvil la barra lateral se oculta tras un botón de menú.
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   if (loading) {
@@ -235,6 +301,67 @@ function Shell() {
   if (!session) return <Login />;
 
   const isClient = session.user.role === "CLIENT";
+
+  // Portal de clientes (revamp 5c): chrome propio — barra superior blanca con
+  // la marca del operador y pestañas, sin el sidebar de módulos del operador.
+  if (isClient) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        >
+          Saltar al contenido
+        </a>
+        <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-border bg-surface px-4 py-3 md:px-6">
+          <img src="/move-navy.svg" alt="move" className="h-5 w-auto" />
+          <span aria-hidden="true" className="hidden h-5 w-px bg-border sm:block" />
+          <span className="hidden truncate text-[13px] font-semibold text-navy sm:block">
+            Portal de clientes · {session.tenant.name}
+          </span>
+          <nav
+            aria-label="Secciones del portal"
+            className="ml-auto flex items-center gap-4 overflow-x-auto"
+          >
+            {CLIENT_NAV.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `whitespace-nowrap border-b-2 pb-0.5 text-xs transition duration-200 ease-brand ${
+                    isActive
+                      ? "border-lima font-semibold text-navy"
+                      : "border-transparent text-text-tertiary hover:text-navy"
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          <span
+            aria-hidden="true"
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-lima"
+          >
+            {initials(session.user.name)}
+          </span>
+          <button
+            onClick={logout}
+            className="shrink-0 text-xs text-text-secondary underline-offset-2 hover:text-navy hover:underline"
+          >
+            Cerrar sesión
+          </button>
+        </header>
+        <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
+          <ImpersonationNotice email={session.user.email} onLogout={logout} />
+          <ErrorBoundary key={location.pathname} area={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
+        </main>
+      </div>
+    );
+  }
+
   // Filtra ítems por módulo + rol y descarta grupos que quedan vacíos, de modo
   // que cada cuenta ve solo su pipeline (el DISPATCHER no ve "Configuración").
   const visibleGroups = NAV_GROUPS.map((group) => ({
@@ -276,7 +403,7 @@ function Shell() {
               <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
             </div>
             <div className="mt-1 truncate text-xs text-cielo">
-              {isClient ? "Portal de clientes" : session.tenant.name}
+              {session.tenant.name}
             </div>
           </div>
           <div className="flex items-center gap-3 md:hidden">
@@ -284,9 +411,9 @@ function Shell() {
               onClick={() => setMobileNavOpen((o) => !o)}
               aria-expanded={mobileNavOpen}
               aria-controls="sidebar-nav"
-              className="rounded-lg px-2 py-1 text-lg leading-none text-white hover:bg-white/10"
+              className="rounded-lg px-2 py-1 leading-none text-white hover:bg-white/10"
             >
-              <span aria-hidden="true">☰</span>
+              <Menu aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
               <span className="sr-only">Menú de navegación</span>
             </button>
             <button
@@ -302,72 +429,72 @@ function Shell() {
           aria-label="Secciones de la plataforma"
           className={`${mobileNavOpen ? "flex" : "hidden"} flex-col gap-1 p-2 md:flex`}
         >
-          {isClient
-            ? CLIENT_NAV.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileNavOpen(false)}
-                  className={({ isActive }) => navLinkClass(isActive)}
+          {visibleGroups.map((group) => {
+            // Abierto si el usuario lo dejó así (o por default) o si la ruta
+            // activa vive dentro (para que siempre se vea dónde estás).
+            const open =
+              (openGroups[group.id] ?? group.defaultOpen) ||
+              groupHasActive(group, location.pathname);
+            const GroupIcon = group.icon;
+            return (
+              <div key={group.id} className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={open}
+                  aria-controls={`navgroup-${group.id}`}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-cielo/80 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima"
                 >
-                  {item.label}
-                </NavLink>
-              ))
-            : visibleGroups.map((group) => {
-                // Abierto si el usuario lo dejó así (o por default) o si la ruta
-                // activa vive dentro (para que siempre se vea dónde estás).
-                const open =
-                  (openGroups[group.id] ?? group.defaultOpen) ||
-                  groupHasActive(group, location.pathname);
-                return (
-                  <div key={group.id} className="flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(group.id)}
-                      aria-expanded={open}
-                      aria-controls={`navgroup-${group.id}`}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-cielo/80 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima"
-                    >
-                      {group.step != null && (
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-cielo">
-                          {group.step}
-                        </span>
-                      )}
-                      <span aria-hidden="true">{group.icon}</span>
-                      <span className="flex-1 truncate">{group.label}</span>
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
+                  {group.step != null && (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-cielo">
+                      {group.step}
+                    </span>
+                  )}
+                  <GroupIcon
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0"
+                    strokeWidth={1.75}
+                  />
+                  <span className="flex-1 truncate">{group.label}</span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className={`h-4 w-4 shrink-0 transition-transform duration-200 ease-brand ${open ? "rotate-90" : ""}`}
+                    strokeWidth={2}
+                  />
+                </button>
+                {open && (
+                  <div
+                    id={`navgroup-${group.id}`}
+                    className="mb-1 ml-3 flex flex-col gap-0.5 border-l border-white/10 pl-2"
+                  >
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setMobileNavOpen(false)}
+                        className={({ isActive }) =>
+                          navLinkClass(
+                            isActive ||
+                              (item.to === "/controles" &&
+                                location.pathname === "/modulos"),
+                          )
+                        }
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                    {open && (
-                      <div
-                        id={`navgroup-${group.id}`}
-                        className="mb-1 ml-3 flex flex-col gap-0.5 border-l border-white/10 pl-2"
-                      >
-                        {group.items.map((item) => (
-                          <NavLink
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setMobileNavOpen(false)}
-                            className={({ isActive }) => navLinkClass(isActive)}
-                          >
-                            {item.label}
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                        {({ isActive }) => (
+                          <>
+                            <span className="min-w-0 truncate">{item.label}</span>
+                            {item.badge === "exceptions" && (
+                              <ExceptionsNavBadge active={isActive} />
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    ))}
                   </div>
-                );
-              })}
+                )}
+              </div>
+            );
+          })}
         </nav>
         <div className="mt-auto hidden border-t border-white/10 p-4 text-xs text-cielo md:block">
           <div className="mb-2 truncate">{session.user.name}</div>
@@ -382,20 +509,7 @@ function Shell() {
       <main id="main" className="min-w-0 flex-1 p-4 md:p-6">
         {/* Sesión de soporte: visible siempre, para que nadie opere "como
             tenant" sin que se note. La emisión quedó en PlatformAuditLog. */}
-        {getImpersonatedBy() && (
-          <div
-            role="status"
-            className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-bg px-4 py-2 text-sm text-warning"
-          >
-            <span>
-              🛟 Sesión de soporte: actuando como <b>{session.user.email}</b>{" "}
-              (operador: {getImpersonatedBy()}, expira en ≤30 min)
-            </span>
-            <button onClick={logout} className="shrink-0 font-bold underline">
-              Salir
-            </button>
-          </div>
-        )}
+        <ImpersonationNotice email={session.user.email} onLogout={logout} />
         {/* Límite de error por ruta: una vista que falle no tumba el shell, y
             se reinicia al navegar (key por ruta). */}
         <ErrorBoundary key={location.pathname} area={location.pathname}>
@@ -447,20 +561,27 @@ export default function App() {
           <Route path="/seguridad" element={<Seguridad />} />
           <Route path="/analitica" element={<Analitica />} />
           <Route path="/sostenibilidad" element={<Sostenibilidad />} />
-          <Route path="/modulos" element={<Modulos />} />
-          <Route path="/controles/servicios" element={<ControlesServicios />} />
-          <Route path="/controles/depositos" element={<ControlesDepots />} />
-          <Route path="/controles/zonas" element={<ControlesZonas />} />
-          <Route path="/controles/costos" element={<ControlesCostos />} />
-          <Route path="/controles/seguimiento" element={<ControlesSeguimiento />} />
-          <Route path="/controles/notificaciones" element={<ControlesNotificaciones />} />
-          <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
-          <Route path="/controles/campos" element={<ControlesCampos />} />
-          <Route path="/controles/permisos-conductor" element={<ControlesPermisos />} />
-          <Route path="/controles/uso" element={<ControlesUso />} />
-          <Route path="/controles/facturacion" element={<ControlesFacturacion />} />
-          <Route path="/controles/primeros-pasos" element={<ControlesOnboarding />} />
-          <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
+          {/* Controles (revamp 6a): shell con sub-nav propia; incluye Módulos. */}
+          <Route element={<ControlesShell />}>
+            <Route
+              path="/controles"
+              element={<Navigate to="/controles/primeros-pasos" replace />}
+            />
+            <Route path="/modulos" element={<Modulos />} />
+            <Route path="/controles/servicios" element={<ControlesServicios />} />
+            <Route path="/controles/depositos" element={<ControlesDepots />} />
+            <Route path="/controles/zonas" element={<ControlesZonas />} />
+            <Route path="/controles/costos" element={<ControlesCostos />} />
+            <Route path="/controles/seguimiento" element={<ControlesSeguimiento />} />
+            <Route path="/controles/notificaciones" element={<ControlesNotificaciones />} />
+            <Route path="/controles/integraciones" element={<ControlesIntegraciones />} />
+            <Route path="/controles/campos" element={<ControlesCampos />} />
+            <Route path="/controles/permisos-conductor" element={<ControlesPermisos />} />
+            <Route path="/controles/uso" element={<ControlesUso />} />
+            <Route path="/controles/facturacion" element={<ControlesFacturacion />} />
+            <Route path="/controles/primeros-pasos" element={<ControlesOnboarding />} />
+            <Route path="/controles/prueba-entrega" element={<ControlesPod />} />
+          </Route>
           {/* Portal de clientes (rol CLIENT). */}
           <Route path="/portal/resumen" element={<PortalResumen />} />
           <Route path="/portal/envios" element={<PortalPedidos />} />

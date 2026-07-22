@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Clock, ListOrdered, Satellite } from "lucide-react";
 import {
   TRACKING_TIERS,
   TRACKING_TIER_LABELS,
@@ -6,7 +7,7 @@ import {
 } from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
-import { Banner, Card, Loading, PageHeader } from "../components/ui";
+import { Badge, Banner, Card, Loading, PageHeader } from "../components/ui";
 
 /**
  * Controles › Seguimiento público (Tier 2, B2B): nivel de privacidad de la
@@ -20,6 +21,13 @@ const TIER_HELP: Record<TrackingTier, string> = {
   ETA_POSITION:
     "Lo anterior, más la posición del envío en la cola de la ruta (cuántas paradas faltan).",
   FULL: "Lo anterior, más la ubicación del conductor en vivo mientras está en camino.",
+};
+
+/* Ícono por nivel: reloj (solo ETA) → cola (posición) → satélite (en vivo). */
+const TIER_ICONS: Record<TrackingTier, typeof Clock> = {
+  ETA_ONLY: Clock,
+  ETA_POSITION: ListOrdered,
+  FULL: Satellite,
 };
 
 export default function ControlesSeguimiento() {
@@ -75,29 +83,44 @@ export default function ControlesSeguimiento() {
       ) : (
         <Card title="Nivel de privacidad del rastreo">
           <div className="space-y-2">
-            {TRACKING_TIERS.map((t) => (
-              <label
-                key={t}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
-                  tier === t ? "border-navy bg-niebla" : "border-border hover:bg-niebla/50"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="trackingTier"
-                  className="mt-1"
-                  checked={tier === t}
-                  disabled={saving}
-                  onChange={() => void choose(t)}
-                />
-                <span>
-                  <span className="block font-medium text-navy">
-                    {TRACKING_TIER_LABELS[t]}
+            {TRACKING_TIERS.map((t) => {
+              const Icon = TIER_ICONS[t];
+              const activeTier = tier === t;
+              return (
+                <label
+                  key={t}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition duration-200 ease-brand ${
+                    activeTier
+                      ? "border-navy bg-sky-50"
+                      : "border-border hover:border-border-strong hover:bg-niebla/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="trackingTier"
+                    className="mt-1 accent-navy"
+                    checked={activeTier}
+                    disabled={saving}
+                    onChange={() => void choose(t)}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                      activeTier ? "bg-navy text-lima" : "bg-niebla text-navy"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={1.75} />
                   </span>
-                  <span className="block text-sm text-navy/60">{TIER_HELP[t]}</span>
-                </span>
-              </label>
-            ))}
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2 font-medium text-navy">
+                      {TRACKING_TIER_LABELS[t]}
+                      {activeTier && <Badge tone="success">Activo</Badge>}
+                    </span>
+                    <span className="block text-sm text-text-secondary">{TIER_HELP[t]}</span>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </Card>
       )}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Package, Rows3, Users } from "lucide-react";
 import { api } from "../api";
-import { Banner, Card, Loading, PageHeader } from "../components/ui";
+import { Badge, Banner, Card, Loading, PageHeader } from "../components/ui";
 
 /**
  * Controles › Uso y plan (Tier 3 §12): uso del mes actual frente a los límites
@@ -30,10 +31,12 @@ function near(used: number, limit: number): boolean {
 
 function Meter({
   label,
+  icon,
   used,
   limit,
 }: {
   label: string;
+  icon: ReactNode;
   used: number;
   limit: number;
 }) {
@@ -42,9 +45,14 @@ function Meter({
   const over = limit > 0 && used >= limit;
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="font-medium text-navy">{label}</span>
-        <span className="text-navy/60">
+      <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+        <span className="flex items-center gap-1.5 font-medium text-navy">
+          <span aria-hidden="true" className="text-text-secondary [&>svg]:h-3.5 [&>svg]:w-3.5">
+            {icon}
+          </span>
+          {label}
+        </span>
+        <span className="font-mono text-xs text-text-secondary">
           {used} {unlimited ? "· ilimitado" : `de ${limit}`}
         </span>
       </div>
@@ -114,20 +122,30 @@ export default function ControlesUso() {
           <Loading label="Cargando uso…" />
         </Card>
       ) : (
-        <Card title={`Plan ${data.plan} · ${data.month}`}>
+        <Card
+          title={`Plan ${data.plan}`}
+          actions={
+            <Badge tone="neutral">
+              <span className="font-mono">{data.month}</span>
+            </Badge>
+          }
+        >
           <div className="space-y-5">
             <Meter
               label="Pedidos este mes"
+              icon={<Package strokeWidth={1.75} />}
               used={data.usage.ordersThisMonth}
               limit={data.limits.ordersPerMonth}
             />
             <Meter
               label="Campos personalizados"
+              icon={<Rows3 strokeWidth={1.75} />}
               used={data.usage.customProperties}
               limit={data.limits.customProperties}
             />
             <Meter
               label="Conductores"
+              icon={<Users strokeWidth={1.75} />}
               used={data.usage.drivers}
               limit={data.limits.drivers}
             />

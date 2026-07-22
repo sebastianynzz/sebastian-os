@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ScanBarcode, X } from "lucide-react";
 import { apiOrQueue } from "./api";
 
 /**
@@ -128,22 +129,33 @@ export default function ScanSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Escanear paquete"
-        className="w-full rounded-t-2xl bg-white dark:bg-navy-700 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="w-full rounded-t-2xl border-t border-border bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-sky/25 dark:bg-navy-700"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold">📷 Escanear paquete</h2>
+          <h2 className="flex items-center gap-2 text-sm font-bold text-navy dark:text-niebla">
+            <ScanBarcode
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden
+              className="text-text-secondary dark:text-lima"
+            />
+            Escanear paquete
+          </h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg bg-niebla dark:bg-navy-900 px-3 py-1.5 text-sm font-bold text-navy"
+            className="flex h-11 w-11 items-center justify-center rounded-lg bg-niebla text-navy dark:bg-sky/12 dark:text-sky"
           >
-            ✕
+            <X size={15} strokeWidth={2} aria-hidden />
           </button>
         </div>
         {expected && (
           <p className="mb-2 text-xs text-text-tertiary dark:text-sky/70">
-            Guía esperada: <span className="font-mono font-bold">{expected}</span>
+            Guía esperada:{" "}
+            <span className="font-mono font-bold text-navy dark:text-niebla">
+              {expected}
+            </span>
           </p>
         )}
         {!cameraError ? (
@@ -151,10 +163,10 @@ export default function ScanSheet({
             ref={videoRef}
             playsInline
             muted
-            className="h-56 w-full rounded-xl bg-black object-cover"
+            className="h-56 w-full rounded-xl border border-border bg-black object-cover dark:border-sky/18"
           />
         ) : (
-          <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning">
+          <p className="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning dark:bg-warning/20 dark:text-[#e8b96a]">
             Este dispositivo no soporta escaneo con cámara — ingresa la guía
             del paquete manualmente.
           </p>
@@ -168,7 +180,7 @@ export default function ScanSheet({
           }}
         >
           <input
-            className="flex-1 rounded-lg border border-cielo px-3 py-2.5 font-mono text-sm uppercase focus:border-navy focus:outline-none"
+            className="min-h-11 flex-1 rounded-lg border border-cielo bg-white px-3 font-mono text-sm uppercase text-navy focus:border-navy focus:outline-none dark:border-sky/25 dark:bg-navy-900 dark:text-niebla dark:placeholder:text-sky/50 dark:focus:border-lima"
             placeholder="MV-XXXXXXXX"
             aria-label="Guía del paquete"
             value={manual}
@@ -176,7 +188,7 @@ export default function ScanSheet({
           />
           <button
             type="submit"
-            className="rounded-lg bg-navy px-4 py-2.5 text-sm font-bold text-white"
+            className="min-h-11 rounded-lg bg-navy px-4 text-sm font-bold text-white dark:border dark:border-sky/25 dark:bg-sky/12 dark:text-niebla"
           >
             Verificar
           </button>
