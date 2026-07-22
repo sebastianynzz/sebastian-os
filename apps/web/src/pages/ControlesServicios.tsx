@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import {
   SERVICE_STOP_TYPES,
   SERVICE_STOP_TYPE_LABELS,
@@ -12,23 +13,28 @@ import {
 import { api, ApiError } from "../api";
 import { useToast } from "../toast";
 import {
-  Badge,
   Banner,
   Button,
   Card,
   EmptyState,
   Field,
   Loading,
-  PageHeader,
+  PillToggle,
   inputClass,
+  tableRowClass,
+  theadRowClass,
 } from "../components/ui";
 
 /**
- * Controles › Servicios (D3): catálogo de promesas de entrega. Cada Service
- * tiene nombre, identificador, precio por parada y plazo (SLA en minutos);
- * opcionalmente hora de corte, días de servicio y tipo de parada. Es la base
- * del seguimiento de SLA (cockpit + analítica) y de la facturación B2B.
+ * Controles › Servicios (D3, revamp 6b): catálogo de promesas de entrega. Cada
+ * Service tiene nombre, identificador, precio por parada y plazo (SLA en
+ * minutos); opcionalmente hora de corte, días de servicio y tipo de parada. Es
+ * la base del seguimiento de SLA (cockpit + analítica) y de la facturación B2B.
  * Solo ADMIN (el API lo exige); sin pagos → el servicio NO maneja COD.
+ *
+ * Revamp: plazo SLA en horas legibles ("4 h (240 min)"), precio COP en mono
+ * alineado a la derecha, días como pastillas compactas L-D, tipo como pastilla
+ * ENT / REC / REC+ENT y fila inactiva atenuada completa.
  */
 
 interface Service {
@@ -48,6 +54,63 @@ const COP = new Intl.NumberFormat("es-CO", {
   currency: "COP",
   maximumFractionDigits: 0,
 });
+
+/** Letra de cada día para las pastillas compactas (L M X J V S D). */
+const WEEKDAY_LETTERS: Record<Weekday, string> = {
+  MON: "L",
+  TUE: "M",
+  WED: "X",
+  THU: "J",
+  FRI: "V",
+  SAT: "S",
+  SUN: "D",
+};
+
+/** "240" → "4 h"; "90" → "1.5 h" (formato del mock). */
+function formatSlaHours(min: number): string {
+  const h = Math.round((min / 60) * 10) / 10;
+  return `${Number.isInteger(h) ? h : h.toFixed(1)} h`;
+}
+
+/** Pastilla de tipo de parada: ENT (entrega, limón) / REC / REC+ENT (cielo). */
+function StopTypePill({ type }: { type: string }) {
+  const label =
+    type === "DELIVERY" ? "ENT" : type === "PICKUP" ? "REC" : type === "BOTH" ? "REC+ENT" : type;
+  const cls = type === "DELIVERY" ? "bg-lima/50 text-navy" : "bg-sky/40 text-navy";
+  return (
+    <span
+      title={SERVICE_STOP_TYPE_LABELS[type as ServiceStopType] ?? type}
+      className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-[10.5px] font-bold ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Pastillas compactas de días (22×20): navy = día activo, niebla = inactivo. */
+function DayPills({ days }: { days: string[] }) {
+  if (days.length === WEEKDAYS.length) {
+    return <span className="text-[11.5px] text-text-tertiary">Todos</span>;
+  }
+  return (
+    <span className="inline-flex gap-[3px]">
+      {WEEKDAYS.map((d) => {
+        const on = days.includes(d);
+        return (
+          <span
+            key={d}
+            title={WEEKDAY_LABELS[d]}
+            className={`inline-flex h-5 w-[22px] items-center justify-center rounded-[5px] text-[10px] font-semibold ${
+              on ? "bg-navy text-white" : "bg-niebla text-sky"
+            }`}
+          >
+            {WEEKDAY_LETTERS[d]}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 type FormState = {
   name: string;
@@ -177,16 +240,19 @@ export default function ControlesServicios() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Servicios"
-        subtitle="Define las promesas de entrega (precio por parada + plazo SLA) que aplicas a cada pedido. El plazo alimenta el cockpit de excepciones y el informe de cumplimiento por cliente."
-        actions={
-          <Button variant="cta" onClick={openCreate}>
-            Nuevo servicio
-          </Button>
-        }
-      />
+    <div className="space-y-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-navy">Servicios</h1>
+          <p className="mt-0.5 max-w-2xl text-[12.5px] text-text-secondary">
+            Promesas de entrega: precio por parada + plazo SLA · alimentan el cockpit y el
+            informe por cliente
+          </p>
+        </div>
+        <Button variant="cta" icon={<Plus strokeWidth={2} />} onClick={openCreate}>
+          Nuevo servicio
+        </Button>
+      </div>
 
       {error && (
         <Banner kind="error" onDismiss={() => void load()}>
@@ -259,10 +325,10 @@ export default function ControlesServicios() {
               </select>
             </Field>
             <div className="sm:col-span-2">
-              <span className="mb-1 block text-sm font-medium text-navy/70">
+              <span className="mb-1.5 block text-sm font-medium text-text-secondary">
                 Días de servicio
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1">
                 {WEEKDAYS.map((d) => {
                   const on = form.serviceDays.includes(d);
                   return (
@@ -270,25 +336,27 @@ export default function ControlesServicios() {
                       key={d}
                       type="button"
                       aria-pressed={on}
+                      aria-label={WEEKDAY_LABELS[d]}
+                      title={WEEKDAY_LABELS[d]}
                       onClick={() => toggleDay(d)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        on ? "bg-navy text-white" : "bg-niebla text-navy/70 hover:bg-cielo/40"
+                      className={`inline-flex h-7 w-8 items-center justify-center rounded-[5px] text-[11px] font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+                        on ? "bg-navy text-white" : "bg-niebla text-text-tertiary hover:bg-cielo/40"
                       }`}
                     >
-                      {WEEKDAY_LABELS[d]}
+                      {WEEKDAY_LETTERS[d]}
                     </button>
                   );
                 })}
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm text-navy/80">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2 text-sm text-navy">
+              <PillToggle
                 checked={form.active}
-                onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))}
+                onChange={(next) => setForm((f) => ({ ...f, active: next }))}
+                label="Servicio activo"
               />
               Servicio activo
-            </label>
+            </div>
             <div className="sm:col-span-2 flex gap-2">
               <Button variant="cta" onClick={save} disabled={saving}>
                 {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear servicio"}
@@ -307,7 +375,7 @@ export default function ControlesServicios() {
         </Card>
       )}
 
-      <Card>
+      <div className="rounded-lg border border-border bg-surface p-4 shadow-soft">
         {services === null ? (
           <Loading label="Cargando servicios…" />
         ) : services.length === 0 ? (
@@ -319,52 +387,65 @@ export default function ControlesServicios() {
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[860px] text-[13px] text-navy">
               <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
-                  <th className="py-2 pr-4 font-medium">Servicio</th>
-                  <th className="py-2 pr-4 font-medium">Precio/parada</th>
-                  <th className="py-2 pr-4 font-medium">Plazo SLA</th>
-                  <th className="py-2 pr-4 font-medium">Corte</th>
-                  <th className="py-2 pr-4 font-medium">Tipo</th>
-                  <th className="py-2 pr-4 font-medium">Días</th>
-                  <th className="py-2 pr-4 font-medium">Estado</th>
-                  <th className="py-2 font-medium" />
+                <tr className={theadRowClass}>
+                  <th className="py-1.5 font-semibold">Servicio</th>
+                  <th className="w-[130px] py-1.5 pr-5 text-right font-semibold">
+                    Precio/parada
+                  </th>
+                  <th className="w-[150px] py-1.5 font-semibold">Plazo SLA</th>
+                  <th className="w-[90px] py-1.5 font-semibold">Corte</th>
+                  <th className="w-[110px] py-1.5 font-semibold">Tipo</th>
+                  <th className="w-[200px] py-1.5 font-semibold">Días</th>
+                  <th className="w-[90px] py-1.5 font-semibold">Estado</th>
+                  <th className="w-[110px] py-1.5" />
                 </tr>
               </thead>
               <tbody>
                 {services.map((s) => (
-                  <tr key={s.id} className="border-b border-border/60">
-                    <td className="py-2 pr-4">
-                      <div className="font-medium text-navy">{s.name}</div>
-                      <div className="font-mono text-xs text-navy/50">{s.identifier}</div>
+                  <tr key={s.id} className={`${tableRowClass} ${s.active ? "" : "opacity-50"}`}>
+                    <td className="py-2.5 pr-3">
+                      <span className="font-semibold">{s.name}</span>
+                      <span className="block font-mono text-[11px] text-text-tertiary">
+                        {s.identifier}
+                      </span>
                     </td>
-                    <td className="py-2 pr-4">{COP.format(s.pricePerStopCop)}</td>
-                    <td className="py-2 pr-4">{s.completionDeadlineMin} min</td>
-                    <td className="py-2 pr-4">{s.cutoffTime ?? "—"}</td>
-                    <td className="py-2 pr-4">
-                      {SERVICE_STOP_TYPE_LABELS[s.stopType as ServiceStopType] ?? s.stopType}
+                    <td className="py-2.5 pr-5 text-right font-mono text-[12.5px]">
+                      {COP.format(s.pricePerStopCop)}
                     </td>
-                    <td className="py-2 pr-4 text-xs text-navy/60">
-                      {s.serviceDays.length === WEEKDAYS.length
-                        ? "Todos"
-                        : s.serviceDays
-                            .map((d) => WEEKDAY_LABELS[d as Weekday] ?? d)
-                            .join(" ")}
+                    <td className="py-2.5">
+                      <span className="font-medium">
+                        {formatSlaHours(s.completionDeadlineMin)}
+                      </span>{" "}
+                      <span className="text-[11px] text-text-tertiary">
+                        ({s.completionDeadlineMin} min)
+                      </span>
                     </td>
-                    <td className="py-2 pr-4">
-                      <Badge tone={s.active ? "success" : "neutral"}>
+                    <td className="py-2.5 font-mono text-xs">{s.cutoffTime ?? "—"}</td>
+                    <td className="py-2.5">
+                      <StopTypePill type={s.stopType} />
+                    </td>
+                    <td className="py-2.5">
+                      <DayPills days={s.serviceDays} />
+                    </td>
+                    <td className="py-2.5">
+                      <span
+                        className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-[11px] font-semibold ${
+                          s.active ? "bg-lima/45 text-lime-ink" : "bg-niebla text-text-tertiary"
+                        }`}
+                      >
                         {s.active ? "Activo" : "Inactivo"}
-                      </Badge>
+                      </span>
                     </td>
-                    <td className="py-2">
-                      <div className="flex justify-end gap-2">
+                    <td className="py-2.5">
+                      <div className="flex items-center justify-end gap-2">
                         <Button variant="secondary" onClick={() => openEdit(s)}>
                           Editar
                         </Button>
                         <button
                           onClick={() => void remove(s)}
-                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger-bg"
+                          className="rounded px-1 text-xs font-medium text-danger transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
                         >
                           Eliminar
                         </button>
@@ -376,7 +457,7 @@ export default function ControlesServicios() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
