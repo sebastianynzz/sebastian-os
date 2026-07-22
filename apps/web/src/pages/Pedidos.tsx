@@ -1,4 +1,18 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Download,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  Upload,
+  X,
+} from "lucide-react";
 import { ORDER_STATUSES } from "@moveos/shared";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
@@ -6,8 +20,10 @@ import {
   Banner,
   Button,
   Card,
+  Drawer,
   EmptyState,
   Field,
+  KpiCard,
   Loading,
   PageHeader,
   StatusBadge,
@@ -25,6 +41,11 @@ interface Order {
   status: string;
   weightKg: number;
   geocodeSource: string | null;
+  // Inteligencia de direcciones (el payload de /orders ya trae la fila
+  // completa): confianza 0–1 del geocodificado y confirmación humana del pin.
+  geoConfidence: number | null;
+  addressVerifiedAt: string | null;
+  deliveredAt: string | null;
   client: { id: string; name: string } | null;
   service: { id: string; name: string; identifier: string } | null;
   customFields: Record<string, string> | null;
@@ -98,6 +119,63 @@ const STATUS_ES: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
+/**
+ * Confianza de geocodificación por pedido (el moat, visible en la tabla).
+ * Refleja el umbral del API (LOW_CONFIDENCE_THRESHOLD = 0.7): confirmada por
+ * un humano o con confianza alta → limón; fallida → errada por corregir;
+ * el resto (informal / sin confirmar) → confianza media.
+ */
+type GeoLevel = "confirmada" | "media" | "errada";
+
+function geoLevel(o: Order): GeoLevel {
+  if (o.status === "FAILED") return "errada";
+  if (o.addressVerifiedAt || (o.geoConfidence ?? 0) >= 0.7) return "confirmada";
+  return "media";
+}
+
+const GEO_DOT: Record<GeoLevel, { dot: string; title: string }> = {
+  confirmada: { dot: "bg-lima", title: "Dirección confirmada" },
+  media: { dot: "bg-warning", title: "Dirección informal — confianza media" },
+  errada: { dot: "bg-danger", title: "Dirección errada reportada" },
+};
+
+/** Tarjetas KPI de estado (fila clicable que filtra la tabla). */
+const STATUS_CARDS: {
+  status: string;
+  label: string;
+  top: string;
+  valueClass?: string;
+}[] = [
+  { status: "PENDING", label: "Pendientes", top: "border-t-cielo" },
+  { status: "ASSIGNED", label: "Asignados", top: "border-t-info" },
+  { status: "IN_TRANSIT", label: "En camino", top: "border-t-navy" },
+  { status: "DELIVERED", label: "Entregados hoy", top: "border-t-lima", valueClass: "text-lime-ink" },
+  { status: "FAILED", label: "Fallidos", top: "border-t-danger", valueClass: "text-danger" },
+];
+
+/** Día calendario en Bogotá (frontera de día del producto). */
+function bogotaDay(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+}
+
+function fmtTs(iso: string): string {
+  return new Date(iso).toLocaleString("es-CO", {
+    timeZone: "America/Bogota",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Botón fantasma compacto para enlaces (Ver en mapa / Llamar / Corregir). */
+const ghostLinkClass =
+  "inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-2.5 py-1 text-xs font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy";
+
+/** Select compacto de la toolbar unificada. */
+const toolbarSelectClass =
+  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25";
+
 /** Plantilla CSV — incluye una columna por cada campo personalizado del tenant. */
 function buildCsvTemplate(props: CustomPropDef[]): string {
   const extra = props.map((p) => p.name);
@@ -153,6 +231,13 @@ export default function Pedidos() {
   const [importFailures, setImportFailures] = useState<
     { row: number; error: string }[]
   >([]);
+  // Estado del último import (banner limón con conteo + "Ver detalle").
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    failed: number;
+    fileName: string;
+  } | null>(null);
+  const [showImportDetail, setShowImportDetail] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [hasMore, setHasMore] = useState(false);
   // Ref para que el callback de tiempo real lea siempre el tamaño actual de la
@@ -176,6 +261,8 @@ export default function Pedidos() {
   const [fClientId, setFClientId] = useState("");
   const [fServiceId, setFServiceId] = useState("");
   const [fQ, setFQ] = useState("");
+  // Filtro UI-only de la tarjeta "Dirección dudosa" (confianza media).
+  const [fDudosa, setFDudosa] = useState(false);
   const [views, setViews] = useState<SavedView[]>([]);
 
   const shown = useMemo(() => {
@@ -188,20 +275,43 @@ export default function Pedidos() {
           (fServiceId === "__none__"
             ? !o.service
             : o.service?.id === fServiceId)) &&
+        (!fDudosa || geoLevel(o) === "media") &&
         (!q ||
           (o.trackingNumber ?? "").toLowerCase().includes(q) ||
           o.customerName.toLowerCase().includes(q) ||
           o.addressRaw.toLowerCase().includes(q)),
     );
-  }, [orders, fStatus, fClientId, fServiceId, fQ]);
+  }, [orders, fStatus, fClientId, fServiceId, fQ, fDudosa]);
 
-  const activeFilters = Boolean(fStatus || fClientId || fServiceId || fQ.trim());
+  // Conteos de la fila de KPIs (sobre la ventana cargada).
+  const counts = useMemo(() => {
+    const byStatus: Record<string, number> = {};
+    let dudosas = 0;
+    let deliveredToday = 0;
+    const today = bogotaDay(new Date());
+    for (const o of orders) {
+      byStatus[o.status] = (byStatus[o.status] ?? 0) + 1;
+      if (geoLevel(o) === "media") dudosas++;
+      if (
+        o.status === "DELIVERED" &&
+        o.deliveredAt &&
+        bogotaDay(new Date(o.deliveredAt)) === today
+      )
+        deliveredToday++;
+    }
+    return { byStatus, dudosas, deliveredToday };
+  }, [orders]);
+
+  const activeFilters = Boolean(
+    fStatus || fClientId || fServiceId || fQ.trim() || fDudosa,
+  );
 
   function clearFilters() {
     setFStatus("");
     setFClientId("");
     setFServiceId("");
     setFQ("");
+    setFDudosa(false);
   }
 
   async function loadViews() {
@@ -212,6 +322,17 @@ export default function Pedidos() {
     setFClientId(v.filters.clientId ?? "");
     setFServiceId(v.filters.serviceId ?? "");
     setFQ(v.filters.q ?? "");
+    setFDudosa(false);
+  }
+  /** Una vista está "activa" si sus filtros coinciden con los actuales. */
+  function viewIsActive(v: SavedView): boolean {
+    return (
+      (v.filters.status ?? "") === fStatus &&
+      (v.filters.clientId ?? "") === fClientId &&
+      (v.filters.serviceId ?? "") === fServiceId &&
+      (v.filters.q ?? "") === fQ.trim() &&
+      !fDudosa
+    );
   }
   async function saveCurrentView() {
     const name = window.prompt("Nombre de la vista (p. ej. 'Pendientes hoy')")?.trim();
@@ -292,6 +413,8 @@ export default function Pedidos() {
     setError(null);
     setNotice(null);
     setImportFailures([]);
+    setImportResult(null);
+    setShowImportDetail(false);
     try {
       const rows = parseCsv(await file.text());
       if (rows.length === 0) throw new Error("El archivo no tiene filas de datos");
@@ -328,20 +451,27 @@ export default function Pedidos() {
           .map((r) => ({ row: r.row, error: r.error ?? "Error" })),
       );
       if (res.created > 0) {
-        setNotice(
-          res.failed > 0
-            ? `${res.created} pedidos importados · ${res.failed} con error (revisa el detalle abajo)`
-            : `${res.created} pedidos importados correctamente`,
-        );
+        setImportResult({
+          created: res.created,
+          failed: res.failed,
+          fileName: file.name,
+        });
       } else {
         setError(
           `Ninguna fila se importó: ${res.failed} con error. Revisa el detalle abajo.`,
         );
+        setShowImportDetail(res.failed > 0);
       }
       await load(visibleCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error importando CSV");
     }
+  }
+
+  function dismissImport() {
+    setImportResult(null);
+    setImportFailures([]);
+    setShowImportDetail(false);
   }
 
   async function validateAddress(addressRaw: string) {
@@ -359,6 +489,11 @@ export default function Pedidos() {
     } finally {
       setCheckingAddress(false);
     }
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setAddressCheck(null);
   }
 
   async function onCreate(e: FormEvent<HTMLFormElement>) {
@@ -392,16 +527,30 @@ export default function Pedidos() {
     }
   }
 
+  const filterNote = fStatus
+    ? ` · filtro "${STATUS_ES[fStatus] ?? fStatus}"`
+    : fDudosa
+      ? ' · filtro "Dirección dudosa"'
+      : "";
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <PageHeader
         title="Pedidos"
         actions={
           <>
-            <Button variant="secondary" onClick={downloadTemplate}>
+            <Button
+              variant="secondary"
+              icon={<Download strokeWidth={2} />}
+              onClick={downloadTemplate}
+            >
               Plantilla CSV
             </Button>
-            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+            <Button
+              variant="secondary"
+              icon={<Upload strokeWidth={2} />}
+              onClick={() => fileRef.current?.click()}
+            >
               Importar CSV
             </Button>
             <input
@@ -415,12 +564,13 @@ export default function Pedidos() {
                 e.target.value = "";
               }}
             />
-            <Button onClick={() => setShowForm((v) => !v)}>
-              {showForm ? "Cancelar" : "Nuevo pedido"}
+            <Button variant="primary" icon={<Plus strokeWidth={2} />} onClick={() => setShowForm(true)}>
+              Nuevo pedido
             </Button>
           </>
         }
       />
+
       {notice && (
         <Banner kind="success" onDismiss={() => setNotice(null)}>
           {notice}
@@ -432,18 +582,50 @@ export default function Pedidos() {
         </Banner>
       )}
 
-      {importFailures.length > 0 && (
+      {/* Estado del último import CSV: banner limón con conteo + detalle. */}
+      {importResult && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-lima bg-lima/30 px-3 py-1.5 text-[13px] text-lime-ink"
+        >
+          <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span>
+            <strong className="font-semibold">
+              {importResult.created} pedidos importados
+            </strong>{" "}
+            del archivo {importResult.fileName}
+            {importResult.failed > 0 && <> · {importResult.failed} filas con error</>}
+          </span>
+          {importResult.failed > 0 && importFailures.length > 0 && (
+            <button
+              onClick={() => setShowImportDetail((v) => !v)}
+              className="text-xs font-semibold text-lime-ink underline-offset-2 hover:underline"
+            >
+              {showImportDetail ? "Ocultar detalle" : "Ver detalle"}
+            </button>
+          )}
+          <button
+            onClick={dismissImport}
+            aria-label="Cerrar aviso del import"
+            className="ml-auto shrink-0 font-bold opacity-50 hover:opacity-100"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {showImportDetail && importFailures.length > 0 && (
         <div className="rounded-lg border border-warning/40 bg-warning-bg p-3 text-sm text-warning">
           <div className="mb-1 flex items-center justify-between">
             <span className="font-semibold">
               Filas con error en el import ({importFailures.length})
             </span>
             <button
-              onClick={() => setImportFailures([])}
-              className="text-xs font-bold opacity-60"
+              onClick={() => setShowImportDetail(false)}
+              className="text-xs font-bold opacity-60 hover:opacity-100"
               aria-label="Cerrar detalle de errores del import"
             >
-              ✕
+              ×
             </button>
           </div>
           <ul className="max-h-40 list-disc space-y-0.5 overflow-auto pl-5">
@@ -456,74 +638,525 @@ export default function Pedidos() {
         </div>
       )}
 
-      {showForm && (
-        <Card title="Nuevo pedido">
-          <form onSubmit={onCreate} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Field label="Negocio cliente (quién envía)">
-                <select name="clientId" className={inputClass}>
-                  <option value="">— Sin negocio asignado —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <Field label="Destinatario (quién recibe)">
-              <input name="customerName" className={inputClass} required />
-            </Field>
-            <Field label="Teléfono del destinatario">
-              <input name="customerPhone" className={inputClass} required placeholder="+57..." />
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Dirección (formal o informal)">
-                <input
-                  name="addressRaw"
-                  className={inputClass}
-                  required
-                  placeholder='Ej: "Cra 13 # 54-20" o "frente al colegio San José"'
-                  onBlur={(e) => void validateAddress(e.target.value)}
-                />
-              </Field>
-              {checkingAddress && (
-                <p className="mt-1 text-xs text-navy/50">Verificando dirección…</p>
-              )}
-              {addressCheck && !checkingAddress && (
-                <p
-                  className={`mt-1 rounded px-2 py-1 text-xs ${
-                    addressCheck.knownAddress || !addressCheck.ambiguous
-                      ? "bg-success-bg text-success"
-                      : "bg-warning-bg text-warning"
+      {/* Resumen por estado: cada tarjeta es un filtro de un clic. */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+        {STATUS_CARDS.map((c) => {
+          const active = fStatus === c.status;
+          const n = counts.byStatus[c.status] ?? 0;
+          const value =
+            c.status === "DELIVERED" ? counts.deliveredToday : n;
+          return (
+            <KpiCard
+              key={c.status}
+              label={c.label}
+              value={
+                !active && c.valueClass ? (
+                  <span className={c.valueClass}>{value}</span>
+                ) : (
+                  value
+                )
+              }
+              active={active}
+              onClick={() => {
+                setFStatus(active ? "" : c.status);
+              }}
+              className={active ? "" : `border-t-[3px] ${c.top}`}
+            />
+          );
+        })}
+        <KpiCard
+          label="Dirección dudosa"
+          value={
+            fDudosa ? counts.dudosas : (
+              <span className="text-warning">{counts.dudosas}</span>
+            )
+          }
+          active={fDudosa}
+          onClick={() => setFDudosa((v) => !v)}
+          className={fDudosa ? "border-dashed" : "border-dashed border-border-strong"}
+        />
+      </div>
+
+      {/* Toolbar unificada: búsqueda + filtros + vistas guardadas. */}
+      <Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative min-w-[220px] flex-1">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-tertiary"
+              strokeWidth={2}
+            />
+            <span className="sr-only">Buscar pedidos</span>
+            <input
+              type="search"
+              className={`${inputClass} pl-8`}
+              placeholder="Guía, destinatario o dirección…"
+              value={fQ}
+              onChange={(e) => setFQ(e.target.value)}
+            />
+          </label>
+          <select
+            aria-label="Filtrar por estado"
+            className={toolbarSelectClass}
+            value={fStatus}
+            onChange={(e) => setFStatus(e.target.value)}
+          >
+            <option value="">Estado: todos</option>
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_ES[s] ?? s}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filtrar por negocio"
+            className={toolbarSelectClass}
+            value={fClientId}
+            onChange={(e) => setFClientId(e.target.value)}
+          >
+            <option value="">Negocio: todos</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filtrar por servicio"
+            className={toolbarSelectClass}
+            value={fServiceId}
+            onChange={(e) => setFServiceId(e.target.value)}
+          >
+            <option value="">Servicio: todos</option>
+            <option value="__none__">Sin servicio</option>
+            {services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          {activeFilters && (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 text-xs font-medium text-text-tertiary transition hover:text-navy"
+            >
+              <X aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
+              Limpiar
+            </button>
+          )}
+          <span aria-hidden="true" className="h-[22px] w-px bg-border" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-tertiary">
+            Vistas
+          </span>
+          {views.map((v) => {
+            const active = viewIsActive(v);
+            return (
+              <span
+                key={v.id}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand ${
+                  active
+                    ? "bg-navy text-white"
+                    : "border border-border bg-surface text-text-secondary hover:border-border-strong hover:text-navy"
+                }`}
+              >
+                <button
+                  onClick={() => applyView(v)}
+                  aria-pressed={active}
+                  className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                >
+                  {v.name}
+                </button>
+                <button
+                  onClick={() => void deleteView(v.id)}
+                  aria-label={`Borrar vista ${v.name}`}
+                  className={`font-bold ${
+                    active ? "text-white/50 hover:text-white" : "text-text-tertiary hover:text-danger"
                   }`}
                 >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+          <button
+            onClick={() => void saveCurrentView()}
+            disabled={!activeFilters}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong px-3 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:border-navy/40 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus aria-hidden="true" className="h-[11px] w-[11px]" strokeWidth={2} />
+            Guardar vista
+          </button>
+        </div>
+      </Card>
+
+      <Card>
+        {loading ? (
+          <Loading label="Cargando pedidos…" />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-navy">
+                <thead>
+                  <tr className={theadRowClass}>
+                    <th className="w-36 py-2 font-semibold">Guía</th>
+                    <th className="font-semibold">Negocio</th>
+                    <th className="w-20 font-semibold">Servicio</th>
+                    <th className="font-semibold">Destinatario</th>
+                    <th className="font-semibold">Dirección</th>
+                    <th className="w-16 font-semibold">Peso</th>
+                    <th className="w-28 font-semibold">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((o) => {
+                    const geo = GEO_DOT[geoLevel(o)];
+                    const isOpen = expanded === o.id;
+                    return (
+                      <Fragment key={o.id}>
+                        <tr
+                          /* Virtualización ligera: el navegador omite el render de las
+                             filas fuera de pantalla (sin dependencias ni refactor de la
+                             tabla); no-op donde no haya soporte. */
+                          className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isOpen}
+                          title="Ver bitácora del pedido"
+                          onClick={() => void toggleBitacora(o.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              void toggleBitacora(o.id);
+                            }
+                          }}
+                        >
+                          <td className="py-2 font-mono text-xs font-semibold">
+                            <span className="inline-flex items-center gap-1.5">
+                              <ChevronRight
+                                aria-hidden="true"
+                                strokeWidth={2.5}
+                                className={`h-3 w-3 shrink-0 text-text-tertiary transition-transform duration-200 ease-brand ${
+                                  isOpen ? "rotate-90" : ""
+                                }`}
+                              />
+                              {o.trackingNumber ?? "—"}
+                            </span>
+                          </td>
+                          <td>{o.client?.name ?? "—"}</td>
+                          <td>
+                            {o.service ? (
+                              <span
+                                title={o.service.name}
+                                className="rounded bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-info"
+                              >
+                                {o.service.identifier}
+                              </span>
+                            ) : (
+                              <span className="text-text-tertiary">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <div className="font-medium">{o.customerName}</div>
+                            <div className="text-[11px] text-text-tertiary">
+                              {o.customerPhone}
+                            </div>
+                          </td>
+                          <td className="max-w-xs">
+                            <span className="flex max-w-full items-center gap-1.5">
+                              <span
+                                aria-hidden="true"
+                                title={geo.title}
+                                className={`h-2 w-2 shrink-0 rounded-full ${geo.dot}`}
+                              />
+                              <span className="sr-only">{geo.title}.</span>
+                              <span className="truncate text-text-secondary">
+                                {o.addressRaw}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap">{o.weightKg} kg</td>
+                          <td>
+                            <span className="flex items-center gap-2">
+                              <StatusBadge status={o.status} />
+                              {o.status === "FAILED" && (
+                                <Link
+                                  to="/direcciones"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="whitespace-nowrap text-[11px] font-semibold text-danger underline-offset-2 hover:underline"
+                                >
+                                  Corregir →
+                                </Link>
+                              )}
+                            </span>
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="border-b border-border/60 bg-sky-50/50">
+                            <td colSpan={7} className="px-4 pb-4 pt-3">
+                              <div className="flex flex-col gap-5 md:flex-row md:gap-6">
+                                {/* Bitácora: línea de tiempo limón del OrderEvent. */}
+                                <div className="min-w-0 flex-1">
+                                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+                                    Bitácora del pedido
+                                  </div>
+                                  <ol className="flex flex-col">
+                                    {(events[o.id] ?? []).map((ev, i, arr) => {
+                                      const isLast = i === arr.length - 1;
+                                      return (
+                                        <li key={ev.id} className="flex gap-2.5">
+                                          <div
+                                            aria-hidden="true"
+                                            className="flex flex-col items-center"
+                                          >
+                                            <span
+                                              className={`mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full ${
+                                                isLast
+                                                  ? "bg-navy ring-[3px] ring-lima/50"
+                                                  : "bg-lima"
+                                              }`}
+                                            />
+                                            {!isLast && (
+                                              <span className="w-[2px] flex-1 bg-lima/40" />
+                                            )}
+                                          </div>
+                                          <div
+                                            className={`flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 ${
+                                              isLast ? "" : "pb-2.5"
+                                            }`}
+                                          >
+                                            <span className="font-mono text-[11px] text-text-tertiary">
+                                              {fmtTs(ev.createdAt)}
+                                            </span>
+                                            <span className="text-[12.5px] font-semibold text-navy">
+                                              {EVENT_LABELS[ev.type] ?? ev.type}
+                                            </span>
+                                            {ev.details && (
+                                              <span className="text-xs text-text-tertiary">
+                                                {ev.details}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </li>
+                                      );
+                                    })}
+                                    {(events[o.id] ?? []).length === 0 && (
+                                      <li className="text-xs text-text-tertiary">
+                                        Sin eventos registrados.
+                                      </li>
+                                    )}
+                                  </ol>
+                                </div>
+                                {/* Datos personalizados + acciones fantasma. */}
+                                <div className="w-full md:w-[280px] md:flex-none md:border-l md:border-border md:pl-5">
+                                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+                                    Datos personalizados
+                                  </div>
+                                  {customProps.length > 0 &&
+                                  o.customFields &&
+                                  customProps.some((p) => o.customFields?.[p.id]) ? (
+                                    <dl className="flex flex-col gap-1 text-[12.5px]">
+                                      {customProps
+                                        .filter((p) => o.customFields?.[p.id])
+                                        .map((p) => (
+                                          <div key={p.id} className="flex gap-1.5">
+                                            <dt className="text-text-tertiary">
+                                              {p.name}:
+                                            </dt>
+                                            <dd className="font-medium text-navy">
+                                              {o.customFields?.[p.id]}
+                                            </dd>
+                                          </div>
+                                        ))}
+                                    </dl>
+                                  ) : (
+                                    <p className="text-xs text-text-tertiary">
+                                      Sin datos personalizados.
+                                    </p>
+                                  )}
+                                  <div className="mt-3 flex gap-2">
+                                    <Link to="/mapa" className={ghostLinkClass}>
+                                      <MapPin
+                                        aria-hidden="true"
+                                        className="h-3 w-3"
+                                        strokeWidth={2}
+                                      />
+                                      Ver en mapa
+                                    </Link>
+                                    <a
+                                      href={`tel:${o.customerPhone}`}
+                                      className={ghostLinkClass}
+                                    >
+                                      <Phone
+                                        aria-hidden="true"
+                                        className="h-3 w-3"
+                                        strokeWidth={2}
+                                      />
+                                      Llamar
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                  {orders.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState
+                          phrase="Entregas rápidas, operaciones inteligentes."
+                          action={
+                            <Button onClick={() => setShowForm(true)}>
+                              Nuevo pedido
+                            </Button>
+                          }
+                        >
+                          Sin pedidos aún. Cree el primero o importe un CSV.
+                        </EmptyState>
+                      </td>
+                    </tr>
+                  )}
+                  {orders.length > 0 && shown.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-text-tertiary">
+                        Ningún pedido coincide con los filtros.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {/* Pie: conteo + leyenda de confianza de dirección + Ver más. */}
+            {orders.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-2.5">
+                <span className="flex flex-wrap items-center gap-3 text-xs text-text-tertiary">
+                  <span>
+                    Mostrando {shown.length}
+                    {activeFilters ? ` de ${orders.length}` : ""} pedidos
+                    {filterNote}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 rounded-full bg-lima"
+                    />
+                    confirmada
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 rounded-full bg-warning"
+                    />
+                    confianza media
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 rounded-full bg-danger"
+                    />
+                    errada / por corregir
+                  </span>
+                </span>
+                {hasMore && (
+                  <Button variant="secondary" onClick={loadMore}>
+                    Ver más
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* Alta manual en drawer lateral (misma lógica de creación de siempre). */}
+      <Drawer open={showForm} onClose={closeForm} title="Nuevo pedido">
+        <form onSubmit={onCreate} className="grid grid-cols-1 gap-4">
+          <Field label="Negocio cliente (quién envía)">
+            <select name="clientId" className={inputClass}>
+              <option value="">— Sin negocio asignado —</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Destinatario (quién recibe)">
+            <input name="customerName" className={inputClass} required />
+          </Field>
+          <Field label="Teléfono del destinatario">
+            <input name="customerPhone" className={inputClass} required placeholder="+57..." />
+          </Field>
+          <div>
+            <Field label="Dirección (formal o informal)">
+              <input
+                name="addressRaw"
+                className={inputClass}
+                required
+                placeholder='Ej: "Cra 13 # 54-20" o "frente al colegio San José"'
+                onBlur={(e) => void validateAddress(e.target.value)}
+              />
+            </Field>
+            {checkingAddress && (
+              <p className="mt-1 text-xs text-text-tertiary">Verificando dirección…</p>
+            )}
+            {addressCheck && !checkingAddress && (
+              <p
+                className={`mt-1 flex items-start gap-1.5 rounded px-2 py-1 text-xs ${
+                  addressCheck.knownAddress || !addressCheck.ambiguous
+                    ? "bg-success-bg text-success"
+                    : "bg-warning-bg text-warning"
+                }`}
+              >
+                {addressCheck.knownAddress || !addressCheck.ambiguous ? (
+                  <CheckCircle2
+                    aria-hidden="true"
+                    className="mt-px h-3.5 w-3.5 shrink-0"
+                    strokeWidth={2}
+                  />
+                ) : (
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-px h-3.5 w-3.5 shrink-0"
+                    strokeWidth={2}
+                  />
+                )}
+                <span>
                   {addressCheck.knownAddress
-                    ? "✅ Dirección conocida: ya fue confirmada en entregas anteriores."
+                    ? "Dirección conocida: ya fue confirmada en entregas anteriores."
                     : addressCheck.ambiguous
-                      ? '⚠️ Dirección ambigua. Revisa la nomenclatura o agrega una referencia (ej: "frente al colegio…") para evitar una entrega fallida.'
-                      : "✅ Dirección verificada."}
+                      ? 'Dirección ambigua. Revisa la nomenclatura o agrega una referencia (ej: "frente al colegio…") para evitar una entrega fallida.'
+                      : "Dirección verificada."}
+                </span>
+              </p>
+            )}
+            {addressCheck &&
+              !checkingAddress &&
+              addressCheck.hasZones &&
+              !addressCheck.serviceable && (
+                <p className="mt-1 flex items-start gap-1.5 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
+                  <AlertTriangle
+                    aria-hidden="true"
+                    className="mt-px h-3.5 w-3.5 shrink-0"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    Este destino está fuera de las zonas de cobertura. Puedes
+                    crear el pedido, pero confírmalo con el cliente.
+                  </span>
                 </p>
               )}
-              {addressCheck &&
-                !checkingAddress &&
-                addressCheck.hasZones &&
-                !addressCheck.serviceable && (
-                  <p className="mt-1 rounded bg-warning-bg px-2 py-1 text-xs text-warning">
-                    ⚠️ Este destino está fuera de las zonas de cobertura. Puedes
-                    crear el pedido, pero confírmalo con el cliente.
-                  </p>
-                )}
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="Referencias de entrega">
-                <input name="addressNotes" className={inputClass} placeholder="Casa de portón verde…" />
-              </Field>
-            </div>
+          </div>
+          <Field label="Referencias de entrega">
+            <input name="addressNotes" className={inputClass} placeholder="Casa de portón verde…" />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
             <Field label="Peso (kg)">
               <input name="weightKg" type="number" step="0.1" defaultValue="1" className={inputClass} />
             </Field>
-            <Field label="Servicio (promesa de entrega · SLA)">
+            <Field label="Servicio (promesa · SLA)">
               <select name="serviceId" className={inputClass} defaultValue="">
                 <option value="">— Sin servicio —</option>
                 {services.map((s) => (
@@ -533,287 +1166,48 @@ export default function Pedidos() {
                 ))}
               </select>
             </Field>
-            {customProps.length > 0 && (
-              <div className="sm:col-span-2 grid grid-cols-1 gap-4 rounded-lg border border-niebla p-3 sm:grid-cols-2">
-                <div className="sm:col-span-2 text-xs font-semibold uppercase text-navy/50">
-                  Datos personalizados
-                </div>
-                {customProps.map((p) => (
-                  <Field
-                    key={p.id}
-                    label={`${p.name}${
-                      p.visibleToRecipient
-                        ? " (visible al destinatario)"
-                        : p.visibleToDriver
-                          ? " (visible al conductor)"
-                          : ""
-                    }`}
-                  >
-                    <input name={`cf:${p.id}`} className={inputClass} />
-                  </Field>
-                ))}
-              </div>
-            )}
-            <div className="sm:col-span-2">
-              <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
-                <input
-                  name="pickupAddressRaw"
-                  className={inputClass}
-                  placeholder="Bodega/tienda del cliente donde se recoge el paquete"
-                />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Field label="Referencias de recogida">
-                <input name="pickupNotes" className={inputClass} placeholder="Muelle 3, preguntar por despacho…" />
-              </Field>
-            </div>
-            <div className="sm:col-span-2">
-              <Button type="submit">Crear pedido</Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-navy/70">Estado</span>
-            <select className={inputClass} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-              <option value="">Todos</option>
-              {ORDER_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {STATUS_ES[s] ?? s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-navy/70">Negocio</span>
-            <select className={inputClass} value={fClientId} onChange={(e) => setFClientId(e.target.value)}>
-              <option value="">Todos</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-navy/70">Servicio</span>
-            <select className={inputClass} value={fServiceId} onChange={(e) => setFServiceId(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="__none__">Sin servicio</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="min-w-[12rem] flex-1 text-sm">
-            <span className="mb-1 block font-medium text-navy/70">Buscar</span>
-            <input
-              type="search"
-              className={inputClass}
-              placeholder="Guía, destinatario o dirección…"
-              value={fQ}
-              onChange={(e) => setFQ(e.target.value)}
-            />
-          </label>
-          {activeFilters && (
-            <Button variant="secondary" onClick={clearFilters}>
-              Limpiar
-            </Button>
-          )}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-niebla pt-3">
-          <span className="text-xs font-semibold uppercase text-navy/50">Vistas guardadas</span>
-          {views.length === 0 && <span className="text-xs text-navy/40">ninguna aún</span>}
-          {views.map((v) => (
-            <span
-              key={v.id}
-              className="inline-flex items-center gap-1 rounded-full border border-cielo bg-white px-2 py-0.5 text-xs"
-            >
-              <button onClick={() => applyView(v)} className="font-medium text-navy hover:underline">
-                {v.name}
-              </button>
-              <button
-                onClick={() => void deleteView(v.id)}
-                aria-label={`Borrar vista ${v.name}`}
-                className="text-navy/40 hover:text-danger"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-          <Button variant="secondary" onClick={() => void saveCurrentView()} disabled={!activeFilters}>
-            Guardar vista actual
-          </Button>
-        </div>
-      </Card>
-
-      <Card>
-        {loading ? (
-          <Loading label="Cargando pedidos…" />
-        ) : (
-        <>
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className={theadRowClass}>
-              <th className="py-2">Guía</th>
-              <th>Negocio cliente</th>
-              <th>Servicio</th>
-              <th>Destinatario</th>
-              <th>Dirección</th>
-              <th>Peso</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((o) => (
-              <Fragment key={o.id}>
-                <tr
-                  /* Virtualización ligera: el navegador omite el render de las
-                     filas fuera de pantalla (sin dependencias ni refactor de la
-                     tabla); no-op donde no haya soporte. */
-                  className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={expanded === o.id}
-                  title="Ver bitácora del pedido"
-                  onClick={() => void toggleBitacora(o.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      void toggleBitacora(o.id);
-                    }
-                  }}
-                >
-                  <td className="py-2 font-mono text-xs font-semibold">
-                    <span
-                      aria-hidden="true"
-                      className={`mr-1.5 inline-block text-navy/40 transition-transform ${
-                        expanded === o.id ? "rotate-90" : ""
-                      }`}
-                    >
-                      ▸
-                    </span>
-                    {o.trackingNumber ?? "—"}
-                  </td>
-                  <td className="text-sm">{o.client?.name ?? "—"}</td>
-                  <td className="text-sm">
-                    {o.service ? (
-                      <span title={o.service.name}>{o.service.identifier}</span>
-                    ) : (
-                      <span className="text-navy/40">—</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="font-medium">{o.customerName}</div>
-                    <div className="text-xs text-navy/50">{o.customerPhone}</div>
-                  </td>
-                  <td className="max-w-xs truncate">{o.addressRaw}</td>
-                  <td>{o.weightKg} kg</td>
-                  <td>
-                    <StatusBadge status={o.status} />
-                  </td>
-                </tr>
-                {expanded === o.id && (
-                  <tr className={`bg-niebla/40 ${tableRowClass}`}>
-                    <td colSpan={7} className="px-4 py-3">
-                      {customProps.length > 0 &&
-                        o.customFields &&
-                        customProps.some((p) => o.customFields?.[p.id]) && (
-                          <div className="mb-3">
-                            <div className="text-xs font-semibold uppercase text-navy/50">
-                              Datos personalizados
-                            </div>
-                            <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                              {customProps
-                                .filter((p) => o.customFields?.[p.id])
-                                .map((p) => (
-                                  <div key={p.id} className="flex gap-1">
-                                    <dt className="text-navy/50">{p.name}:</dt>
-                                    <dd className="font-medium">
-                                      {o.customFields?.[p.id]}
-                                    </dd>
-                                  </div>
-                                ))}
-                            </dl>
-                          </div>
-                        )}
-                      <div className="text-xs font-semibold uppercase text-navy/50">
-                        Bitácora del pedido
-                      </div>
-                      <ol className="mt-2 space-y-1">
-                        {(events[o.id] ?? []).map((ev) => (
-                          <li key={ev.id} className="flex items-baseline gap-3 text-sm">
-                            <span className="font-mono text-xs text-navy/50">
-                              {new Date(ev.createdAt).toLocaleString("es-CO", {
-                                timeZone: "America/Bogota",
-                                day: "2-digit",
-                                month: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                            <span className="h-2 w-2 shrink-0 rounded-full bg-lima" />
-                            <span className="font-medium">
-                              {EVENT_LABELS[ev.type] ?? ev.type}
-                            </span>
-                            {ev.details && (
-                              <span className="text-navy/60">{ev.details}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ol>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-            {orders.length === 0 && (
-              <tr>
-                <td colSpan={7}>
-                  <EmptyState
-                    phrase="Entregas rápidas, operaciones inteligentes."
-                    action={
-                      <Button onClick={() => setShowForm(true)}>Nuevo pedido</Button>
-                    }
-                  >
-                    Sin pedidos aún. Cree el primero o importe un CSV.
-                  </EmptyState>
-                </td>
-              </tr>
-            )}
-            {orders.length > 0 && shown.length === 0 && (
-              <tr>
-                <td colSpan={7} className="py-6 text-center text-navy/40">
-                  Ningún pedido coincide con los filtros.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        </div>
-        {(hasMore || orders.length > PAGE_SIZE) && (
-          <div className="mt-3 flex items-center justify-between gap-3 text-sm text-navy/60">
-            <span>
-              Mostrando {shown.length}
-              {activeFilters ? ` de ${orders.length}` : ""} pedidos
-            </span>
-            {hasMore && (
-              <Button variant="secondary" onClick={loadMore}>
-                Ver más
-              </Button>
-            )}
           </div>
-        )}
-        </>
-        )}
-      </Card>
+          {customProps.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-tertiary">
+                Datos personalizados
+              </div>
+              {customProps.map((p) => (
+                <Field
+                  key={p.id}
+                  label={`${p.name}${
+                    p.visibleToRecipient
+                      ? " (visible al destinatario)"
+                      : p.visibleToDriver
+                        ? " (visible al conductor)"
+                        : ""
+                  }`}
+                >
+                  <input name={`cf:${p.id}`} className={inputClass} />
+                </Field>
+              ))}
+            </div>
+          )}
+          <Field label="Recogida en origen (opcional — para flujo pickup→entrega)">
+            <input
+              name="pickupAddressRaw"
+              className={inputClass}
+              placeholder="Bodega/tienda del cliente donde se recoge el paquete"
+            />
+          </Field>
+          <Field label="Referencias de recogida">
+            <input name="pickupNotes" className={inputClass} placeholder="Muelle 3, preguntar por despacho…" />
+          </Field>
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="secondary" onClick={closeForm}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary">
+              Crear pedido
+            </Button>
+          </div>
+        </form>
+      </Drawer>
     </div>
   );
 }
