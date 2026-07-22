@@ -25,9 +25,16 @@ const ATTRIBUTION = "© OpenStreetMap";
 export default function RouteMap({
   stops,
   geo,
+  dark = false,
 }: {
   stops: MapStop[];
   geo: React.MutableRefObject<{ lat: number; lng: number } | null>;
+  /**
+   * Tema oscuro (dark-first A3): con `.dark`, styles.css pinta las etiquetas
+   * de secuencia en casi-blanco — los marcadores pasan a relleno navy para
+   * que el número siga siendo legible (limón/cielo quedan como anillo).
+   */
+  dark?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -62,14 +69,19 @@ export default function RouteMap({
   // no por identidad del array: el fitBounds no debe robarle el encuadre al
   // conductor en cada refresco de 45 s.
   const drawnSignature = useRef<string | null>(null);
+  const drawnStopsSignature = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const signature = stops
+    const stopsSignature = stops
       .map((s) => `${s.id}:${s.sequence}:${s.done ? 1 : 0}`)
       .join("|");
+    const signature = (dark ? "d|" : "l|") + stopsSignature;
     if (signature === drawnSignature.current) return;
     drawnSignature.current = signature;
+    // Cambio de tema: repintar marcadores sin robarle el encuadre al conductor.
+    const stopsChanged = stopsSignature !== drawnStopsSignature.current;
+    drawnStopsSignature.current = stopsSignature;
     overlayRef.current?.remove();
     const overlay = L.layerGroup();
     overlayRef.current = overlay;
@@ -82,10 +94,32 @@ export default function RouteMap({
       ).addTo(overlay);
     }
     for (const stop of stops) {
+      // Claro: relleno claro + número navy. Oscuro: relleno navy + número
+      // casi blanco (.dark .moveos-stop-label) con anillo limón/cielo.
+      const color = stop.done
+        ? "#8a99a8"
+        : stop.isPickup
+          ? dark
+            ? "#a7b6c4"
+            : "#3a5169"
+          : dark
+            ? "#cfdd80"
+            : "#233955";
+      const fillColor = dark
+        ? stop.done
+          ? "#1b2c43"
+          : stop.isPickup
+            ? "#1b2c43"
+            : "#233955"
+        : stop.done
+          ? "#d6dade"
+          : stop.isPickup
+            ? "#eef2f5"
+            : "#cfdd80";
       const marker = L.circleMarker([stop.lat, stop.lng], {
         radius: 11,
-        color: stop.done ? "#8a99a8" : stop.isPickup ? "#3a5169" : "#233955",
-        fillColor: stop.done ? "#d6dade" : stop.isPickup ? "#eef2f5" : "#cfdd80",
+        color,
+        fillColor,
         fillOpacity: 0.95,
         weight: 2,
       }).addTo(overlay);
@@ -98,10 +132,10 @@ export default function RouteMap({
     overlay.addTo(map);
 
     const points = stops.map((s) => [s.lat, s.lng] as [number, number]);
-    if (points.length > 0) {
+    if (points.length > 0 && stopsChanged) {
       map.fitBounds(L.latLngBounds(points).pad(0.2));
     }
-  }, [stops]);
+  }, [stops, dark]);
 
   // Posición del conductor: punto vivo refrescado cada 10 s desde el GPS.
   useEffect(() => {
@@ -129,7 +163,7 @@ export default function RouteMap({
       ref={containerRef}
       role="img"
       aria-label="Mapa de la ruta del día"
-      className="h-52 w-full overflow-hidden rounded-xl shadow-sm"
+      className="h-52 w-full overflow-hidden rounded-xl border border-border shadow-soft dark:border-sky/18"
     />
   );
 }

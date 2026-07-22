@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { applyUpdate, onUpdateAvailable } from "../sw";
 
 /**
@@ -20,12 +21,15 @@ export function UpdateToast() {
   return (
     <div
       role="status"
-      className="fixed inset-x-0 bottom-0 z-50 m-3 flex items-center justify-between gap-3 rounded-xl bg-navy-900 px-4 py-3 text-sm text-white shadow-lg"
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-sky/18 bg-navy-900 px-4 py-2.5 text-sm text-niebla shadow-lg"
     >
-      <span>Nueva versión disponible.</span>
+      <span className="flex items-center gap-2">
+        <Download size={15} strokeWidth={2} aria-hidden className="shrink-0 text-lima" />
+        Nueva versión disponible.
+      </span>
       <button
         onClick={() => applyUpdate()}
-        className="shrink-0 rounded-lg bg-success px-3 py-1.5 font-semibold text-white"
+        className="min-h-11 shrink-0 rounded-lg bg-lima px-3.5 font-bold text-navy-900"
       >
         Recargar
       </button>
