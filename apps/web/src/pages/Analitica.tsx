@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Download, MapPinned, TrendingDown, TrendingUp } from "lucide-react";
 import { FAIL_REASON_LABELS, type FailReason } from "@moveos/shared";
 import { api, ApiError } from "../api";
 import { TrendChart } from "../components/charts";
 import {
   Button,
   Card,
+  KpiCard,
   Loading,
   ModuleDisabled,
   PageHeader,
   StatusBadge,
   inputClass,
+  theadRowClass,
 } from "../components/ui";
 import { AiOptimizeButton } from "../components/AiOptimizeButton";
 
@@ -76,11 +80,12 @@ interface CostReport {
   costPerDeliveryCop: number | null;
 }
 
-const COP = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+/** Miles con espacio fino (estilo del mock: «2 614», «$ 1 214 400»). */
+function miles(n: number): string {
+  return Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 // --- Fechas en Bogotá (UTC-5 fijo) ---
 function todayBogota(): string {
@@ -97,6 +102,27 @@ function rangeLength(from: string, to: string): number {
       (Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000,
     ) + 1
   );
+}
+
+const MONTHS_ES = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+/** «2026-06-23» → «23 jun» (eje X del mock, monoespaciado). */
+function formatDayEs(day: string): string {
+  const m = Number(day.slice(5, 7));
+  const d = Number(day.slice(8, 10));
+  return `${d} ${MONTHS_ES[m - 1] ?? ""}`;
 }
 
 interface RangeSummary {
@@ -123,26 +149,46 @@ function summarize(days: DayPoint[]): RangeSummary {
   return { ...s, successRate: attempted === 0 ? null : s.delivered / attempted };
 }
 
-type Trend = { text: string; cls: string };
+/** Δ vs período anterior; `null` = sin dato previo comparable (se omite). */
+type Trend = { dir: "up" | "down" | "flat"; text: string };
 function countTrend(cur: number, prev: number): Trend {
-  if (cur === prev) return { text: "—", cls: "text-navy/40" };
-  if (prev === 0) return { text: "▲ nuevo", cls: "text-success" };
-  const pct = ((cur - prev) / prev) * 100;
-  const up = cur > prev;
-  return {
-    text: `${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}%`,
-    cls: up ? "text-success" : "text-danger",
-  };
+  if (cur === prev) return { dir: "flat", text: "" };
+  if (prev === 0) return { dir: "up", text: "nuevo" };
+  const pct = Math.abs(((cur - prev) / prev) * 100);
+  return { dir: cur > prev ? "up" : "down", text: `${pct.toFixed(0)}%` };
 }
-function rateTrend(cur: number | null, prev: number | null): Trend {
-  if (cur === null || prev === null) return { text: "—", cls: "text-navy/40" };
+function rateTrend(cur: number | null, prev: number | null): Trend | null {
+  if (cur === null || prev === null) return null;
   const diff = (cur - prev) * 100;
-  if (Math.abs(diff) < 0.05) return { text: "—", cls: "text-navy/40" };
-  const up = diff > 0;
-  return {
-    text: `${up ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pp`,
-    cls: up ? "text-success" : "text-danger",
-  };
+  if (Math.abs(diff) < 0.05) return { dir: "flat", text: "" };
+  return { dir: diff > 0 ? "up" : "down", text: `${Math.abs(diff).toFixed(1)} pp` };
+}
+
+/** Línea Δ del KPI: flecha lucide 12px + magnitud + «vs ant.» atenuado. */
+function Delta({ trend, hero = false }: { trend: Trend; hero?: boolean }) {
+  const dimCls = hero ? "text-cielo/70" : "text-text-tertiary";
+  if (trend.dir === "flat") {
+    return <span className={dimCls}>— vs ant.</span>;
+  }
+  const up = trend.dir === "up";
+  const mainCls = hero
+    ? up
+      ? "text-lima"
+      : "text-danger-bg"
+    : up
+      ? "text-success"
+      : "text-danger";
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`inline-flex items-center gap-0.5 font-semibold ${mainCls}`}>
+        <Icon size={12} strokeWidth={2} aria-hidden="true" />
+        <span className="sr-only">{up ? "sube" : "baja"} </span>
+        {trend.text}
+      </span>
+      <span className={dimCls}>vs ant.</span>
+    </span>
+  );
 }
 
 const PRESETS = [
@@ -279,7 +325,7 @@ export default function Analitica() {
   }
   if (!summary) return <Loading label="Cargando indicadores…" />;
 
-  const kpis = [
+  const historico = [
     {
       label: "Tasa de entrega (histórico)",
       value:
@@ -296,20 +342,23 @@ export default function Analitica() {
       label: "Paradas por hora (SPH)",
       value: summary.stopsPerHour === null ? "—" : String(summary.stopsPerHour),
     },
-    { label: "Distancia total", value: `${summary.totalDistanceKm.toFixed(1)} km` },
-    { label: "CO₂ estimado", value: `${summary.estimatedCo2Kg} kg` },
+    { label: "Distancia total", value: `${miles(summary.totalDistanceKm)} km` },
+    { label: "CO₂ estimado", value: `${miles(summary.estimatedCo2Kg)} kg` },
   ];
 
   const days = cur ?? [];
   const dates = days.map((d) => d.date);
+  const tasaTrend = prevSum
+    ? rateTrend(curSum?.successRate ?? null, prevSum.successRate)
+    : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <PageHeader
         title="Analítica"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1" role="group" aria-label="Rango rápido">
+            <div className="flex gap-1.5" role="group" aria-label="Rango rápido">
               {PRESETS.map((r) => {
                 const active = len === r.days && to === todayBogota();
                 return (
@@ -317,10 +366,10 @@ export default function Analitica() {
                     key={r.days}
                     onClick={() => applyPreset(r.days)}
                     aria-pressed={active}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
                       active
-                        ? "bg-navy text-white"
-                        : "border border-cielo bg-white text-navy/70 hover:bg-niebla"
+                        ? "bg-navy font-semibold text-white"
+                        : "border border-border bg-surface font-medium text-text-secondary hover:border-border-strong hover:text-navy"
                     }`}
                   >
                     {r.label}
@@ -345,8 +394,13 @@ export default function Analitica() {
               className={inputClass}
               aria-label="Hasta"
             />
-            <Button variant="secondary" onClick={exportCsv} disabled={!cur || !!rangeError}>
-              Exportar CSV
+            <Button
+              variant="secondary"
+              icon={<Download strokeWidth={2} aria-hidden="true" />}
+              onClick={exportCsv}
+              disabled={!cur || !!rangeError}
+            >
+              CSV
             </Button>
           </div>
         }
@@ -373,37 +427,66 @@ export default function Analitica() {
         </Card>
       )}
 
-      {/* KPIs del rango con Δ vs el período inmediatamente anterior. */}
+      {/* KPIs del rango con Δ vs el período inmediatamente anterior; sin dato
+          previo comparable, el Δ se omite (nunca se inventa). */}
       {curSum && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <RangeStat
-            label="Pedidos creados"
-            value={String(curSum.created)}
-            delta={prevSum && countTrend(curSum.created, prevSum.created)}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <KpiCard
+            label="Creados"
+            value={miles(curSum.created)}
+            hint={
+              prevSum ? (
+                <Delta trend={countTrend(curSum.created, prevSum.created)} />
+              ) : undefined
+            }
           />
-          <RangeStat
+          <KpiCard
             label="Entregados"
-            value={String(curSum.delivered)}
-            delta={prevSum && countTrend(curSum.delivered, prevSum.delivered)}
+            value={miles(curSum.delivered)}
+            hint={
+              prevSum ? (
+                <Delta trend={countTrend(curSum.delivered, prevSum.delivered)} />
+              ) : undefined
+            }
           />
-          <RangeStat
-            label="Tasa de entrega"
+          <KpiCard
+            label="Tasa entrega"
+            tone="hero"
             value={
               curSum.successRate === null
                 ? "—"
                 : `${(curSum.successRate * 100).toFixed(0)}%`
             }
-            delta={prevSum && rateTrend(curSum.successRate, prevSum.successRate)}
+            hint={tasaTrend ? <Delta trend={tasaTrend} hero /> : undefined}
           />
-          <RangeStat
+          <KpiCard
             label="Distancia"
-            value={`${curSum.distanceKm.toFixed(0)} km`}
-            delta={prevSum && countTrend(curSum.distanceKm, prevSum.distanceKm)}
+            value={
+              <>
+                {miles(curSum.distanceKm)}{" "}
+                <span className="text-[12px] font-medium text-text-tertiary">km</span>
+              </>
+            }
+            hint={
+              prevSum ? (
+                <Delta trend={countTrend(curSum.distanceKm, prevSum.distanceKm)} />
+              ) : undefined
+            }
           />
-          <RangeStat
+          <KpiCard
             label="CO₂ evitado"
-            value={`${curSum.co2SavedKg.toFixed(0)} kg`}
-            delta={prevSum && countTrend(curSum.co2SavedKg, prevSum.co2SavedKg)}
+            accent
+            value={
+              <>
+                {miles(curSum.co2SavedKg)}{" "}
+                <span className="text-[12px] font-medium text-text-tertiary">kg</span>
+              </>
+            }
+            hint={
+              prevSum ? (
+                <Delta trend={countTrend(curSum.co2SavedKg, prevSum.co2SavedKg)} />
+              ) : undefined
+            }
           />
         </div>
       )}
@@ -412,24 +495,66 @@ export default function Analitica() {
         <Loading label="Cargando tendencias…" />
       ) : curSum && curSum.created === 0 && curSum.delivered === 0 ? (
         <Card>
-          <p className="text-sm text-navy/60">Sin actividad en el rango seleccionado.</p>
+          <p className="text-sm text-text-secondary">
+            Sin actividad en el rango seleccionado.
+          </p>
         </Card>
       ) : (
         <>
-          <Card title={`Pedidos por día (${len} días)`}>
+          <Card
+            title={`Pedidos por día · ${len} días`}
+            actions={
+              <div className="flex items-center gap-3 text-[11px] text-text-secondary">
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-[3px] w-2.5 rounded-[2px] bg-navy"
+                  />
+                  Creados
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-[3px] w-2.5 rounded-[2px] bg-olive"
+                  />
+                  Entregados
+                </span>
+              </div>
+            }
+          >
             <TrendChart
               days={dates}
+              hideLegend
+              axisMono
+              xLabelCount={5}
+              heightClass="h-[120px]"
+              formatDay={formatDayEs}
               series={[
-                { label: "Entregados", values: days.map((d) => d.ordersDelivered) },
-                { label: "Creados", values: days.map((d) => d.ordersCreated) },
+                {
+                  label: "Creados",
+                  values: days.map((d) => d.ordersCreated),
+                  color: "var(--color-navy)",
+                  fill: "var(--color-navy)",
+                  fillOpacity: 0.08,
+                  strokeWidth: 2.5,
+                },
+                {
+                  label: "Entregados",
+                  values: days.map((d) => d.ordersDelivered),
+                  color: "var(--color-olive)",
+                  strokeWidth: 2.5,
+                },
               ]}
             />
           </Card>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             <Card title="Distancia recorrida por día">
               <TrendChart
                 days={dates}
                 unit=" km"
+                axisMono
+                xLabelCount={5}
+                formatDay={formatDayEs}
                 series={[
                   { label: "Distancia", values: days.map((d) => d.totalDistanceKm) },
                 ]}
@@ -439,6 +564,9 @@ export default function Analitica() {
               <TrendChart
                 days={dates}
                 unit=" kg"
+                axisMono
+                xLabelCount={5}
+                formatDay={formatDayEs}
                 series={[
                   { label: "CO₂ emitido", values: days.map((d) => d.co2Kg) },
                   { label: "CO₂ ahorrado", values: days.map((d) => d.co2SavedKg) },
@@ -449,18 +577,25 @@ export default function Analitica() {
         </>
       )}
 
-      {sla && sla.totals.total > 0 && <SlaByClientCard report={sla} />}
+      {sla && sla.totals.total > 0 && <SlaByClientCard report={sla} rangeDays={len} />}
 
-      {failures && failures.total > 0 && <FailureCard report={failures} />}
-
-      {cost && cost.stops > 0 && <CostCard report={cost} />}
+      {((failures && failures.total > 0) || (cost && cost.stops > 0)) && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {failures && failures.total > 0 && <FailureCard report={failures} />}
+          {cost && cost.stops > 0 && <CostCard report={cost} />}
+        </div>
+      )}
 
       <Card title="Indicadores acumulados (histórico)">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-          {kpis.map((k) => (
+          {historico.map((k) => (
             <div key={k.label}>
-              <div className="text-xs uppercase tracking-wide text-navy/50">{k.label}</div>
-              <div className="mt-1 text-2xl font-bold">{k.value}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
+                {k.label}
+              </div>
+              <div className="mt-1 text-[23px] font-semibold leading-tight text-navy">
+                {k.value}
+              </div>
             </div>
           ))}
         </div>
@@ -471,10 +606,10 @@ export default function Analitica() {
           {summary.ordersByStatus.map((s) => (
             <div
               key={s.status}
-              className="flex items-center gap-2 rounded-lg border border-niebla px-3 py-2"
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
             >
               <StatusBadge status={s.status} />
-              <span className="text-lg font-bold">{s.count}</span>
+              <span className="text-lg font-semibold text-navy">{s.count}</span>
             </div>
           ))}
         </div>
@@ -483,63 +618,92 @@ export default function Analitica() {
   );
 }
 
-/** Color del % de incumplimiento: verde ≤10%, ámbar ≤25%, rojo por encima. */
-function breachRateStyle(rate: number | null): { text: string; cls: string } {
-  if (rate === null) return { text: "—", cls: "text-navy/40" };
-  const cls = rate <= 0.1 ? "text-success" : rate <= 0.25 ? "text-warning" : "text-danger";
-  return { text: `${(rate * 100).toFixed(0)}%`, cls };
+/**
+ * Semaforización del % incumplido (spec 2d): >10% peligro, >3% advertencia,
+ * de resto éxito (barra en oliva, cifra en verde oscuro legible).
+ */
+function breachLevel(rate: number | null): {
+  text: string;
+  textCls: string;
+  barCls: string;
+  width: number;
+} {
+  if (rate === null) {
+    return { text: "—", textCls: "text-text-tertiary", barCls: "bg-border", width: 0 };
+  }
+  const pct = rate * 100;
+  const [textCls, barCls]: [string, string] =
+    pct > 10
+      ? ["text-danger", "bg-danger"]
+      : pct > 3
+        ? ["text-warning", "bg-warning"]
+        : ["text-success", "bg-olive"];
+  // Escala visual del mock: ~45% incumplido llena la barra de 44px.
+  return {
+    text: `${pct.toFixed(0)}%`,
+    textCls,
+    barCls,
+    width: Math.min(100, pct * 2.2),
+  };
 }
 
 /**
- * Cumplimiento de SLA por negocio cliente: a tiempo / incumplidos / en curso y
- * la tasa de incumplimiento. Argumento B2B directo para cada comercio.
+ * Cumplimiento de SLA por negocio cliente, ordenado por riesgo (mayor %
+ * incumplido primero) con mini barra proporcional. Argumento B2B directo.
  */
-function SlaByClientCard({ report }: { report: SlaReport }) {
-  const t = report.totals;
-  const totalRate = breachRateStyle(t.breachRate);
+function SlaByClientCard({
+  report,
+  rangeDays,
+}: {
+  report: SlaReport;
+  rangeDays: number;
+}) {
+  const rows = [...report.byClient].sort(
+    (a, b) => (b.breachRate ?? -1) - (a.breachRate ?? -1),
+  );
   return (
     <Card title="Cumplimiento de SLA por cliente">
-      <p className="mb-3 text-xs text-navy/50">
-        Pedidos con servicio (promesa de entrega) en el rango. La hora límite es
-        el plazo del servicio desde la creación del pedido.
+      <p className="mb-2 text-[11px] text-text-tertiary">
+        Promesa del servicio desde la creación del pedido · rango {rangeDays} días
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-collapse text-[12.5px] text-navy">
           <thead>
-            <tr className="border-b border-niebla text-left text-xs uppercase tracking-wide text-navy/50">
-              <th className="py-2 pr-4 font-medium">Negocio</th>
-              <th className="py-2 pr-4 text-right font-medium">Total</th>
-              <th className="py-2 pr-4 text-right font-medium">A tiempo</th>
-              <th className="py-2 pr-4 text-right font-medium">Incumplidos</th>
-              <th className="py-2 pr-4 text-right font-medium">En curso</th>
-              <th className="py-2 text-right font-medium">% incumplido</th>
+            <tr className={theadRowClass}>
+              <th className="py-1 pr-4 font-semibold">Negocio</th>
+              <th className="py-1 pr-4 text-right font-semibold">Total</th>
+              <th className="py-1 pr-4 text-right font-semibold">A tiempo</th>
+              <th className="py-1 pr-4 text-right font-semibold">Incumpl.</th>
+              <th className="w-[110px] py-1 text-right font-semibold">% incumplido</th>
             </tr>
           </thead>
           <tbody>
-            {report.byClient.map((r) => {
-              const rate = breachRateStyle(r.breachRate);
+            {rows.map((r) => {
+              const level = breachLevel(r.breachRate);
               return (
-                <tr key={r.clientId ?? "__none__"} className="border-b border-niebla/60">
-                  <td className="py-2 pr-4 font-medium text-navy">{r.clientName}</td>
-                  <td className="py-2 pr-4 text-right">{r.total}</td>
-                  <td className="py-2 pr-4 text-right text-success">{r.onTime}</td>
-                  <td className="py-2 pr-4 text-right text-danger">{r.breached}</td>
-                  <td className="py-2 pr-4 text-right text-navy/60">{r.pending}</td>
-                  <td className={`py-2 text-right font-semibold ${rate.cls}`}>{rate.text}</td>
+                <tr key={r.clientId ?? "__none__"} className="border-b border-border/60">
+                  <td className="py-1.5 pr-4 font-medium">{r.clientName}</td>
+                  <td className="py-1.5 pr-4 text-right">{r.total}</td>
+                  <td className="py-1.5 pr-4 text-right text-success">{r.onTime}</td>
+                  <td className="py-1.5 pr-4 text-right text-danger">{r.breached}</td>
+                  <td className="py-1.5 text-right">
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                      <span
+                        aria-hidden="true"
+                        className="h-[5px] w-11 overflow-hidden rounded-full bg-niebla"
+                      >
+                        <span
+                          className={`block h-full ${level.barCls}`}
+                          style={{ width: `${level.width}%` }}
+                        />
+                      </span>
+                      <span className={`font-bold ${level.textCls}`}>{level.text}</span>
+                    </span>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
-          <tfoot>
-            <tr className="border-t border-navy/20 font-semibold">
-              <td className="py-2 pr-4 text-navy">Total</td>
-              <td className="py-2 pr-4 text-right">{t.total}</td>
-              <td className="py-2 pr-4 text-right text-success">{t.onTime}</td>
-              <td className="py-2 pr-4 text-right text-danger">{t.breached}</td>
-              <td className="py-2 pr-4 text-right text-navy/60">{t.pending}</td>
-              <td className={`py-2 text-right ${totalRate.cls}`}>{totalRate.text}</td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </Card>
@@ -549,92 +713,86 @@ function SlaByClientCard({ report }: { report: SlaReport }) {
 /**
  * Costo por entrega ENERGÍA-NATIVO: horas × costo/hora del conductor + kWh ×
  * tarifa de energía, dividido entre las entregas. La unidad de costo es la
- * energía, nunca el combustible (restricción dura 1.7).
+ * energía, nunca el combustible (restricción dura 1.7). Tarjeta héroe navy.
  */
 function CostCard({ report }: { report: CostReport }) {
   return (
-    <Card title="Costo por entrega (energía-nativo)">
-      <p className="mb-3 text-xs text-navy/50">
-        Sobre las rutas del rango: mano de obra (horas × costo/hora) + energía
-        (kWh × tarifa), entre {report.stops} entrega(s). Configúralo en Controles ›
-        Costos.
+    <div className="rounded-xl border border-navy bg-navy p-4 text-white shadow-soft transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg">
+      <h2 className="text-sm font-semibold">Costo por entrega</h2>
+      <p className="mt-0.5 text-[10.5px] text-cielo">
+        energía-nativo: horas × costo/h + kWh × tarifa
       </p>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-navy/50">Costo por entrega</div>
-          <div className="mt-1 text-2xl font-bold">
-            {report.costPerDeliveryCop === null ? "—" : COP.format(report.costPerDeliveryCop)}
-          </div>
+      <div className="mt-2 text-[26px] font-bold leading-tight tracking-[-0.02em] text-lima">
+        {report.costPerDeliveryCop === null ? (
+          "—"
+        ) : (
+          <>
+            $ {miles(report.costPerDeliveryCop)}{" "}
+            <span className="text-xs font-medium text-cielo">COP</span>
+          </>
+        )}
+      </div>
+      <div className="mt-2.5 flex flex-col gap-1 text-[11.5px] text-white/85">
+        <div className="flex justify-between gap-3">
+          <span>Mano de obra</span>
+          <span className="font-mono">$ {miles(report.laborCostCop)}</span>
         </div>
-        <div>
-          <div className="text-xs uppercase tracking-wide text-navy/50">Mano de obra</div>
-          <div className="mt-1 text-2xl font-bold">{COP.format(report.laborCostCop)}</div>
+        <div className="flex justify-between gap-3">
+          <span>Energía · {miles(report.totalKwh)} kWh</span>
+          <span className="font-mono">$ {miles(report.energyCostCop)}</span>
         </div>
-        <div>
-          <div className="text-xs uppercase tracking-wide text-navy/50">Energía</div>
-          <div className="mt-1 text-2xl font-bold">{COP.format(report.energyCostCop)}</div>
-        </div>
-        <div>
-          <div className="text-xs uppercase tracking-wide text-navy/50">Energía total</div>
-          <div className="mt-1 text-2xl font-bold">
-            {report.totalKwh} <span className="text-sm font-medium text-navy/50">kWh</span>
-          </div>
+        <div className="mt-0.5 flex justify-between gap-3 border-t border-white/15 pt-1">
+          <span>
+            {report.stops} {report.stops === 1 ? "entrega" : "entregas"}
+          </span>
+          <span className="font-mono">$ {miles(report.totalCostCop)}</span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
 /**
- * Análisis de fallos: distribución de entregas fallidas por motivo. Insumo
- * directo de mejora operativa; DIRECCION_ERRADA refuerza el grafo de direcciones.
+ * Análisis de fallos: distribución de entregas fallidas por motivo, con barras
+ * horizontales en peligro al 60%. Si «Dirección errada» domina, la tarjeta
+ * ofrece la acción directa de abrir el triage de direcciones (grafo/moat).
  */
 function FailureCard({ report }: { report: FailureReport }) {
-  const max = Math.max(...report.byReason.map((r) => r.count), 1);
+  const rows = [...report.byReason].sort((a, b) => b.count - a.count);
+  const top = rows[0];
+  const max = top?.count ?? 1;
+  const showTriage = top !== undefined && top.count > 0 && top.reason === "DIRECCION_ERRADA";
   return (
     <Card title={`Análisis de fallos (${report.total})`}>
-      <p className="mb-3 text-xs text-navy/50">
-        Entregas fallidas o rechazadas del rango, por motivo estandarizado.
-      </p>
-      <div className="space-y-2">
-        {report.byReason.map((r) => (
-          <div key={r.reason} className="flex items-center gap-3 text-sm">
-            <span className="w-40 shrink-0 text-navy">
+      <div className="flex flex-col gap-[7px] text-xs text-navy">
+        {rows.map((r) => (
+          <div key={r.reason} className="flex items-center gap-2">
+            <span
+              className="w-32 shrink-0 truncate text-text-secondary"
+              title={FAIL_REASON_LABELS[r.reason]}
+            >
               {FAIL_REASON_LABELS[r.reason]}
             </span>
-            <span className="h-3 flex-1 overflow-hidden rounded-full bg-niebla">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-niebla">
               <span
-                className="block h-full rounded-full bg-danger/60"
+                className="block h-full bg-danger/60"
                 style={{ width: `${(r.count / max) * 100}%` }}
               />
             </span>
-            <span className="w-20 shrink-0 text-right font-mono text-xs text-navy/60">
+            <span className="shrink-0 font-mono text-[11px] text-text-secondary">
               {r.count} · {(r.pct * 100).toFixed(0)}%
             </span>
           </div>
         ))}
       </div>
-    </Card>
-  );
-}
-
-function RangeStat({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: string;
-  delta?: Trend | null;
-}) {
-  return (
-    <Card>
-      <div className="text-xs uppercase tracking-wide text-navy/50">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
-      {delta && (
-        <div className={`mt-0.5 text-xs ${delta.cls}`}>
-          {delta.text} <span className="text-navy/40">vs período anterior</span>
-        </div>
+      {showTriage && (
+        <Link
+          to="/direcciones"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+        >
+          <MapPinned size={14} strokeWidth={1.75} aria-hidden="true" />
+          Dirección errada domina → abrir triage de direcciones
+        </Link>
       )}
     </Card>
   );

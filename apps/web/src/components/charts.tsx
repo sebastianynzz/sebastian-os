@@ -12,6 +12,10 @@ export interface TrendSeries {
   color?: string;
   /** Relleno del área bajo la curva (CSS); solo la serie principal lo usa. */
   fill?: string;
+  /** Opacidad del área bajo la curva (por defecto 0.35). */
+  fillOpacity?: number;
+  /** Grosor del trazo (por defecto 2). */
+  strokeWidth?: number;
 }
 
 const W = 600;
@@ -25,12 +29,24 @@ export function TrendChart({
   series,
   unit = "",
   formatDay = (d) => d.slice(5),
+  hideLegend = false,
+  axisMono = false,
+  xLabelCount = 3,
+  heightClass = "h-40",
 }: {
   days: string[];
   series: TrendSeries[];
   /** Sufijo de unidad en el tooltip (p. ej. " km"). */
   unit?: string;
   formatDay?: (day: string) => string;
+  /** Oculta la fila de leyenda/máximo (cuando la tarjeta trae leyenda propia). */
+  hideLegend?: boolean;
+  /** Etiquetas del eje X en monoespaciada (patrón del revamp). */
+  axisMono?: boolean;
+  /** Cantidad de etiquetas del eje X (por defecto 3: inicio, centro y fin). */
+  xLabelCount?: number;
+  /** Alto del SVG como clase Tailwind (por defecto `h-40`). */
+  heightClass?: string;
 }) {
   const n = days.length;
   const max = Math.max(1, ...series.flatMap((s) => s.values));
@@ -42,31 +58,39 @@ export function TrendChart({
   const toPoints = (values: number[]) =>
     values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
 
-  // Etiquetas del eje X: inicio, centro y fin (suficiente para tendencia).
+  // Etiquetas del eje X repartidas uniformemente (por defecto inicio/centro/fin).
+  const k = Math.max(2, xLabelCount);
   const xLabels =
-    n <= 2 ? days : [days[0], days[Math.floor((n - 1) / 2)], days[n - 1]];
+    n <= k
+      ? days
+      : Array.from(
+          { length: k },
+          (_, i) => days[Math.floor((i * (n - 1)) / (k - 1))],
+        );
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <div className="flex flex-wrap gap-3">
-          {series.map((s, idx) => (
-            <span key={s.label} className="flex items-center gap-1.5 opacity-80">
-              <span
-                aria-hidden="true"
-                className="h-2 w-2 rounded-full"
-                style={{ background: s.color ?? DEFAULT_COLORS[idx] }}
-              />
-              {s.label}
-            </span>
-          ))}
+      {!hideLegend && (
+        <div className="mb-1 flex items-center justify-between text-xs">
+          <div className="flex flex-wrap gap-3">
+            {series.map((s, idx) => (
+              <span key={s.label} className="flex items-center gap-1.5 opacity-80">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: s.color ?? DEFAULT_COLORS[idx] }}
+                />
+                {s.label}
+              </span>
+            ))}
+          </div>
+          <span className="opacity-50">máx {fmt(max)}</span>
         </div>
-        <span className="opacity-50">máx {fmt(max)}</span>
-      </div>
+      )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
-        className="h-40 w-full"
+        className={`${heightClass} w-full`}
         role="img"
         aria-label={series.map((s) => s.label).join(" y ")}
       >
@@ -87,14 +111,14 @@ export function TrendChart({
               <polygon
                 points={`0,${H} ${toPoints(s.values)} ${W},${H}`}
                 fill={s.fill ?? "#cfdd80"}
-                fillOpacity={0.35}
+                fillOpacity={s.fillOpacity ?? 0.35}
               />
             )}
             <polyline
               points={toPoints(s.values)}
               fill="none"
               stroke={s.color ?? DEFAULT_COLORS[idx]}
-              strokeWidth={2}
+              strokeWidth={s.strokeWidth ?? 2}
               vectorEffect="non-scaling-stroke"
               strokeLinejoin="round"
             />
@@ -116,7 +140,11 @@ export function TrendChart({
           </rect>
         ))}
       </svg>
-      <div className="mt-1 flex justify-between text-[10px] opacity-50">
+      <div
+        className={`mt-1 flex justify-between text-[10px] ${
+          axisMono ? "font-mono text-text-tertiary" : "opacity-50"
+        }`}
+      >
         {xLabels.map((d, i) => (
           <span key={`${d}-${i}`}>{d ? formatDay(d) : ""}</span>
         ))}
