@@ -506,15 +506,22 @@ export default function Excepciones() {
                   const header = GROUP_HEADER_STYLES[group.sev];
                   return (
                     <div key={group.sev} className={`space-y-2 ${gi > 0 ? "pt-2" : ""}`}>
-                      <div
-                        className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.06em] ${header.text}`}
+                      {/* El encabezado de grupo también filtra por severidad —
+                          es la única vía para aislar las Medias sin sumar una
+                          quinta tarjeta KPI que el mock no tiene. */}
+                      <button
+                        type="button"
+                        aria-pressed={sevFilter.has(group.sev)}
+                        onClick={() => setSevFilter((f) => toggle(f, group.sev))}
+                        title={`Filtrar ${SEVERITY_LABELS[group.sev].toLowerCase()}`}
+                        className={`flex items-center gap-2 rounded-md text-[11px] font-semibold uppercase tracking-[.06em] transition duration-200 ease-brand hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${header.text}`}
                       >
                         <span
                           aria-hidden="true"
                           className={`h-2 w-2 rounded-full ${header.dot}`}
                         />
                         {SEVERITY_LABELS[group.sev]} · {group.rows.length}
-                      </div>
+                      </button>
                       {group.rows.map((item) => {
                         const panic = item.type === "PANIC";
                         const Icon = TYPE_ICONS[item.type] ?? TriangleAlert;

@@ -502,9 +502,20 @@ export default function Rutas() {
               <span className="rounded-full bg-sky-50 px-2 py-px text-[11px] font-semibold text-info">
                 {r.vehicle.type}
               </span>
-              {r.vehicle.isElectric && r.vehicle.socPercent != null && (
-                <SocPill soc={r.vehicle.socPercent} />
-              )}
+              {/* EV sin telemetría aún: nunca perder la marca eléctrica. */}
+              {r.vehicle.isElectric &&
+                (r.vehicle.socPercent != null ? (
+                  <SocPill soc={r.vehicle.socPercent} />
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-lime-ink">
+                    <Zap
+                      aria-hidden="true"
+                      className="h-3 w-3 fill-lime-ink text-lime-ink"
+                      strokeWidth={2}
+                    />
+                    EV
+                  </span>
+                ))}
               {/* Fecha y depósito como chips, no concatenados en el título. */}
               <span className="inline-flex items-center gap-[5px] text-xs text-text-secondary">
                 <CalendarDays aria-hidden="true" className="h-3 w-3 shrink-0" strokeWidth={2} />

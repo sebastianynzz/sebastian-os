@@ -11,6 +11,7 @@ import {
   Camera,
   Check,
   ChevronLeft,
+  Info,
   Loader,
   LogOut,
   MapPin,
@@ -772,7 +773,11 @@ export default function App() {
           <EnergyTiles
             vehicle={route.vehicle}
             remainingKm={kmLeft}
-            pendingStops={mapStops.filter((s) => !s.done).length}
+            pendingStops={
+              route.stops.filter(
+                (s) => s.status !== "COMPLETED" && s.status !== "FAILED",
+              ).length
+            }
           />
         )}
 
@@ -808,6 +813,9 @@ export default function App() {
                   last={i === route.stops.length - 1}
                   isCurrent={stop.id === currentStopId}
                   routeActive={route.status === "IN_PROGRESS"}
+                  canOpen={
+                    route.status === "IN_PROGRESS" || route.status === "DISPATCHED"
+                  }
                   onOpen={() => setActiveStop(stop)}
                 />
               ))}
@@ -876,6 +884,7 @@ export default function App() {
         <StopActionSheet
           stop={activeStop}
           totalStops={route.stops.length}
+          actionsEnabled={route.status === "IN_PROGRESS"}
           plate={route.vehicle.plate}
           navApp={navApp}
           online={online}
@@ -1253,12 +1262,16 @@ function StopRow({
   last,
   isCurrent,
   routeActive,
+  canOpen,
   onOpen,
 }: {
   stop: Stop;
   last: boolean;
   isCurrent: boolean;
   routeActive: boolean;
+  /** Ruta despachada o en curso: la hoja se puede abrir (aunque las
+      acciones de entrega solo se habilitan con la ruta iniciada). */
+  canOpen: boolean;
   onOpen: () => void;
 }) {
   const done = stop.status === "COMPLETED" || stop.status === "FAILED";
@@ -1269,7 +1282,7 @@ function StopRow({
   const address = isPickup
     ? stop.order.pickupAddressRaw ?? stop.order.addressRaw
     : stop.order.addressRaw;
-  const tappable = routeActive && !done;
+  const tappable = canOpen && !done;
 
   const circle = done ? (
     <span
@@ -1374,6 +1387,7 @@ function StopRow({
 function StopActionSheet({
   stop,
   totalStops,
+  actionsEnabled,
   plate,
   navApp,
   online,
@@ -1385,6 +1399,8 @@ function StopActionSheet({
 }: {
   stop: Stop;
   totalStops: number;
+  /** Solo con la ruta iniciada se permiten llegada/confirmación/fallo. */
+  actionsEnabled: boolean;
   plate: string;
   navApp: NavApp;
   online: boolean;
@@ -1714,7 +1730,7 @@ function StopActionSheet({
         </div>
 
         {/* "Llegué": registrar la llegada sin cerrar la hoja (se encola offline). */}
-        {stop.status === "PENDING" && !arrivedLocal && (
+        {actionsEnabled && stop.status === "PENDING" && !arrivedLocal && (
           <button
             onClick={async () => {
               setArriveBusy(true);
@@ -1766,7 +1782,20 @@ function StopActionSheet({
             </div>
           ))}
 
-        {mode === "deliver" ? (
+        {!actionsEnabled ? (
+          <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 dark:border-sky/18 dark:bg-navy-700">
+            <Info
+              size={14}
+              strokeWidth={2}
+              aria-hidden
+              className="shrink-0 text-text-tertiary dark:text-sky/70"
+            />
+            <span className="text-[11.5px] text-text-secondary dark:text-sky">
+              Inicia la ruta para registrar llegada y confirmar la{" "}
+              {isPickup ? "recogida" : "entrega"}.
+            </span>
+          </div>
+        ) : mode === "deliver" ? (
           <div className="mt-2.5 space-y-2.5">
             {/* Evidencia: foto/escaneo como fichas, requisito visible desde el
                 inicio (no como error al final). */}

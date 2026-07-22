@@ -109,8 +109,8 @@ function useControlesStatus(): Record<string, ItemStatus> {
       [
         "fields",
         async () => {
-          const r = await api<{ properties?: unknown[] }>("GET", "/custom-properties");
-          return configuredIf(arrayLen(r.properties ?? r) > 0);
+          const r = await api<{ items?: unknown[] }>("GET", "/custom-properties");
+          return configuredIf(arrayLen(r.items) > 0);
         },
       ],
       [

@@ -201,17 +201,16 @@ export default function PortalPedidos() {
                         </td>
                         <td>
                           <span className="font-medium">{o.customerName}</span>
-                          {failed ? (
+                          <span
+                            className="block max-w-[260px] truncate text-[11px] text-text-tertiary"
+                            title={o.addressRaw}
+                          >
+                            {o.addressRaw}
+                          </span>
+                          {failed && (
                             <span className="block text-[11px] text-danger">
                               Entrega no lograda
                               {o.failureReason && <> · «{o.failureReason}»</>}
-                            </span>
-                          ) : (
-                            <span
-                              className="block max-w-[260px] truncate text-[11px] text-text-tertiary"
-                              title={o.addressRaw}
-                            >
-                              {o.addressRaw}
                             </span>
                           )}
                         </td>

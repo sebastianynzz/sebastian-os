@@ -99,7 +99,8 @@ function LimeSwitch({
  * La pantalla insignia del producto: módulos que se activan y desactivan
  * como interruptores. El menú lateral y las APIs reaccionan al instante.
  * Revamp 5b: banda de núcleo (sin switches) + grilla de addons con
- * dependencias legibles ANTES del 409.
+ * dependencias legibles. Activar enciende dependencias en cascada (contrato
+ * del backend); solo el apagado con dependientes se bloquea (409 de respaldo).
  */
 export default function Modulos() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
@@ -172,8 +173,9 @@ export default function Modulos() {
             {addons.map((m) => {
               const Icon = MODULE_ICONS[m.key] ?? Puzzle;
               const requires = m.requires ?? [];
-              // Dependencia no satisfecha (módulo apagado): el switch se
-              // bloquea con explicación en línea — no esperamos al 409.
+              // Dependencia apagada: el backend la enciende EN CASCADA al
+              // activar este módulo (contrato de PATCH /modules/:key), así que
+              // el switch queda operable y la dependencia se explica en línea.
               const missingDeps = requires.filter(
                 (dep) => !(enabledByKey.get(dep) ?? false),
               );
@@ -210,7 +212,7 @@ export default function Modulos() {
                     </span>
                     <LimeSwitch
                       checked={m.enabled}
-                      disabled={!isAdmin || lockedOff || lockedOn}
+                      disabled={!isAdmin || lockedOn}
                       label={`${m.enabled ? "Desactivar" : "Activar"} ${m.nombre}`}
                       onChange={() => toggle(m.key, !m.enabled)}
                     />
@@ -238,8 +240,8 @@ export default function Modulos() {
                   )}
                   {lockedOff && (
                     <span className="text-[11px] text-text-tertiary">
-                      Desactivado — activa{" "}
-                      {missingDeps.map(moduleName).join(" y ")} primero
+                      Al activarlo se activará también{" "}
+                      {missingDeps.map(moduleName).join(" y ")} (en cascada)
                     </span>
                   )}
                   {lockedOn && (

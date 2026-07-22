@@ -282,7 +282,8 @@ export default function Sostenibilidad() {
                     <span className="w-44 shrink-0 truncate font-medium">
                       {displayVehicleLabel(t)}{" "}
                       <span className="font-normal text-text-tertiary">
-                        · {t.routes} ruta{t.routes === 1 ? "" : "s"} · {t.km} km
+                        · {t.routes} ruta{t.routes === 1 ? "" : "s"} · {t.km} km ·{" "}
+                        {t.co2Kg} kg CO₂
                       </span>
                     </span>
                     <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-niebla">
@@ -312,6 +313,7 @@ export default function Sostenibilidad() {
                     <th className="py-2 font-semibold">Negocio</th>
                     <th className="text-right font-semibold">Entregas</th>
                     <th className="text-right font-semibold">km</th>
+                    <th className="text-right font-semibold">CO₂ (kg)</th>
                     <th className="text-right font-semibold">Ahorro</th>
                   </tr>
                 </thead>
@@ -321,6 +323,7 @@ export default function Sostenibilidad() {
                       <td className="py-2 font-medium">{c.name}</td>
                       <td className="text-right">{c.deliveredOrders}</td>
                       <td className="text-right">{c.km}</td>
+                      <td className="text-right font-mono text-xs">{c.co2Kg}</td>
                       <td className="text-right">
                         <span className="inline-flex items-center justify-end gap-2">
                           <SavingsBar value={c.co2SavedKg} max={maxClientSaved} />

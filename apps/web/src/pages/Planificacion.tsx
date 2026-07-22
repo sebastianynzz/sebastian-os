@@ -5,6 +5,8 @@ import L from "leaflet";
 import {
   ArrowRight,
   BatteryWarning,
+  ChevronDown,
+  ChevronUp,
   GripVertical,
   Locate,
   Search,
@@ -874,6 +876,30 @@ export default function Planificacion() {
                             <span className="mt-0.5 shrink-0 font-mono text-[11px] text-text-secondary">
                               {dirty ? "—" : formatEta(etaByOrder.get(orderId) ?? 0)}
                             </span>
+                            {/* El drag HTML5 no dispara en táctiles: en pantallas
+                                de puntero grueso se muestran flechas de toque. */}
+                            {current.length > 1 && (
+                              <span className="mt-0.5 hidden shrink-0 flex-col pointer-coarse:flex">
+                                <button
+                                  type="button"
+                                  aria-label={`Subir la parada ${idx + 1}`}
+                                  disabled={savingRoute === r.id || idx === 0}
+                                  onClick={() => moveOrder(r.id, current, idx, -1)}
+                                  className="text-border-strong transition hover:text-text-secondary disabled:opacity-30"
+                                >
+                                  <ChevronUp aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Bajar la parada ${idx + 1}`}
+                                  disabled={savingRoute === r.id || isLast}
+                                  onClick={() => moveOrder(r.id, current, idx, 1)}
+                                  className="text-border-strong transition hover:text-text-secondary disabled:opacity-30"
+                                >
+                                  <ChevronDown aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              </span>
+                            )}
                             {current.length > 1 && (
                               <button
                                 type="button"
@@ -889,7 +915,7 @@ export default function Planificacion() {
                                     moveOrder(r.id, current, idx, 1);
                                   }
                                 }}
-                                className="mt-0.5 shrink-0 cursor-grab text-border-strong transition duration-200 ease-brand hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40"
+                                className="mt-0.5 hidden shrink-0 cursor-grab text-border-strong transition duration-200 ease-brand hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 pointer-fine:block"
                               >
                                 <GripVertical
                                   aria-hidden="true"

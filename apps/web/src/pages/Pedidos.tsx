@@ -322,7 +322,7 @@ export default function Pedidos() {
     setFClientId(v.filters.clientId ?? "");
     setFServiceId(v.filters.serviceId ?? "");
     setFQ(v.filters.q ?? "");
-    setFDudosa(false);
+    setFDudosa(v.filters.dudosa === "1");
   }
   /** Una vista está "activa" si sus filtros coinciden con los actuales. */
   function viewIsActive(v: SavedView): boolean {
@@ -331,7 +331,7 @@ export default function Pedidos() {
       (v.filters.clientId ?? "") === fClientId &&
       (v.filters.serviceId ?? "") === fServiceId &&
       (v.filters.q ?? "") === fQ.trim() &&
-      !fDudosa
+      (v.filters.dudosa === "1") === fDudosa
     );
   }
   async function saveCurrentView() {
@@ -342,6 +342,7 @@ export default function Pedidos() {
     if (fClientId) filters.clientId = fClientId;
     if (fServiceId) filters.serviceId = fServiceId;
     if (fQ.trim()) filters.q = fQ.trim();
+    if (fDudosa) filters.dudosa = "1";
     try {
       await api("POST", "/saved-views", { page: "pedidos", name, filters });
       await loadViews();
@@ -576,7 +577,7 @@ export default function Pedidos() {
           {notice}
         </Banner>
       )}
-      {error && (
+      {error && !showForm && (
         <Banner kind="error" onDismiss={() => setError(null)}>
           {error}
         </Banner>
@@ -982,17 +983,6 @@ export default function Pedidos() {
                                       />
                                       Ver en mapa
                                     </Link>
-                                    <a
-                                      href={`tel:${o.customerPhone}`}
-                                      className={ghostLinkClass}
-                                    >
-                                      <Phone
-                                        aria-hidden="true"
-                                        className="h-3 w-3"
-                                        strokeWidth={2}
-                                      />
-                                      Llamar
-                                    </a>
                                   </div>
                                 </div>
                               </div>
@@ -1072,6 +1062,15 @@ export default function Pedidos() {
 
       {/* Alta manual en drawer lateral (misma lógica de creación de siempre). */}
       <Drawer open={showForm} onClose={closeForm} title="Nuevo pedido">
+        {/* El banner de la página queda tras el fondo del drawer: el error de
+            creación debe verse dentro del propio drawer. */}
+        {error && (
+          <div className="mb-3">
+            <Banner kind="error" onDismiss={() => setError(null)}>
+              {error}
+            </Banner>
+          </div>
+        )}
         <form onSubmit={onCreate} className="grid grid-cols-1 gap-4">
           <Field label="Negocio cliente (quién envía)">
             <select name="clientId" className={inputClass}>
