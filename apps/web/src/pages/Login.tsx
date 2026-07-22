@@ -1,13 +1,29 @@
 import { useState, type FormEvent } from "react";
+import { Info } from "lucide-react";
 import { useAuth } from "../auth";
-import { Button, Field, inputClass } from "../components/ui";
+import { Button } from "../components/ui";
 
+/* Credenciales de la cuenta demo: pre-llenan el formulario y se muestran en la
+ * fila copiable inferior. Una sola fuente para no divergir. */
+const DEMO_EMAIL = "admin@demo.moveos.co";
+const DEMO_PASSWORD = "moveos123";
+
+/* Input del login (mock 5a): 13.5px, borde fuerte, foco navy con anillo suave
+ * de 3px (rgba navy al 12%). */
+const loginInputClass =
+  "w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-[13.5px] text-navy placeholder:text-text-tertiary transition duration-200 ease-brand focus:border-navy focus:outline-none focus:ring-[3px] focus:ring-navy/12";
+
+/**
+ * Login — propuesta 5a del revamp: marca protagonista sobre navy profundo con
+ * glow limón sutil, tarjeta blanca elevada y CTA limón (combinación firma).
+ */
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("admin@demo.moveos.co");
-  const [password, setPassword] = useState("moveos123");
+  const [email, setEmail] = useState(DEMO_EMAIL);
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -22,51 +38,101 @@ export default function Login() {
     }
   }
 
+  async function copyDemo() {
+    try {
+      await navigator.clipboard.writeText(`${DEMO_EMAIL}\n${DEMO_PASSWORD}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Portapapeles no disponible (permiso denegado): sin efecto.
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy p-4">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg"
-      >
-        <h1 className="text-3xl font-bold text-navy">
-          <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
-        </h1>
-        <p className="mb-6 mt-1 text-sm text-navy/60">
-          Plataforma modular de última milla
-        </p>
-        <div className="space-y-4">
-          <Field label="Correo electrónico">
+    <div
+      className="flex min-h-screen items-center justify-center bg-navy-900 p-6 sm:p-10"
+      // Lavados radiales de marca (solo gradientes, tokens de :root):
+      // limón 14% arriba-derecha, cielo 12% abajo-izquierda.
+      style={{
+        backgroundImage:
+          "radial-gradient(420px 300px at 85% 0%, color-mix(in srgb, var(--lime) 14%, transparent), transparent), radial-gradient(360px 260px at 0% 100%, color-mix(in srgb, var(--sky) 12%, transparent), transparent)",
+      }}
+    >
+      <div className="flex w-[340px] max-w-full flex-col gap-[18px]">
+        <div>
+          <img src="/move-lime.svg" alt="move" className="block h-[30px] w-auto" />
+          <p className="mt-2.5 text-[13.5px] leading-relaxed text-cielo">
+            Plataforma modular de última milla.
+            <br />
+            El motor limpio de tu operación.
+          </p>
+        </div>
+
+        <form
+          onSubmit={onSubmit}
+          className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px] shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+        >
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-text-secondary">
+              Correo electrónico
+            </span>
             <input
-              className={inputClass}
+              className={loginInputClass}
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </Field>
-          <Field label="Contraseña">
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-text-secondary">
+              Contraseña
+            </span>
             <input
-              className={inputClass}
+              className={loginInputClass}
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </Field>
+          </label>
           {error && (
             <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
-          <Button type="submit" disabled={busy} className="w-full py-2.5">
+          <Button
+            type="submit"
+            variant="cta"
+            disabled={busy}
+            className="w-full py-2.5 text-sm"
+          >
             {busy ? "Ingresando…" : "Ingresar"}
           </Button>
+        </form>
+
+        {/* Credenciales demo: fila "vidrio" copiable sobre el lienzo navy. */}
+        <div className="flex items-center gap-2 rounded-[10px] border border-white/14 bg-white/6 px-3 py-[9px] text-[11.5px] text-cielo">
+          <Info
+            aria-hidden="true"
+            className="h-[13px] w-[13px] shrink-0 text-lima"
+            strokeWidth={2}
+          />
+          <span className="min-w-0">
+            Demo: <span className="font-mono text-sky-50">{DEMO_EMAIL}</span> ·{" "}
+            <span className="font-mono text-sky-50">{DEMO_PASSWORD}</span>
+          </span>
+          <button
+            type="button"
+            onClick={copyDemo}
+            className="ml-auto shrink-0 font-semibold text-lima transition duration-200 ease-brand hover:text-lima-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima"
+          >
+            {copied ? "Copiado ✓" : "Copiar"}
+          </button>
         </div>
-        <p className="mt-6 rounded-lg bg-niebla px-3 py-2 text-xs text-navy/60">
-          Cuenta demo: <span className="font-mono">admin@demo.moveos.co</span> ·{" "}
-          <span className="font-mono">moveos123</span>
-        </p>
-      </form>
+      </div>
     </div>
   );
 }
