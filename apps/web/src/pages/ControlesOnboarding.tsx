@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Check, Copy, ExternalLink, QrCode, Smartphone } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../toast";
 import { Banner, Button, Card, Loading, PageHeader } from "../components/ui";
@@ -121,34 +122,35 @@ export default function ControlesOnboarding() {
               return (
                 <li
                   key={s.key}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-niebla p-3"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                         s.done
                           ? "bg-success-bg text-success"
-                          : "bg-niebla text-navy/40"
+                          : "bg-niebla text-text-tertiary"
                       }`}
                       aria-hidden="true"
                     >
-                      {s.done ? "✓" : ""}
+                      {s.done && <Check className="h-3 w-3" strokeWidth={2.5} />}
                     </span>
                     <div className="min-w-0">
                       <div
-                        className={`font-medium ${s.done ? "text-navy/50 line-through" : "text-navy"}`}
+                        className={`font-medium ${s.done ? "text-text-tertiary line-through" : "text-navy"}`}
                       >
                         {copy.label}
                       </div>
-                      <div className="text-xs text-navy/50">{copy.description}</div>
+                      <div className="text-xs text-text-tertiary">{copy.description}</div>
                     </div>
                   </div>
                   {!s.done && (
                     <Link
                       to={copy.to}
-                      className="shrink-0 rounded-lg bg-navy px-3 py-1.5 text-sm font-medium text-white hover:brightness-110"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-sm font-medium text-white transition duration-200 ease-brand hover:bg-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
                     >
                       {copy.cta}
+                      <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                     </Link>
                   )}
                 </li>
@@ -159,36 +161,42 @@ export default function ControlesOnboarding() {
       )}
 
       <Card title="Conecta la app del conductor">
-        <p className="text-sm text-navy/70">
+        <p className="text-sm text-text-secondary">
           Tus conductores abren la app web (PWA) desde el teléfono y la instalan en
           la pantalla de inicio. Comparte este enlace o pídeles escanearlo:
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <code className="rounded-lg bg-niebla px-3 py-2 text-sm text-navy">
+          <code className="break-all rounded-lg bg-niebla px-3 py-2 font-mono text-sm text-navy">
             {DRIVER_APP_URL}
           </code>
-          <Button variant="secondary" onClick={copyUrl}>
+          <Button variant="secondary" icon={<Copy strokeWidth={2} />} onClick={copyUrl}>
             Copiar enlace
           </Button>
           <a
             href={DRIVER_APP_URL}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-navy/30 px-3 py-1.5 text-sm font-medium text-navy hover:bg-niebla"
+            className="inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-sm font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
           >
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
             Abrir
           </a>
         </div>
-        <p className="mt-3 text-xs text-navy/50">
-          Sugerencia: genera un QR de este enlace y pégalo en el depósito para que
-          cada conductor lo escanee y agregue la app a su pantalla de inicio.
-        </p>
-        <div className="mt-3 flex gap-2 text-xs text-navy/40">
-          <span className="rounded border border-niebla px-2 py-1">
-            📱 Agregar a inicio (Android)
+        <p className="mt-3 flex items-start gap-1.5 text-xs text-text-tertiary">
+          <QrCode aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+          <span>
+            Sugerencia: genera un QR de este enlace y pégalo en el depósito para que
+            cada conductor lo escanee y agregue la app a su pantalla de inicio.
           </span>
-          <span className="rounded border border-niebla px-2 py-1">
-            📱 Agregar a inicio (iOS)
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+            <Smartphone aria-hidden="true" className="h-3 w-3" strokeWidth={1.75} />
+            Agregar a inicio (Android)
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+            <Smartphone aria-hidden="true" className="h-3 w-3" strokeWidth={1.75} />
+            Agregar a inicio (iOS)
           </span>
         </div>
       </Card>

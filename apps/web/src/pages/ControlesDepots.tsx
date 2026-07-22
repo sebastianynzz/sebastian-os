@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pencil, Plus, Trash2, Warehouse } from "lucide-react";
 import { depotSchema, type DepotInput } from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
@@ -12,7 +13,13 @@ import {
   Loading,
   PageHeader,
   inputClass,
+  tableRowClass,
+  theadRowClass,
 } from "../components/ui";
+
+/* Botón fantasma de peligro (reemplaza el enlace de texto rojo). */
+const dangerGhostClass =
+  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-danger transition duration-200 ease-brand hover:bg-danger-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger";
 
 /**
  * Controles › Depósitos (D4 multi-depot): catálogo de centros de salida y
@@ -128,7 +135,7 @@ export default function ControlesDepots() {
         title="Depósitos"
         subtitle="Centros de salida y regreso de las rutas. El planificador elige el depósito al generar un plan; el optimizador regresa a ese punto. El principal se usa por defecto."
         actions={
-          <Button variant="cta" onClick={openCreate}>
+          <Button variant="cta" onClick={openCreate} icon={<Plus strokeWidth={2} />}>
             Nuevo depósito
           </Button>
         }
@@ -182,13 +189,14 @@ export default function ControlesDepots() {
             <label className="flex items-center gap-2 text-sm text-navy/80">
               <input
                 type="checkbox"
+                className="accent-navy"
                 checked={form.isMain}
                 onChange={(e) => setForm((f) => ({ ...f, isMain: e.target.checked }))}
               />
               Depósito principal
             </label>
             <div className="sm:col-span-2 flex gap-2">
-              <Button variant="cta" onClick={save} disabled={saving}>
+              <Button variant="primary" onClick={save} disabled={saving}>
                 {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Crear depósito"}
               </Button>
               <Button
@@ -210,8 +218,13 @@ export default function ControlesDepots() {
           <Loading label="Cargando depósitos…" />
         ) : depots.length === 0 ? (
           <EmptyState
+            icon={<Warehouse aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
             phrase="Tu red, lista para crecer."
-            action={<Button onClick={openCreate}>Crear depósito</Button>}
+            action={
+              <Button onClick={openCreate} icon={<Plus strokeWidth={2} />}>
+                Crear depósito
+              </Button>
+            }
           >
             Aún no hay depósitos. Crea el primero (será el principal).
           </EmptyState>
@@ -219,7 +232,7 @@ export default function ControlesDepots() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary">
+                <tr className={theadRowClass}>
                   <th className="py-2 pr-4 font-medium">Depósito</th>
                   <th className="py-2 pr-4 font-medium">Dirección</th>
                   <th className="py-2 pr-4 font-medium">Coordenadas</th>
@@ -229,24 +242,30 @@ export default function ControlesDepots() {
               </thead>
               <tbody>
                 {depots.map((d) => (
-                  <tr key={d.id} className="border-b border-border/60">
+                  <tr key={d.id} className={tableRowClass}>
                     <td className="py-2 pr-4 font-medium text-navy">{d.name}</td>
-                    <td className="py-2 pr-4 text-navy/70">{d.address ?? "—"}</td>
-                    <td className="py-2 pr-4 font-mono text-xs text-navy/60">
+                    <td className="py-2 pr-4 text-text-secondary">{d.address ?? "—"}</td>
+                    <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                       {d.lat.toFixed(5)}, {d.lng.toFixed(5)}
                     </td>
                     <td className="py-2 pr-4">
-                      {d.isMain ? <Badge tone="success">Principal</Badge> : <span className="text-navy/40">—</span>}
+                      {d.isMain ? (
+                        <Badge tone="success">Principal</Badge>
+                      ) : (
+                        <span className="text-text-tertiary">—</span>
+                      )}
                     </td>
                     <td className="py-2">
                       <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => openEdit(d)}>
+                        <Button
+                          variant="secondary"
+                          icon={<Pencil strokeWidth={2} />}
+                          onClick={() => openEdit(d)}
+                        >
                           Editar
                         </Button>
-                        <button
-                          onClick={() => void remove(d)}
-                          className="rounded-lg px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger-bg"
-                        >
+                        <button onClick={() => void remove(d)} className={dangerGhostClass}>
+                          <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                           Eliminar
                         </button>
                       </div>
