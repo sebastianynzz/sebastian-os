@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { Lock } from "lucide-react";
 
 /*
  * Sistema de componentes base — Manual de Identidad v2.0 (PASO A2).
@@ -94,7 +95,7 @@ export function Card({
   actions?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 shadow-soft">
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-soft transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg">
       {(title || actions) && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           {title && <h2 className="text-sm font-semibold text-navy">{title}</h2>}
@@ -117,18 +118,23 @@ export function KpiCard({
   hint,
   tone = "default",
   accent = false,
+  active = false,
+  onClick,
+  className = "",
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   tone?: "default" | "hero";
   accent?: boolean;
+  /** Cuando la tarjeta actúa de filtro: activa = rellena en navy. */
+  active?: boolean;
+  onClick?: () => void;
+  className?: string;
 }) {
-  const hero = tone === "hero";
-  return (
-    <div
-      className={`rounded-xl border p-4 shadow-soft ${hero ? "border-navy bg-navy" : "border-border bg-surface"}`}
-    >
+  const hero = tone === "hero" || active;
+  const body = (
+    <>
       <div className={`text-xs font-medium ${hero ? "text-cielo" : "text-text-secondary"}`}>
         {label}
       </div>
@@ -144,8 +150,24 @@ export function KpiCard({
           {hint}
         </div>
       )}
-    </div>
+    </>
   );
+  const surface = `rounded-xl border p-4 shadow-soft transition duration-200 ease-brand ${
+    hero ? "border-navy bg-navy" : "border-border bg-surface"
+  } ${className}`;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={active}
+        className={`${surface} text-left hover:-translate-y-[2px] hover:shadow-soft-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy`}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className={`${surface} hover:-translate-y-[2px] hover:shadow-soft-lg`}>{body}</div>;
 }
 
 /** Encabezado estándar de página: título, subtítulo y acciones alineadas. */
@@ -161,7 +183,7 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold text-navy">{title}</h1>
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-navy">{title}</h1>
         {subtitle && (
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">{subtitle}</p>
         )}
@@ -268,7 +290,7 @@ export function ModuleDisabled({
   return (
     <Card title={title}>
       <EmptyState
-        icon="🔒"
+        icon={<Lock aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
         title="Módulo no activo"
         phrase="Potencia tu flota, reduce tus costos."
         action={
@@ -294,6 +316,7 @@ export function Button({
   variant = "primary",
   disabled,
   className = "",
+  icon,
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -301,13 +324,16 @@ export function Button({
   variant?: "primary" | "cta" | "secondary" | "danger";
   disabled?: boolean;
   className?: string;
+  /** Ícono Lucide inicial (14px) — patrón del botón fantasma del revamp. */
+  icon?: ReactNode;
 }) {
-  // Manual Move: primario = navy/blanco; CTA destacado = limón/navy (puntual);
-  // secundario = ghost con borde navy; peligro = rojo accesible.
+  // Jerarquía del revamp: CTA = limón + navy + glow (máx. uno por página);
+  // primario = navy/blanco; secundario = fantasma (blanco, borde navy 25%,
+  // hover tinte limón); peligro = rojo accesible.
   const styles = {
     primary: "bg-navy text-white hover:bg-navy-700",
-    cta: "bg-lima text-navy hover:brightness-95",
-    secondary: "bg-surface text-navy border border-navy/30 hover:bg-niebla",
+    cta: "bg-lima font-semibold text-navy shadow-glow hover:bg-lima-deep",
+    secondary: "bg-surface text-navy border border-navy/25 hover:bg-lima/10",
     danger: "bg-danger text-white hover:brightness-110",
   };
   return (
@@ -315,10 +341,61 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
     >
+      {icon && (
+        <span aria-hidden="true" className="shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5">
+          {icon}
+        </span>
+      )}
       {children}
     </button>
+  );
+}
+
+/**
+ * Pastilla de filtro de una sola fila (revamp): activa = navy relleno con texto
+ * blanco; inactiva = blanca con borde. Siempre completamente redondeada.
+ */
+export function FilterPill({
+  active = false,
+  onClick,
+  children,
+  count,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+  count?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+        active
+          ? "bg-navy text-white"
+          : "border border-border bg-surface text-navy/70 hover:border-border-strong hover:text-navy"
+      }`}
+    >
+      {children}
+      {count != null && (
+        <span className={`text-[11px] font-semibold ${active ? "text-lima" : "text-text-tertiary"}`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Pastilla "En vivo" con punto limón pulsante, alimentada por el SSE. */
+export function LivePill({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+      <span aria-hidden="true" className="h-2 w-2 animate-livepulse rounded-full bg-lima" />
+      {children}
+    </span>
   );
 }
 
