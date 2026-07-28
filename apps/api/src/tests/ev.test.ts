@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Flota eléctrica como NÚCLEO (restricción dura 1.3: MoveOS es EV-only).
@@ -60,6 +61,8 @@ beforeAll(async () => {
     create: { tenantId, moduleKey: "EV_MANAGEMENT", enabled: false },
     update: { enabled: false },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 
   // Segundo tenant: su cargador de depósito NO debe filtrarse al primero.
   const other = await prisma.tenant.create({

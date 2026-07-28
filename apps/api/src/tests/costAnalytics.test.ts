@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { evKwhForKm } from "@moveos/shared";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Costo por entrega energía-nativo (D6): configuración de costos del tenant
@@ -49,6 +50,8 @@ beforeAll(async () => {
       create: { tenantId, moduleKey, enabled: true },
       update: { enabled: true },
     });
+    // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+    resetModuleEntitlementCache();
   }
 });
 

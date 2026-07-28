@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createVehicleSchema } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
+import { invalidateVehiclePlate } from "../../plugins/vehicleIdentity.js";
 
 /** Verifica que un depósito pertenezca al tenant (aislamiento multi-depot). */
 async function depotInTenant(tenantId: string, depotId: string): Promise<boolean> {
@@ -86,15 +87,23 @@ export default async function vehiclesRoutes(app: FastifyInstance) {
       ) {
         return reply.code(400).send({ error: "Depósito no encontrado" });
       }
-      return prisma.vehicle.update({
+      const plate = body.plate
+        ? body.plate.toUpperCase().replace(/\s/g, "")
+        : undefined;
+      const updated = await prisma.vehicle.update({
         where: { id },
         data: {
           ...body,
-          plate: body.plate ? body.plate.toUpperCase().replace(/\s/g, "") : undefined,
+          plate,
           soatExpiresAt: body.soatExpiresAt ? new Date(body.soatExpiresAt) : undefined,
           tecnoExpiresAt: body.tecnoExpiresAt ? new Date(body.tecnoExpiresAt) : undefined,
         },
       });
+      // La placa es mutable: invalidar la anterior y la nueva en el caché de
+      // identidad que usa la ingesta telemática.
+      invalidateVehiclePlate(request.user.tenantId, existing.plate);
+      if (plate) invalidateVehiclePlate(request.user.tenantId, plate);
+      return updated;
     },
   );
 }

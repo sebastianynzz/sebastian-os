@@ -52,6 +52,34 @@ services:
       - key: OSRM_URL
         sync: false # poner http://moveos-osrm:5000 al aprobar el servicio de abajo; vacío = haversine
 
+  # Retención de telemetría: construye las trazas de las rutas completadas y
+  # poda los pings crudos a los 90 días (apps/api/src/jobs/retention.ts).
+  # Sin esto TelemetryPing crece ~175 MB por conductor activo y por año.
+  #
+  # Va como servicio cron y NO como temporizador dentro de la API: un
+  # setInterval en proceso también se dispararía en las pruebas de integración,
+  # que comparten una sola base de datos.
+  - type: cron
+    name: moveos-retention
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    # 08:00 UTC = 03:00 en América/Bogotá. Colombia no tiene horario de verano,
+    # así que la hora local es estable todo el año.
+    schedule: "0 8 * * *"
+    # OBLIGATORIO: sin esto se ejecuta el CMD de la imagen, que aplica
+    # migraciones y levanta un servidor web.
+    # `retention`, no `prune`: `pnpm prune` colisiona con el comando propio de
+    # pnpm y el script del paquete nunca se ejecutaría.
+    dockerCommand: pnpm --filter @moveos/api retention
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # misma URI de Supabase + &connection_limit=2 (no ahogar a la API)
+      - key: SENTRY_DSN
+        sync: false # sin esto, un fallo del job solo queda en el log
+
   # OSRM con el grafo vial de Colombia (P0.4, docs/OSRM_RENDER.md). Servicio
   # PRIVADO: solo la API lo consume por la red interna (http://moveos-osrm:5000).
   # El build descarga y preprocesa el extracto de Geofabrik UNA vez; el mapa

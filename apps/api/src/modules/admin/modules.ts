@@ -11,6 +11,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
+import { invalidateModuleEntitlements } from "../../plugins/entitlements.js";
 
 /** Administración de módulos del tenant: el corazón del modelo activable. */
 export default async function modulesRoutes(app: FastifyInstance) {
@@ -57,6 +58,7 @@ export default async function modulesRoutes(app: FastifyInstance) {
             }),
           ),
         );
+        invalidateModuleEntitlements(tenantId);
         return reply.send({ enabled: toEnable });
       }
 
@@ -84,6 +86,7 @@ export default async function modulesRoutes(app: FastifyInstance) {
         create: { tenantId, moduleKey: params.key, enabled: false },
         update: { enabled: false },
       });
+      invalidateModuleEntitlements(tenantId);
       return reply.send(entitlement);
     },
   );

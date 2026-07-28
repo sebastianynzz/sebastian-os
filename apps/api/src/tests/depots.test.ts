@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Depósitos / multi-depot (D4): CRUD del catálogo de depósitos, invariante de
@@ -158,6 +159,8 @@ describe("planificación con depósito (D4)", () => {
       create: { tenantId, moduleKey: "ROUTE_OPTIMIZATION", enabled: true },
       update: { enabled: true },
     });
+    // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+    resetModuleEntitlementCache();
     const depot = await api("POST", "/depots", adminToken, {
       name: "Plan Depot",
       lat: 4.701,

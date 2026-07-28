@@ -18,6 +18,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { invalidateTenantStatus } from "../../plugins/tenantStatus.js";
+import { invalidateModuleEntitlements } from "../../plugins/entitlements.js";
 import { auditPlatform, shallowDiff } from "../../services/platformAudit.js";
 
 /**
@@ -358,6 +359,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
           }),
         ),
       );
+      invalidateModuleEntitlements(params.id);
       await auditPlatform(request, "MODULE_TOGGLE", {
         targetTenantId: params.id,
         details: { moduleKey: key, enabled: true, cascade: toEnable },
@@ -389,6 +391,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       create: { tenantId: params.id, moduleKey: key, enabled: false },
       update: { enabled: false },
     });
+    invalidateModuleEntitlements(params.id);
     await auditPlatform(request, "MODULE_TOGGLE", {
       targetTenantId: params.id,
       details: { moduleKey: key, enabled: false },

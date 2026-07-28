@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Servicios / SLA (D3): catálogo de promesas de entrega (precio por parada +
@@ -63,6 +64,8 @@ beforeAll(async () => {
     create: { tenantId, moduleKey: "ANALYTICS_PRO", enabled: true },
     update: { enabled: true },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 
   // Negocio cliente + acceso al portal (para probar el alta con serviceId).
   const client = await api("POST", "/clients", adminToken, {

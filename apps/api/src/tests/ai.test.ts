@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 import { learnAddressPin } from "../services/geocoding.js";
 
 /**
@@ -43,6 +44,8 @@ async function enableModule(tid: string, moduleKey: string) {
     create: { tenantId: tid, moduleKey, enabled: true },
     update: { enabled: true },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 }
 
 beforeAll(async () => {

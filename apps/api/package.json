@@ -13,7 +13,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "sim": "tsx src/simulator/run.ts"
+    "sim": "tsx src/simulator/run.ts",
+    "retention": "tsx src/jobs/retention.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

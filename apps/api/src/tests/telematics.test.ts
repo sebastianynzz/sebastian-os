@@ -91,7 +91,14 @@ describe("plano telemático / IoT", () => {
     );
     expect(entry).toBeDefined();
     expect(entry.vehicle.lastSpeedKmh).toBe(32);
-    expect(entry.ping.rpm).toBe(3200);
+    // El estado en vivo se sirve de las columnas denormalizadas del vehículo,
+    // no de un findFirst contra TelemetryPing. Los campos CAN de combustión
+    // (rpm/fuelLevelPct/coolantTempC) viajan siempre en null: MoveOS es EV-only
+    // (restricción dura 1.2).
+    expect(entry.ping.lat).toBe(4.65);
+    expect(entry.ping.lng).toBe(-74.06);
+    expect(entry.ping.odometerKm).toBe(15000);
+    expect(entry.ping.rpm).toBeNull();
 
     // La posición queda denormalizada en el vehículo (alimenta el mapa de flota
     // de plataforma sin recorrer TelemetryPing).

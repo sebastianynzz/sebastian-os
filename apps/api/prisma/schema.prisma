@@ -266,6 +266,10 @@ model Vehicle {
   lastLat        Float?
   lastLng        Float?
   lastSeenAt     DateTime?
+  // Odómetro denormalizado del último ping: el mapa en vivo lo lee desde aquí
+  // para no recorrer TelemetryPing (que se poda a los 90 días, ver
+  // services/routeTrack.ts).
+  lastOdometerKm Float?
   // Depósito base del vehículo (multi-depot, D4). Nullable; usado para la
   // planificación de carga por depósito y la asignación por cercanía.
   homeDepotId    String?
@@ -446,6 +450,12 @@ model Route {
   stops            RouteStop[]
   scanEvents       ScanEvent[]
   createdAt        DateTime @default(now())
+  // Traza recorrida, submuestreada desde TelemetryPing al completar la ruta.
+  // Los pings crudos se podan a los 90 días; esta traza es la historia que
+  // sobrevive. Formato: [{ lat, lng, t, soc }] (ver services/routeTrack.ts).
+  // NUNCA seleccionar en listados: es JSONB y engorda la fila.
+  trackJson        Json?
+  trackBuiltAt     DateTime?
 
   @@index([tenantId, date])
 }
@@ -753,6 +763,11 @@ model TelemetryPing {
 
   @@index([tenantId, driverId, recordedAt])
   @@index([tenantId, vehicleId, recordedAt])
+  // Barrido de poda por antigüedad (services/routeTrack.ts).
+  @@index([tenantId, recordedAt])
+  // Construcción de la traza de una ruta al completarse. routeId es String
+  // suelto (sin FK): los pings NO se borran en cascada con la ruta.
+  @@index([routeId])
 }
 
 /// Comando hacia el vehículo (encendido/apagado de motor vía relé del
