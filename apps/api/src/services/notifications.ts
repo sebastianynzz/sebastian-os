@@ -4,6 +4,7 @@ import {
   type NotificationEvent,
 } from "@moveos/shared";
 import { prisma } from "../lib/prisma.js";
+import { safeFetch } from "../lib/safeFetch.js";
 
 /**
  * URL pública de rastreo para un envío. Base configurable por entorno
@@ -84,9 +85,11 @@ async function dispatchToChannel(
 
   try {
     if (channel === "WEBHOOK" && client.webhookUrl) {
-      await fetch(client.webhookUrl, {
+      // safeFetch bloquea destinos internos (anti-SSRF) y añade timeout.
+      await safeFetch(client.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        timeoutMs: 5000,
         body: JSON.stringify({
           // `event` conserva el nombre de plantilla por compatibilidad; los
           // integradores nuevos deben usar `standardEvent` (catálogo

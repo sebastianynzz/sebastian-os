@@ -439,6 +439,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
         role: user.role as "ADMIN" | "DISPATCHER",
         name: user.name,
         impersonatedBy: adminEmail,
+        tv: user.tokenVersion,
       },
       { expiresIn: "30m" }, // sesión de soporte corta, nunca jornada completa
     );

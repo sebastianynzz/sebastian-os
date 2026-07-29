@@ -29,4 +29,6 @@ function serviceWorker(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
+  // No publicar source maps en producción (no exponer el código fuente).
+  build: { sourcemap: false },
 });

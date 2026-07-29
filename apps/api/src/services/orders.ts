@@ -1,5 +1,5 @@
 import type { CreateOrderInput } from "@moveos/shared";
-import { prisma } from "../lib/prisma.js";
+import { prisma, isUniqueViolation } from "../lib/prisma.js";
 import { geocodeAddress } from "./geocoding.js";
 import {
   generateTrackingNumber,
@@ -107,7 +107,9 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
     if (Object.keys(filtered).length > 0) customFields = filtered;
   }
 
-  const order = await prisma.order.create({
+  let order;
+  try {
+    order = await prisma.order.create({
     data: {
       tenantId,
       clientId: input.clientId,
@@ -137,7 +139,19 @@ export async function createOrder(tenantId: string, input: CreateOrderInput) {
       timeWindowEnd: input.timeWindowEnd ? new Date(input.timeWindowEnd) : undefined,
       priority: input.priority,
     },
-  });
+    });
+  } catch (err) {
+    // Carrera de idempotencia: otro reintento concurrente con el mismo
+    // externalRef ganó la inserción. Devolvemos el existente (la bitácora y las
+    // notificaciones ya corrieron en la primera creación, no se duplican).
+    if (input.externalRef && isUniqueViolation(err, "externalRef")) {
+      const existing = await prisma.order.findFirst({
+        where: { tenantId, externalRef: input.externalRef },
+      });
+      if (existing) return existing;
+    }
+    throw err;
+  }
 
   await logOrderEvents([
     { orderId: order.id, type: "CREATED", details: `Guía ${order.trackingNumber}` },

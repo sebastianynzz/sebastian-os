@@ -3,6 +3,8 @@ import {
   buildPodKey,
   isAllowedImage,
   pickStorage,
+  signEvidencePath,
+  sniffImageType,
 } from "../../services/storage.js";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB: foto de cámara comprimida
@@ -38,10 +40,26 @@ export default async function uploadsRoutes(app: FastifyInstance) {
           .send({ error: `Archivo demasiado grande (máx ${MAX_FILE_BYTES / 1024 / 1024} MB)` });
       }
 
+      // Validar por CONTENIDO (magic bytes), no solo por el Content-Type
+      // declarado: bloquea un HTML/SVG/polyglot etiquetado como image/*.
+      const realType = sniffImageType(buffer);
+      if (!realType || realType !== file.mimetype) {
+        return reply.code(415).send({
+          error: "El archivo no es una imagen JPEG/PNG/WebP válida.",
+        });
+      }
+
       const storage = pickStorage();
-      const key = buildPodKey(request.user.tenantId, file.mimetype);
-      const stored = await storage.save(buffer, file.mimetype, key);
-      return reply.code(201).send({ url: stored.url, storage: storage.name });
+      const key = buildPodKey(request.user.tenantId, realType);
+      const stored = await storage.save(buffer, realType, key);
+      // Se persiste la CLAVE (`stored.key`) en el POD; `url` es una URL firmada
+      // de corta duración para previsualizar/verificar de inmediato. El cliente
+      // debe enviar `key` al completar la parada (no la URL, que expira).
+      return reply.code(201).send({
+        key: stored.key,
+        url: signEvidencePath(stored.key),
+        storage: storage.name,
+      });
     },
   );
 }

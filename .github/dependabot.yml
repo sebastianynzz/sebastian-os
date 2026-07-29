@@ -1,0 +1,22 @@
+# Actualizaciones automáticas de dependencias (supply chain, OWASP A03).
+# Dependabot abre PRs semanales con bumps de seguridad/versión; revisar y
+# fusionar mantiene el árbol sin CVEs conocidos (evita que se cuele otro
+# fast-jwt vulnerable como el detectado en la auditoría de seguridad).
+version: 2
+updates:
+  - package-ecosystem: npm # cubre el workspace pnpm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Agrupa parches/menores para reducir ruido de PRs.
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

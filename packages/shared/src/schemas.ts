@@ -481,14 +481,32 @@ export const trackingPingSchema = z.object({
   routeId: z.string().optional(),
 });
 
+/**
+ * Referencia de evidencia POD: la CLAVE del objeto privado
+ * (`pod/<tenant>/<hex>.<ext>`), una ruta servida por la API (`/evidence?...`,
+ * `/files/...`) o una URL http(s) (datos legados). Más estricta que un `.url()`
+ * genérico: excluye esquemas peligrosos como `javascript:` que se renderizan
+ * como href (XSS) y que `.url()` sí aceptaría.
+ */
+export const podEvidenceRef = z
+  .string()
+  .max(2048)
+  .refine(
+    (v) =>
+      /^https?:\/\//i.test(v) ||
+      v.startsWith("/") ||
+      /^pod\/[A-Za-z0-9_-]+\/[a-f0-9]{16,}\.(jpg|png|webp)$/.test(v),
+    { message: "Referencia de evidencia inválida" },
+  );
+
 export const submitPodSchema = z
   .object({
     types: z.array(z.enum(POD_TYPES)).min(1),
     /** Tipo de entrega/recogida elegido por el conductor (política POD por tipo). */
     deliveryType: z.enum(DELIVERY_TYPES).optional(),
     pickupType: z.enum(PICKUP_TYPES).optional(),
-    photoUrl: z.string().url().optional(),
-    signatureUrl: z.string().url().optional(),
+    photoUrl: podEvidenceRef.optional(),
+    signatureUrl: podEvidenceRef.optional(),
     otpCode: z.string().optional(),
     receivedBy: z.string().optional(),
     notes: z.string().optional(),
@@ -554,7 +572,7 @@ export const failStopSchema = z
     lat: z.number().optional(),
     lng: z.number().optional(),
     // Foto de evidencia del fallo (defensa ante disputas del comercio).
-    photoUrl: z.string().url().optional(),
+    photoUrl: podEvidenceRef.optional(),
   })
   .refine(
     (f) =>

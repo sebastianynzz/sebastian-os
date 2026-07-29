@@ -6,7 +6,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setImpersonationToken, setToken } from "./api";
+import {
+  api,
+  getToken,
+  isImpersonating,
+  refreshAccess,
+  setImpersonationToken,
+  setToken,
+} from "./api";
 
 interface Session {
   user: { id: string; name: string; email: string; role: string };
@@ -68,10 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    // Bootstrap tras recargar: el access token (en memoria) se perdió, así que
+    // se intenta renovar con la cookie httpOnly de refresh antes de darse por
+    // deslogueado. Si no hay sesión válida, queda en login.
     if (!getToken()) {
-      setSession(null);
-      setLoading(false);
-      return;
+      const ok = await refreshAccess();
+      if (!ok) {
+        setSession(null);
+        setLoading(false);
+        return;
+      }
     }
     try {
       const me = await api<Session>("GET", "/auth/me");
@@ -100,7 +113,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Logout real: revoca los JWT del usuario en el servidor (no solo limpia el
+    // cliente). NO se revoca si la sesión activa es de impersonación — terminar
+    // el soporte no debe cerrar las sesiones reales del usuario impersonado.
+    if (!isImpersonating()) {
+      try {
+        await api("POST", "/auth/logout");
+      } catch {
+        /* mejor esfuerzo: si falla, igual limpiamos la sesión local */
+      }
+    }
     setToken(null);
     setSession(null);
   }, []);

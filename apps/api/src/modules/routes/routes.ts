@@ -7,7 +7,7 @@ import {
   resolvePodReq,
   type PodPolicyConfig,
 } from "@moveos/shared";
-import { prisma } from "../../lib/prisma.js";
+import { prisma, isUniqueViolation } from "../../lib/prisma.js";
 import { requireRole } from "../../plugins/auth.js";
 import { learnAddressPin } from "../../services/geocoding.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
@@ -15,6 +15,7 @@ import { emitWebhookEvent } from "../../services/webhooks.js";
 import { logOrderEvent, logOrderEvents } from "../../services/orderEvents.js";
 import { sendPushToDriver } from "../../services/push.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import { signPodEvidence } from "../../services/storage.js";
 import {
   loadVisibleProperties,
   selectVisibleFields,
@@ -39,7 +40,7 @@ export default async function routesRoutes(app: FastifyInstance) {
 
   app.get("/", async (request) => {
     const query = z.object({ date: z.string().optional() }).parse(request.query);
-    return prisma.route.findMany({
+    const routes = await prisma.route.findMany({
       where: {
         tenantId: request.user.tenantId,
         ...(query.date ? { date: query.date } : {}),
@@ -54,6 +55,10 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
       orderBy: { createdAt: "desc" },
     });
+    return routes.map((r) => ({
+      ...r,
+      stops: r.stops.map((s) => ({ ...s, pod: signPodEvidence(s.pod) })),
+    }));
   });
 
   app.get("/:id", async (request, reply) => {
@@ -68,7 +73,10 @@ export default async function routesRoutes(app: FastifyInstance) {
       },
     });
     if (!route) return reply.code(404).send({ error: "Ruta no encontrada" });
-    return route;
+    return {
+      ...route,
+      stops: route.stops.map((s) => ({ ...s, pod: signPodEvidence(s.pod) })),
+    };
   });
 
   /**
@@ -257,6 +265,7 @@ export default async function routesRoutes(app: FastifyInstance) {
       ...route,
       stops: route.stops.map((s) => ({
         ...s,
+        pod: signPodEvidence(s.pod),
         order: {
           ...s.order,
           customFields: undefined,
@@ -515,34 +524,46 @@ export default async function routesRoutes(app: FastifyInstance) {
         GEOFENCE_RADIUS_KM;
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.routeStop.update({
-        where: { id: stopId },
-        data: {
-          status: "COMPLETED",
-          completedAt: now,
-          pod: {
-            create: {
-              types: input.types,
-              deliveryType: isPickup ? input.pickupType : input.deliveryType,
-              photoUrl: input.photoUrl,
-              signatureUrl: input.signatureUrl,
-              receivedBy: input.receivedBy,
-              notes: input.notes,
-              lat: input.lat,
-              lng: input.lng,
-              geofenceOk,
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.routeStop.update({
+          where: { id: stopId },
+          data: {
+            status: "COMPLETED",
+            completedAt: now,
+            pod: {
+              create: {
+                types: input.types,
+                deliveryType: isPickup ? input.pickupType : input.deliveryType,
+                photoUrl: input.photoUrl,
+                signatureUrl: input.signatureUrl,
+                receivedBy: input.receivedBy,
+                notes: input.notes,
+                lat: input.lat,
+                lng: input.lng,
+                geofenceOk,
+              },
             },
           },
-        },
+        });
+        await tx.order.update({
+          where: { id: order.id },
+          data: isPickup
+            ? { pickedUpAt: now }
+            : { status: "DELIVERED", deliveredAt: now },
+        });
       });
-      await tx.order.update({
-        where: { id: order.id },
-        data: isPickup
-          ? { pickedUpAt: now }
-          : { status: "DELIVERED", deliveredAt: now },
-      });
-    });
+    } catch (err) {
+      // Carrera: dos confirmaciones concurrentes de la MISMA parada (p. ej. un
+      // doble flush de la cola offline). La unicidad de POD por parada
+      // (ProofOfDelivery.stopId @unique) hace fallar a la perdedora aquí; se
+      // trata como "ya completada" (idempotente) en vez de devolver un 500, y
+      // los efectos posteriores (webhook DELIVERED, bitácora) NO se duplican.
+      if (isUniqueViolation(err)) {
+        return reply.code(409).send({ error: "Parada ya completada" });
+      }
+      throw err;
+    }
 
     if (isPickup) {
       await logOrderEvent(order.id, "PICKED_UP", "Paquete recogido en origen");

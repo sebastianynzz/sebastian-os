@@ -3,11 +3,15 @@ import fastifyJwt from "@fastify/jwt";
 import type { UserRole } from "@moveos/shared";
 import { config } from "../config.js";
 import { getTenantStatus } from "./tenantStatus.js";
+import { getUserTokenVersion } from "../services/userTokens.js";
 
 export async function registerAuth(app: FastifyInstance) {
   await app.register(fastifyJwt, {
     secret: config.jwtSecret,
     sign: { expiresIn: "12h" }, // jornada operativa; sin tokens eternos
+    // Fija el algoritmo a HS256 (secreto simétrico): rechaza alg:none y la
+    // confusión de algoritmo RS256→HS256. Defensa en profundidad.
+    verify: { algorithms: ["HS256"] },
   });
 
   /**
@@ -30,15 +34,43 @@ export async function registerAuth(app: FastifyInstance) {
     }
     const claims = request.user as {
       typ?: string;
+      sub?: string;
       tenantId?: string;
       role?: string;
       clientId?: string;
+      tv?: number;
     };
-    if (claims.typ === "platform" || !claims.tenantId) {
+    // Solo tokens de ACCESS de tenant: un token de plataforma o de REFRESH
+    // (el de la cookie httpOnly, que solo sirve en /auth/refresh) nunca debe
+    // autenticar una ruta de datos.
+    if (
+      claims.typ === "platform" ||
+      claims.typ === "refresh" ||
+      !claims.tenantId
+    ) {
       await reply.code(401).send({ error: "Token no válido para esta ruta" });
       return null;
     }
+    // Revocación: si el token trae versión (`tv`), debe coincidir con la del
+    // usuario. Tras logout / reset de contraseña / cambio de rol se incrementa,
+    // invalidando los JWT viejos sin esperar a su expiración. Usuario borrado →
+    // null → 401. Tokens legados sin `tv` se aceptan (expiran ≤12 h).
+    if (claims.tv !== undefined && claims.sub) {
+      const current = await getUserTokenVersion(claims.sub);
+      if (current === null || current !== claims.tv) {
+        await reply
+          .code(401)
+          .send({ error: "Sesión finalizada", code: "TOKEN_REVOKED" });
+        return null;
+      }
+    }
     const status = await getTenantStatus(claims.tenantId);
+    // `null` = el tenant ya no existe (borrado): un token emitido antes (≤12 h)
+    // no debe seguir autenticando. Se bloquea igual que un tenant suspendido.
+    if (status === null) {
+      await reply.code(401).send({ error: "Token no válido para esta ruta" });
+      return null;
+    }
     if (status === "SUSPENDED") {
       await reply.code(403).send({
         error: "Cuenta suspendida. Contacte al administrador de la plataforma.",

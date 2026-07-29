@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { api, getToken, setToken } from "./api";
+import { api, getToken, refreshAccess, setToken } from "./api";
 
 interface Admin {
   id: string;
@@ -28,10 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    // Bootstrap tras recargar: el access token (memoria) se perdió; intentar
+    // renovar con la cookie httpOnly de refresh antes de darse por deslogueado.
     if (!getToken()) {
-      setAdmin(null);
-      setLoading(false);
-      return;
+      const ok = await refreshAccess();
+      if (!ok) {
+        setAdmin(null);
+        setLoading(false);
+        return;
+      }
     }
     try {
       const me = await api<{ admin: Admin }>("GET", "/auth/me");
@@ -60,7 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Borra la cookie httpOnly de refresh en el servidor, luego limpia memoria.
+    try {
+      await api("POST", "/auth/logout");
+    } catch {
+      /* mejor esfuerzo */
+    }
     setToken(null);
     setAdmin(null);
   }, []);

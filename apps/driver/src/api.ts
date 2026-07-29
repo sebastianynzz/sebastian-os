@@ -96,6 +96,18 @@ function writeQueue(queue: QueuedAction[]) {
 }
 
 /**
+ * Borra del dispositivo TODOS los datos locales sensibles del conductor (ruta
+ * con nombres/direcciones, cola offline con cuerpos de entrega, cargadores). Se
+ * llama en el logout: en un dispositivo compartido, el siguiente turno no debe
+ * poder leer la PII del anterior. NO incluye el token (lo maneja setToken).
+ */
+export function clearDriverData(): void {
+  localStorage.removeItem(QUEUE_KEY);
+  localStorage.removeItem("moveos_driver_route");
+  localStorage.removeItem("moveos_driver_chargers");
+}
+
+/**
  * Modo offline-first para zonas sin señal: si la petición falla por RED se
  * encola en localStorage (persiste entre cierres) y se reintenta con backoff.
  * Los errores de negocio (4xx) en vivo se propagan de inmediato. `ephemeral`
@@ -215,9 +227,10 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * Sube la foto del POD (multipart). Reintenta los fallos transitorios (red caída
  * o 5xx) con backoff antes de rendirse — un parpadeo de señal móvil no debería
  * perder la prueba de entrega. Un rechazo del servidor (4xx, p. ej. 413 muy
- * grande) NO se reintenta: no ayudaría. Devuelve la URL pública o null tras
- * agotar los intentos; en ese caso la entrega continúa sin foto en lugar de
- * bloquear al conductor (el POD solo declara la evidencia que sí tiene).
+ * grande) NO se reintenta: no ayudaría. Devuelve la CLAVE del objeto (que se
+ * envía al completar la parada) o null tras agotar los intentos; en ese caso la
+ * entrega continúa sin foto en lugar de bloquear al conductor (el POD solo
+ * declara la evidencia que sí tiene).
  */
 export async function uploadPodPhoto(blob: Blob): Promise<string | null> {
   for (let attempt = 1; attempt <= UPLOAD_MAX_ATTEMPTS; attempt++) {
@@ -230,8 +243,10 @@ export async function uploadPodPhoto(blob: Blob): Promise<string | null> {
         body: form,
       });
       if (res.ok) {
-        const data = (await res.json()) as { url: string };
-        return data.url;
+        // Se devuelve la CLAVE del objeto (no la URL firmada, que expira): es
+        // lo que se envía al completar la parada y se guarda en el POD.
+        const data = (await res.json()) as { key: string; url: string };
+        return data.key;
       }
       // Rechazo del cliente (4xx): reintentar no cambia el resultado.
       if (res.status >= 400 && res.status < 500) return null;

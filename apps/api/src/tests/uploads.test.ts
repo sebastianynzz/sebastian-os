@@ -70,15 +70,26 @@ describe("subida de evidencias POD", () => {
       payload,
     });
     expect(res.statusCode).toBe(201);
-    const { url, storage } = res.json();
+    const { key, url, storage } = res.json();
     expect(storage).toBe("local"); // en tests no hay credenciales Supabase
-    expect(url).toContain(`/files/pod/${tenantId}/`);
+    // Se persiste la CLAVE del objeto (no una URL pública permanente).
+    expect(key).toMatch(new RegExp(`^pod/${tenantId}/[a-f0-9]{16,}\\.png$`));
+    // `url` es una ruta firmada de corta duración que sirve la evidencia.
+    expect(url).toContain("/evidence?key=");
 
-    // El archivo es servible desde la API.
-    const filePath = new URL(url).pathname; // /files/pod/<tenant>/<key>.png
-    const fetched = await app.inject({ method: "GET", url: filePath });
+    // El archivo es servible por la URL firmada (sin auth Bearer).
+    const fetched = await app.inject({ method: "GET", url });
     expect(fetched.statusCode).toBe(200);
+    expect(fetched.headers["cache-control"]).toContain("no-store");
     expect(fetched.rawPayload.equals(PNG_1PX)).toBe(true);
+  });
+
+  it("rechaza una URL de evidencia con firma inválida (403)", async () => {
+    const bad = await app.inject({
+      method: "GET",
+      url: `/evidence?key=pod/${tenantId}/${"a".repeat(32)}.png&exp=${Date.now() + 100000}&sig=deadbeef`,
+    });
+    expect(bad.statusCode).toBe(403);
   });
 
   it("rechaza tipos de archivo no permitidos (415)", async () => {

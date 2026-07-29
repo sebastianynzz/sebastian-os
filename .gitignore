@@ -5,6 +5,13 @@ coverage/
 *.log
 .env
 .env.local
+.env.*.local
+.env.production
+# Claves y certificados: nunca deben comitearse
+*.pem
+*.key
+*.p12
+*.pfx
 .pgdata/
 *.tsbuildinfo
 .DS_Store

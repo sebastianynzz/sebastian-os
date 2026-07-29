@@ -1,10 +1,10 @@
 import { mkdirSync } from "node:fs";
 import Fastify from "fastify";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
-import fastifyStatic from "@fastify/static";
 import { ZodError } from "zod";
 import { config } from "./config.js";
 import { captureError } from "./lib/sentry.js";
@@ -21,6 +21,7 @@ import trackingRoutes from "./modules/tracking/routes.js";
 import publicTrackingRoutes from "./modules/tracking/public.js";
 import telematicsRoutes from "./modules/telematics/routes.js";
 import uploadsRoutes from "./modules/uploads/routes.js";
+import evidenceRoutes from "./modules/uploads/evidence.js";
 import safetyRoutes from "./modules/safety/routes.js";
 import { UPLOADS_DIR } from "./services/storage.js";
 import evRoutes from "./modules/ev/routes.js";
@@ -57,12 +58,24 @@ export async function buildApp() {
       transport: undefined,
       level: process.env.LOG_LEVEL ?? "info",
     },
+    // Detrás del edge de Render: usar X-Forwarded-For como IP real del cliente,
+    // para que el rate-limit (y los logs) identifiquen al cliente y no al proxy.
+    trustProxy: true,
   });
 
-  await app.register(helmet);
+  // Cabeceras de seguridad (helmet por defecto) + HSTS a 1 año con preload.
+  await app.register(helmet, {
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  });
+  // Cookies (refresh token httpOnly de la sesión; MO-16). Firmadas con el JWT
+  // secret por si en el futuro se firma alguna cookie no-JWT.
+  await app.register(cookie, { secret: config.jwtSecret });
   // CORS restringido a orígenes conocidos (allowlist por entorno).
+  // `credentials: true` para que el navegador envíe la cookie de refresh en
+  // las llamadas a /auth/refresh (requiere origin explícito, nunca "*").
   await app.register(cors, {
     origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+    credentials: true,
   });
   // Límite de peticiones global; los endpoints sensibles lo endurecen aparte.
   await app.register(rateLimit, {
@@ -70,15 +83,28 @@ export async function buildApp() {
     max: 300,
     timeWindow: "1 minute",
   });
-  await app.register(multipart);
-  // Evidencias subidas en desarrollo (en producción las sirve Supabase Storage).
-  mkdirSync(UPLOADS_DIR, { recursive: true });
-  await app.register(fastifyStatic, {
-    root: UPLOADS_DIR,
-    prefix: "/files/",
-    decorateReply: false,
+  // Topes globales de multipart (DoS): cualquier consumidor multipart hereda
+  // estos límites; las rutas que necesiten otro tope lo fijan aparte.
+  await app.register(multipart, {
+    limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 20, parts: 25 },
   });
+  // Directorio local de evidencias (dev/self-host). Las fotos de POD son PII:
+  // ya NO se sirven por estático público — se entregan por `/evidence` con URL
+  // firmada y de corta duración (ver modules/uploads/evidence.ts). En producción
+  // viven en un bucket PRIVADO de Supabase y se obtienen con la service-role.
+  mkdirSync(UPLOADS_DIR, { recursive: true });
   await registerAuth(app);
+
+  // Por defecto, ninguna respuesta de la API es cacheable por una caché
+  // compartida o el navegador (datos por-tenant / PII / token-keyed). Las rutas
+  // que sí deban cachear algo fijan su propio Cache-Control y este hook lo
+  // respeta. Cubre el rastreo público (PII + GPS) y evita el back-button leak.
+  app.addHook("onSend", async (_request, reply, payload) => {
+    if (!reply.hasHeader("cache-control")) {
+      reply.header("Cache-Control", "no-store");
+    }
+    return payload;
+  });
 
   // Los clientes de navegador envían Content-Type: application/json incluso en
   // POSTs sin cuerpo (p. ej. /routes/:id/start): tratar cuerpo vacío como {}.
@@ -121,6 +147,10 @@ export async function buildApp() {
 
   // Rastreo público (SIN autenticación): el negocio cliente sigue su envío.
   await app.register(publicTrackingRoutes, { prefix: "/track" });
+
+  // Evidencia POD por URL firmada (SIN auth Bearer; la firma HMAC autoriza).
+  // Sustituye la URL pública permanente del bucket por una de corta duración.
+  await app.register(evidenceRoutes);
 
   // Núcleo
   await app.register(authRoutes, { prefix: "/auth" });

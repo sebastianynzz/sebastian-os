@@ -7,6 +7,7 @@ import { requireRole } from "../../plugins/auth.js";
 import { notifyClient, publicTrackingUrl } from "../../services/notifications.js";
 import { logOrderEvent } from "../../services/orderEvents.js";
 import { emitOrderUpdate } from "../../services/realtime.js";
+import { signPodEvidence } from "../../services/storage.js";
 
 export default async function ordersRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
@@ -47,7 +48,11 @@ export default async function ordersRoutes(app: FastifyInstance) {
       },
     });
     if (!order) return reply.code(404).send({ error: "Pedido no encontrado" });
-    return order;
+    // Firmar las URLs de evidencia POD (clave privada → URL firmada temporal).
+    return {
+      ...order,
+      stops: order.stops.map((s) => ({ ...s, pod: signPodEvidence(s.pod) })),
+    };
   });
 
   app.post("/", async (request, reply) => {
