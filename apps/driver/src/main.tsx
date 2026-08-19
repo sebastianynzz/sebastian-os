@@ -15,7 +15,8 @@ registerServiceWorker();
 // render para evitar parpadeo claro→oscuro.
 document.documentElement.classList.toggle(
   "dark",
-  localStorage.getItem("moveos-driver-theme") !== "light",
+  (localStorage.getItem("dalego-driver-theme") ??
+    localStorage.getItem("moveos-driver-theme")) !== "light",
 );
 
 createRoot(document.getElementById("root")!).render(

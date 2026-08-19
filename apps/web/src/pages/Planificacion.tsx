@@ -17,8 +17,10 @@ import {
 import {
   OPTIMIZATION_OBJECTIVES,
   OPTIMIZATION_OBJECTIVE_LABELS,
+  VEHICLE_TYPE_PROFILES,
   type OptimizationActionId,
   type OptimizationObjective,
+  type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
 import { useToast } from "../toast";
@@ -28,14 +30,30 @@ import {
   useAiActionsAvailable,
 } from "../components/AiOptimizeButton";
 
-// Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
-
-const markerIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+/**
+ * Marcadores del mapa de operación (Paleta Circuito, sección Mapas). Antes se
+ * usaba el PNG azul por defecto de Leaflet, que además contradecía la leyenda
+ * de esta misma pantalla ("Depósito" cuadrado, "Pedido" redondo). Mismo
+ * tratamiento que Mapa en vivo: divIcon con tokens CSS, sin assets de imagen.
+ */
+const depotIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:16px;height:16px;background:var(--asfalto);border:3px solid #F2F5F3"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
 });
+
+const orderIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:14px;height:14px;border-radius:999px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+/** Nombre comercial de la configuración (mismo criterio que Vehículos/EV). */
+function configLabel(type: string): string {
+  return VEHICLE_TYPE_PROFILES[type as VehicleType]?.labelEs ?? type;
+}
 
 interface Order {
   id: string;
@@ -567,7 +585,7 @@ export default function Planificacion() {
                         {v.plate}
                       </span>
                       <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
-                        {v.type}
+                        {configLabel(v.type)}
                       </span>
                       <span className="text-xs text-text-secondary">
                         {v.capacityKg} kg
@@ -650,7 +668,7 @@ export default function Planificacion() {
               style={{ height: "100%", minHeight: 520 }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[activeDepot.lat, activeDepot.lng]} icon={markerIcon}>
+              <Marker position={[activeDepot.lat, activeDepot.lng]} icon={depotIcon}>
                 <Popup>
                   {depots.find((d) => d.id === selectedDepotId)?.name ?? "Depósito"}
                 </Popup>
@@ -658,7 +676,7 @@ export default function Planificacion() {
               {orders
                 .filter((o) => o.lat !== null && o.lng !== null)
                 .map((o) => (
-                  <Marker key={o.id} position={[o.lat!, o.lng!]} icon={markerIcon}>
+                  <Marker key={o.id} position={[o.lat!, o.lng!]} icon={orderIcon}>
                     <Popup>
                       {o.customerName}
                       <br />
@@ -782,7 +800,7 @@ export default function Planificacion() {
                     </span>
                     {v && (
                       <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
-                        {v.type}
+                        {configLabel(v.type)}
                       </span>
                     )}
                     {v?.isElectric && v.socPercent != null && (

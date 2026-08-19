@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { BadgeCheck, Snowflake, Sparkles, Warehouse, Zap } from "lucide-react";
 import { VEHICLE_TYPE_PROFILES } from "@moveos/shared";
 import type { ActionCatalogEntry, Proposal } from "@moveos/shared";
@@ -52,10 +51,16 @@ interface RangeEstimate {
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 }; // referencia Bogotá
 
-const stationIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+/**
+ * Estación de carga (Paleta Circuito, sección Mapas): círculo Verde Eléctrico
+ * con borde Asfalto, mismo tratamiento que Mapa en vivo y Planificación. Antes
+ * era el PNG azul por defecto de Leaflet, ajeno a la paleta.
+ */
+const stationIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:14px;height:14px;border-radius:999px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
 });
 
 /** Consumo del reefer (kW): puede venir como rango [min,max] o valor único. */

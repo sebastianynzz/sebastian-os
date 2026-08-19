@@ -5,8 +5,13 @@ import { prisma } from "../lib/prisma.js";
 /**
  * Entrega de webhooks de la plataforma de desarrolladores (Tier 2 §8). En cada
  * evento del ciclo de vida se hace POST firmado (HMAC-SHA256 con el `secret` del
- * webhook, cabecera `x-moveos-signature`) a los webhooks habilitados del tenant
+ * webhook, cabecera `x-dalego-signature`) a los webhooks habilitados del tenant
  * suscritos a ese evento. Tenant-scoped; no bloquea el flujo si alguno falla.
+ *
+ * Cabeceras heredadas (`x-moveos-event` / `x-moveos-signature`): el renombre de
+ * marca no puede romper a un comercio que ya validaba la firma con el nombre
+ * anterior, así que se envían AMBOS pares con el mismo valor. Las `x-moveos-*`
+ * quedan obsoletas y se retiran cuando ningún integrador las use.
  */
 
 export function generateWebhookSecret(): string {
@@ -39,6 +44,9 @@ export async function deliverWebhook(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-dalego-event": event,
+        "x-dalego-signature": signature,
+        // Obsoletas: mismo valor, para no romper integraciones existentes.
         "x-moveos-event": event,
         "x-moveos-signature": signature,
       },

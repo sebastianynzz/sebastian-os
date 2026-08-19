@@ -3,7 +3,6 @@ import { MapContainer, Marker, Polygon, TileLayer, Tooltip, useMapEvents } from 
 import L from "leaflet";
 import { Plus, X } from "lucide-react";
 import { zoneSchema, type ZoneInput } from "@moveos/shared";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
 import { useToast } from "../toast";
 import {
@@ -50,10 +49,16 @@ const ZONE_PALETTE = ["#00E571", "#0E4D2E", "#8C949D", "#0C0F12", "#5D6660", "#0
 
 const BOGOTA: [number, number] = [4.6486, -74.0628];
 
-const markerIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+/**
+ * Vértice del polígono en dibujo: manija pequeña Verde Eléctrico centrada en el
+ * punto. El PNG azul por defecto de Leaflet, además de ser ajeno a la paleta,
+ * anclaba la punta abajo y tapaba el trazo al colocar vértices seguidos.
+ */
+const markerIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:10px;height:10px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
 });
 
 /** Captura clics del mapa para agregar vértices mientras se dibuja. */

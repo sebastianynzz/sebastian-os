@@ -35,6 +35,7 @@ import {
   flushQueue,
   getToken,
   queueSize,
+  readMigrated,
   SESSION_EXPIRED_EVENT,
   setToken,
   uploadPodPhoto,
@@ -295,10 +296,10 @@ function toMapStops(route: DriverRoute): MapStop[] {
  * Caché de la ruta del día (stale-while-revalidate): al abrir sin señal el
  * conductor ve de inmediato su última ruta conocida, y luego se revalida.
  */
-const ROUTE_CACHE_KEY = "moveos_driver_route";
+const ROUTE_CACHE_KEY = "dalego_driver_route";
 function readCachedRoute(): DriverRoute | null {
   try {
-    const raw = localStorage.getItem(ROUTE_CACHE_KEY);
+    const raw = readMigrated(ROUTE_CACHE_KEY, "moveos_driver_route");
     return raw ? (JSON.parse(raw) as DriverRoute) : null;
   } catch {
     return null;
@@ -359,12 +360,12 @@ const PULL_REFRESH_THRESHOLD = 70;
  * repartidor puede cambiar a claro para luz solar directa. La preferencia se
  * persiste y se aplica como clase `.dark` en <html> (variante Tailwind).
  */
-const THEME_KEY = "moveos-driver-theme";
+const THEME_KEY = "dalego-driver-theme";
 /** Cache de la app de navegación preferida (Tier 2 §10) para uso offline. */
-const NAV_APP_KEY = "moveos_driver_navapp";
+const NAV_APP_KEY = "dalego_driver_navapp";
 type Theme = "dark" | "light";
 function getInitialTheme(): Theme {
-  const saved = localStorage.getItem(THEME_KEY);
+  const saved = readMigrated(THEME_KEY, "moveos-driver-theme");
   return saved === "light" || saved === "dark" ? saved : "dark";
 }
 function applyTheme(t: Theme) {
@@ -383,7 +384,7 @@ export default function App() {
   // "Permisos de conductor". Cacheada para que la app respete la preferencia
   // también sin señal (offline-first).
   const [navApp, setNavApp] = useState<NavApp>(
-    () => (localStorage.getItem(NAV_APP_KEY) as NavApp) ?? "INTERNAL_GMAPS",
+    () => (readMigrated(NAV_APP_KEY, "moveos_driver_navapp") as NavApp) ?? "INTERNAL_GMAPS",
   );
   const [loaded, setLoaded] = useState(false);
   const [activeStop, setActiveStop] = useState<Stop | null>(null);

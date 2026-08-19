@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { estimateUsableRangeKm } from "@moveos/optimizer";
 import { haversineKm, URBAN_DETOUR_FACTOR } from "@moveos/shared";
-import { api } from "./api";
+import { api, readMigrated } from "./api";
 import { navLinks } from "./nav";
 
 /**
@@ -25,7 +25,7 @@ import { navLinks } from "./nav";
  * localStorage para que el botón sirva incluso sin señal.
  */
 
-const CHARGERS_CACHE_KEY = "moveos_driver_chargers";
+const CHARGERS_CACHE_KEY = "dalego_driver_chargers";
 
 export interface EnergyVehicle {
   plate: string;
@@ -278,7 +278,7 @@ export function ChargerSheet({
       } catch {
         // Sin señal: servir el último directorio consultado.
         try {
-          const cached = localStorage.getItem(CHARGERS_CACHE_KEY);
+          const cached = readMigrated(CHARGERS_CACHE_KEY, "moveos_driver_chargers");
           if (cached) {
             setStations(JSON.parse(cached) as ChargingStation[]);
             setOffline(true);

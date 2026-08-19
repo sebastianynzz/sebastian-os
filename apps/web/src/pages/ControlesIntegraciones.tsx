@@ -189,7 +189,7 @@ export default function ControlesIntegraciones() {
     <div className="space-y-4">
       <PageHeader
         title="Integraciones"
-        subtitle="Conecta sistemas externos con daleGo: webhooks firmados por evento y API keys para crear pedidos por API. La firma del webhook viaja en la cabecera x-moveos-signature (HMAC-SHA256 con el secreto)."
+        subtitle="Conecta sistemas externos con daleGo: webhooks firmados por evento y API keys para crear pedidos por API. La firma del webhook viaja en la cabecera x-dalego-signature (HMAC-SHA256 con el secreto)."
       />
       {error && (
         <Banner kind="error" onDismiss={() => void load()}>

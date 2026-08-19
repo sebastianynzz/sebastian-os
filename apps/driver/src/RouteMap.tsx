@@ -123,7 +123,7 @@ export default function RouteMap({
       marker.bindTooltip(String(stop.sequence), {
         permanent: true,
         direction: "center",
-        className: "moveos-stop-label",
+        className: "dalego-stop-label",
       });
     }
     overlay.addTo(map);

@@ -138,7 +138,7 @@ export function canOfferPush(): boolean {
   );
 }
 
-const TILE_CACHE = "moveos-tiles-v1";
+const TILE_CACHE = "dalego-tiles-v1";
 const TILE_BASE = "https://tile.openstreetmap.org";
 /** Tope de tiles a pre-cachear por ruta (datos móviles del conductor). */
 const MAX_PRECACHE_TILES = 220;

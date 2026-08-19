@@ -6,12 +6,28 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Renombre de marca MoveOS → daleGo: la primera lectura tras el despliegue
+ * migra el valor de la clave anterior en vez de descartarlo, así ningún
+ * operador de plataforma queda deslogueado por el cambio de nombre.
+ */
+function readMigrated(key: string, legacyKey: string): string | null {
+  const current = localStorage.getItem(key);
+  if (current !== null) return current;
+  const legacy = localStorage.getItem(legacyKey);
+  if (legacy === null) return null;
+  localStorage.setItem(key, legacy);
+  localStorage.removeItem(legacyKey);
+  return legacy;
+}
+
 export function getToken(): string | null {
-  return localStorage.getItem("moveos_platform_token");
+  return readMigrated("dalego_platform_token", "moveos_platform_token");
 }
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem("moveos_platform_token", token);
-  else localStorage.removeItem("moveos_platform_token");
+  if (token) localStorage.setItem("dalego_platform_token", token);
+  else localStorage.removeItem("dalego_platform_token");
+  localStorage.removeItem("moveos_platform_token");
 }
 
 export async function api<T = unknown>(
