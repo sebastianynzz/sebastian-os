@@ -28,8 +28,8 @@ function vehicleIcon(plate: string, speedKmh: number, engineOn: boolean) {
     className: "",
     html:
       `<div style="position:relative;width:14px;height:14px">` +
-      `<div style="width:14px;height:14px;border-radius:999px;background:${color};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></div>` +
-      `<div style="position:absolute;left:20px;top:-3px;background:var(--navy);color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;box-shadow:0 1px 3px rgba(35,57,85,.3)">${esc(plate)} · ${Math.round(speedKmh)} km/h</div>` +
+      `<div style="width:14px;height:14px;border-radius:999px;background:${color};border:2px solid #F2F5F3"></div>` +
+      `<div style="position:absolute;left:20px;top:-3px;background:var(--navy);color:#fff;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;font-family:ui-monospace,Menlo,monospace;white-space:nowrap">${esc(plate)} · ${Math.round(speedKmh)} km/h</div>` +
       `</div>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
@@ -39,7 +39,7 @@ function vehicleIcon(plate: string, speedKmh: number, engineOn: boolean) {
 /** Depósito: cuadrado navy con borde blanco (leyenda "Depósito"). */
 const depotIcon = L.divIcon({
   className: "",
-  html: `<div style="width:16px;height:16px;background:var(--navy);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></div>`,
+  html: `<div style="width:16px;height:16px;background:var(--navy);border:3px solid #F2F5F3"></div>`,
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
@@ -51,7 +51,7 @@ const depotIcon = L.divIcon({
 function clusterIcon(cluster: L.MarkerCluster) {
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:rgba(207,221,128,.85);border:2px solid #fff;box-shadow:0 1px 4px rgba(35,57,85,.3);font-size:12px;font-weight:700;color:var(--navy)">${cluster.getChildCount()}</div>`,
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;background:rgba(0,229,113,.85);border:2px solid #F2F5F3;font-size:12px;font-weight:700;color:var(--navy)">${cluster.getChildCount()}</div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   });

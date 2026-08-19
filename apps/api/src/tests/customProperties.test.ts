@@ -57,7 +57,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -68,12 +68,12 @@ beforeAll(async () => {
   });
   await api("POST", `/clients/${client.body.id}/portal-access`, adminToken, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   portalToken = (
     await api("POST", "/auth/login", undefined, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     })
   ).body.token;
 });
@@ -182,7 +182,7 @@ describe("Propiedades personalizadas de parada (Tier 2 §9)", () => {
       phone: "+573000000077",
       documentId: `77${runId}`.slice(0, 12),
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
 
     const plan = await api("POST", "/optimization/plans", adminToken, {
@@ -200,7 +200,7 @@ describe("Propiedades personalizadas de parada (Tier 2 §9)", () => {
     driverToken = (
       await api("POST", "/auth/login", undefined, {
         email: driverEmail,
-        password: "moveos123",
+        password: "dalego123",
       })
     ).body.token;
 

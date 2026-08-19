@@ -57,7 +57,7 @@ describe("flujo completo MoveOS", () => {
       adminName: "Admin Test",
       city: "Bogotá",
       email: adminEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(res.status).toBe(201);
     tenantId = res.body.tenant.id;
@@ -114,7 +114,7 @@ describe("flujo completo MoveOS", () => {
       phone: "+573000000001",
       documentId: "100200300",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(driver.status).toBe(201);
     driverId = driver.body.id;
@@ -179,7 +179,7 @@ describe("flujo completo MoveOS", () => {
 
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(login.status).toBe(200);
     driverToken = login.body.token;

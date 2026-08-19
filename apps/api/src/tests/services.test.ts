@@ -53,7 +53,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -78,11 +78,11 @@ beforeAll(async () => {
   clientId = client.body!.id;
   await api("POST", `/clients/${clientId}/portal-access`, adminToken, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   const login = await api("POST", "/auth/login", undefined, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   portalToken = login.body!.token;
 });

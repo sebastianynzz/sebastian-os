@@ -46,7 +46,7 @@ interface DriverOption {
 
 // Colores de zona (DATO de la zona, no token de estilo de UI). Paleta distinguible
 // en el mapa; el primero es el navy de marca.
-const ZONE_PALETTE = ["#233955", "#CFDD80", "#A7B6C4", "#E07A5F", "#3D9970", "#B5179E"];
+const ZONE_PALETTE = ["#00E571", "#0E4D2E", "#8C949D", "#0C0F12", "#5D6660", "#008F4C"];
 
 const BOGOTA: [number, number] = [4.6486, -74.0628];
 

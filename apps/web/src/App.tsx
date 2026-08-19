@@ -24,6 +24,7 @@ import { api } from "./api";
 import { AuthProvider, getImpersonatedBy, useAuth } from "./auth";
 import { ToastProvider } from "./toast";
 import { Loading } from "./components/ui";
+import { Wordmark } from "./components/brand";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import ControlesShell from "./components/ControlesShell";
 import { useRealtimeReload } from "./realtime";
@@ -314,7 +315,7 @@ function Shell() {
           Saltar al contenido
         </a>
         <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-border bg-surface px-4 py-3 md:px-6">
-          <img src="/move-navy.svg" alt="move" className="h-5 w-auto" />
+          <Wordmark size={20} />
           <span aria-hidden="true" className="hidden h-5 w-px bg-border sm:block" />
           <span className="hidden truncate text-[13px] font-semibold text-navy sm:block">
             Portal de clientes · {session.tenant.name}
@@ -399,9 +400,7 @@ function Shell() {
       <aside className="flex shrink-0 flex-col bg-navy md:w-56">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
           <div className="min-w-0">
-            <div className="text-xl font-bold text-white">
-              <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
-            </div>
+            <Wordmark size={22} className="text-humo" />
             <div className="mt-1 truncate text-xs text-cielo">
               {session.tenant.name}
             </div>

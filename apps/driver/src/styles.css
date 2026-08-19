@@ -1,70 +1,85 @@
 @import "tailwindcss";
 
 /*
- * Sistema de diseño MoveOS — Manual de Identidad de Marca v2.0 (app conductor).
- * PASO A1 (fundación): tokens compartidos con apps/web. La app conductor pasa a
- * dark-first sobre navy en A3; aquí sólo se asienta la paleta y la tipografía.
+ * Sistema de diseño daleGo OS — Paleta Circuito (app del conductor).
+ * Comparte tokens con apps/web. La diferencia es que esta app es dark-first
+ * con conmutador: el conductor pasa a claro bajo sol directo en Bogotá.
  *
- *  Azul Marino #233955 · Niebla #F3F3F3 · Verde Limón #CFDD80 (acento EV/carga/éxito) · Azul Cielo #A7B6C4
+ * AUDITORÍA D-01 — el Gris Señal #8C949D del manual mide 6.26:1 sobre Asfalto
+ * (correcto) pero 2.80:1 sobre Blanco Humo (falla incluso para texto grande).
+ * Por eso los valores BASE de este archivo son los del tema CLARO, y el bloque
+ * `.dark` los sube al gris de marca. El tema claro es justamente el que se usa
+ * con más luz ambiente: es donde más contraste hace falta, no menos.
  */
 @theme {
-  /* Azul Marino (primario) */
-  --color-navy: #233955;
-  --color-navy-700: #1b2c43;
-  --color-navy-900: #152334;
+  /* ── Paleta Circuito ── */
+  --color-verde: #00e571;
+  --color-verde-hover: #00cc65;
+  --color-verde-profundo: #0e4d2e;
+  --color-asfalto: #0c0f12;
+  --color-asfalto-hover: #1a2027;
+  --color-humo: #f2f5f3;
+  --color-gris-senal: #8c949d;
+  --color-ambar: #ffb238;
+  --color-rojo-alerta: #ce2c32;
 
-  /* Lienzo y superficies */
-  --color-canvas: #f3f3f3;
+  /* ── Alias de marca del sistema anterior (migrar y retirar) ── */
+  --color-navy: #0c0f12;
+  --color-navy-700: #1a2027;
+  --color-navy-900: #080a0c;
+  --color-navydeep: #0c0f12;
+  --color-lima: #00e571;
+  --color-lime: #00e571;
+  --color-lima-deep: #00cc65;
+  --color-lime-ink: #0c0f12;
+  --color-cielo: #8c949d;
+  --color-sky: #8c949d;
+  --color-sky-50: #e9efeb;
+
+  /* ── Lienzo y superficies ── */
+  --color-canvas: #f2f5f3;
   --color-surface: #ffffff;
-  --color-niebla: #f3f3f3; /* alias histórico de canvas */
-  --color-navydeep: #152334; /* base oscura dark-first (A3) */
+  --color-niebla: #f2f5f3;
 
-  /* Verde Limón (acento EV / carga / éxito) */
-  --color-lima: #cfdd80;
-  --color-lime: #cfdd80;
-  --color-lime-ink: #4b5320;
+  /* ── Texto (valores del tema CLARO; el bloque .dark los sustituye) ── */
+  --color-text-primary: #0c0f12;
+  --color-text-secondary: #5d6660; /* 5.41:1 sobre humo */
+  --color-text-tertiary: #69726d; /* 4.52:1 sobre humo */
 
-  /* Azul Cielo (secundario) */
-  --color-cielo: #a7b6c4;
-  --color-sky: #a7b6c4;
-  --color-sky-50: #eef2f5;
+  /* ── Bordes ── */
+  --color-border: #c6ceca;
+  --color-border-strong: #6e7873;
 
-  /* Texto */
-  --color-text-primary: #233955;
-  --color-text-secondary: #5b6b7d;
-  --color-text-tertiary: #8a99a8;
-
-  /* Bordes */
-  --color-border: #e6e6e4;
-  --color-border-strong: #d6dade;
-
-  /* Estados semánticos */
-  --color-success: #5a6b18;
-  --color-success-bg: #eef1e3;
-  --color-info: #3a5169;
-  --color-info-bg: #eef2f5;
+  /* ── Estados semánticos ──
+     El rojo es EXCLUSIVO de error, emergencia y acciones destructivas. El SOS
+     del conductor va en rojo, nunca en ámbar (auditoría D-04): el ámbar ya
+     significa batería baja, fuera de geocerca y foto obligatoria. */
+  --color-success: #0e4d2e;
+  --color-success-bg: #e3f6ec;
+  --color-info: #2a3230;
+  --color-info-bg: #e9efeb;
   --color-warning: #8a5a12;
-  --color-warning-bg: #f7efe0;
-  --color-danger: #a32d2d;
-  --color-danger-bg: #fdecec;
+  --color-warning-bg: #fcf1df;
+  --color-danger: #ce2c32;
+  --color-danger-bg: #fdf0f1;
 
-  /* Radios */
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* ── Foco ── */
+  --color-focus: #0e4d2e;
+  --color-focus-mixed: #008f4c; /* 3.80:1 humo / 4.61:1 asfalto */
 
-  /* Verde Limón profundo (hover de CTA limón) — del handoff del revamp. */
-  --color-lima-deep: #b8c96d;
+  /* ── Radios ── */
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pleca: 0;
 
-  /* Sombra suave de marca */
-  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
-  /* Glow del CTA limón. */
-  --shadow-glow: 0 4px 14px rgba(184, 201, 109, 0.45);
+  /* ── Sombras: ninguna (diseño plano) ── */
+  --shadow-soft: none;
+  --shadow-glow: none;
 
-  /* Easing de marca para transiciones (150–300 ms). */
-  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Pulso del indicador "En vivo" / geocerca. */
+  /* Pulso «luz verde»: solo datos vivos y geocerca. */
   --animate-livepulse: livepulse 2s ease-in-out infinite;
   @keyframes livepulse {
     0%,
@@ -72,69 +87,128 @@
       opacity: 1;
     }
     50% {
-      opacity: 0.3;
+      opacity: 0.25;
     }
   }
 
-  /* Tipografía: Aileron (pendiente self-host) → Inter → sistema. */
-  --font-sans: "Aileron", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Gabarito", "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 :root {
-  --navy: #233955;
-  --navy-700: #1b2c43;
-  --navy-900: #152334;
-  --canvas: #f3f3f3;
+  --verde: #00e571;
+  --verde-profundo: #0e4d2e;
+  --asfalto: #0c0f12;
+  --humo: #f2f5f3;
+  --navy: #0c0f12;
+  --navy-700: #1a2027;
+  --navy-900: #080a0c;
+  --canvas: #f2f5f3;
   --surface: #ffffff;
-  --lime: #cfdd80;
-  --lime-ink: #4b5320;
-  --sky: #a7b6c4;
-  --sky-50: #eef2f5;
-  --text-primary: #233955;
-  --text-secondary: #5b6b7d;
-  --text-tertiary: #8a99a8;
-  --border: #e6e6e4;
-  --border-strong: #d6dade;
-  --success: #5a6b18;
-  --success-bg: #eef1e3;
-  --info: #3a5169;
-  --info-bg: #eef2f5;
+  --lime: #00e571;
+  --lime-ink: #0c0f12;
+  --sky: #8c949d;
+  --sky-50: #e9efeb;
+  --text-primary: #0c0f12;
+  --text-secondary: #5d6660;
+  --text-tertiary: #69726d;
+  --border: #c6ceca;
+  --border-strong: #6e7873;
+  --success: #0e4d2e;
+  --success-bg: #e3f6ec;
+  --info: #2a3230;
+  --info-bg: #e9efeb;
   --warning: #8a5a12;
-  --warning-bg: #f7efe0;
-  --danger: #a32d2d;
-  --danger-bg: #fdecec;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
+  --warning-bg: #fcf1df;
+  --danger: #ce2c32;
+  --danger-bg: #fdf0f1;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-soft: none;
 }
 
-/*
- * Aileron self-hosted (Manual de Identidad v2.0). Pesos: Light 300, Regular 400,
- * SemiBold 600 (+ itálicas). Sin Medium (500) aún → el peso 500 cae a Regular 400.
- */
-@font-face { font-family: "Aileron"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/aileron-light.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 300; font-style: italic; font-display: swap; src: url("/fonts/aileron-light-italic.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/aileron-regular.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/aileron-italic.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
+@font-face {
+  font-family: "Gabarito";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Gabarito-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/HankenGrotesk-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  src: url("/fonts/HankenGrotesk-latin-italic.woff2") format("woff2");
+}
 
-/* Tema conmutable: variante dark por clase en <html> (default dark — spec
-   "dark-first"; el conductor puede cambiar a claro para luz solar directa). */
+/* Tema conmutable: variante dark por clase en <html>. Default dark. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 body {
-  @apply bg-niebla text-navy font-sans;
+  @apply bg-canvas text-text-primary font-sans;
 }
 
-/* Base del tema oscuro (dark-first): navy-900 + texto casi blanco. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+/*
+ * Tema oscuro. Se redefinen las VARIABLES, no las utilidades: las clases de
+ * Tailwind compilan a `var(--color-…)`, así que sustituir la variable aquí
+ * repinta toda la app sin duplicar una sola clase.
+ *
+ * Aquí sí entra el Gris Señal del manual: sobre Asfalto mide 6.26:1.
+ */
+.dark {
+  --color-canvas: #0c0f12;
+  --color-surface: #1a2027;
+  --color-niebla: #0c0f12;
+  --color-text-primary: #f2f5f3;
+  --color-text-secondary: #8c949d; /* 6.26:1 sobre asfalto */
+  --color-text-tertiary: #8c949d;
+  --color-border: rgba(242, 245, 243, 0.14);
+  --color-border-strong: rgba(242, 245, 243, 0.28);
+  --color-success: #00e571;
+  --color-success-bg: rgba(0, 229, 113, 0.12);
+  --color-info: #8c949d;
+  --color-info-bg: rgba(242, 245, 243, 0.07);
+  --color-warning: #ffb238;
+  --color-warning-bg: rgba(255, 178, 56, 0.14);
+  --color-danger: #ec5a5f; /* 5.67:1 sobre asfalto */
+  --color-danger-bg: rgba(236, 90, 95, 0.15);
+  --color-focus: #00e571;
+
+  /* Espejo :root para el CSS plano de los marcadores de Leaflet. */
+  --canvas: #0c0f12;
+  --surface: #1a2027;
+  --text-primary: #f2f5f3;
+  --text-secondary: #8c949d;
+  --border: rgba(242, 245, 243, 0.14);
+  --danger: #ec5a5f;
+}
+
 .dark body {
-  background-color: var(--navy-900);
-  color: var(--canvas);
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
 }
 .dark .moveos-stop-label {
-  color: var(--canvas);
+  color: var(--color-text-primary);
 }
 
 /* Etiquetas de secuencia sobre los marcadores del mapa de ruta. */
@@ -144,13 +218,19 @@ body {
   box-shadow: none;
   font-weight: 700;
   font-size: 11px;
-  color: var(--navy);
+  color: var(--color-text-primary);
 }
 .moveos-stop-label::before {
   display: none;
 }
 
-/* Accesibilidad: sin animaciones para quien pide menos motion. */
+/* Foco visible: el anillo mixto cumple 3:1 en ambos temas. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus-mixed);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

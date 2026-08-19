@@ -52,7 +52,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -69,7 +69,7 @@ beforeAll(async () => {
     phone: "+573000000066",
     documentId: `66${runId}`.slice(0, 12),
     email: driverEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   const order = await api("POST", "/orders", adminToken, {
     customerName: "Destino Scan",
@@ -94,7 +94,7 @@ beforeAll(async () => {
   driverToken = (
     await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     })
   ).body.token;
 });

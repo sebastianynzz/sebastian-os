@@ -65,7 +65,7 @@ beforeAll(async () => {
     adminName: "Admin B2B",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -107,7 +107,7 @@ describe("notificaciones B2B (al negocio cliente)", () => {
       phone: "+573000000009",
       documentId: "900900900",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     driverId = driver.body.id;
     await api("POST", "/vehicles", adminToken, {
@@ -140,7 +140,7 @@ describe("notificaciones B2B (al negocio cliente)", () => {
 
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     driverToken = login.body.token;
     await api("POST", `/routes/${routeId}/start`, driverToken);

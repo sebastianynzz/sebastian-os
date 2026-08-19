@@ -48,7 +48,7 @@ beforeAll(async () => {
     adminName: "Admin EV",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -222,13 +222,13 @@ describe("flota eléctrica como núcleo", () => {
       phone: "+573000000099",
       documentId: "900800700",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(driver.status).toBe(201);
 
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     driverToken = login.body.token;
 

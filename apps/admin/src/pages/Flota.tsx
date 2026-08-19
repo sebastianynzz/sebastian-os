@@ -57,7 +57,7 @@ function dotIcon(color: string, immobilized: boolean) {
     : "";
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;width:16px;height:16px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)">${lock}</div>`,
+    html: `<div style="position:relative;width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #F2F5F3">${lock}</div>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   });

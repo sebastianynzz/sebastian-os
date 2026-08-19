@@ -10,7 +10,7 @@ curl -sf "$API/health" | grep -q '"ok":true' || fail "health"
 echo "✓ health"
 
 TOKEN=$(curl -sf "$API/auth/login" -H 'Content-Type: application/json' \
-  -d '{"email":"admin@demo.moveos.co","password":"moveos123"}' | jq -r .token)
+  -d '{"email":"admin@demo.dalego.co","password":"dalego123"}' | jq -r .token)
 [ -n "$TOKEN" ] && [ "$TOKEN" != "null" ] || fail "login admin demo"
 echo "✓ login admin"
 
@@ -30,7 +30,7 @@ curl -sf "$API/orders?take=5" "${AUTH[@]}" | jq -e 'type == "array"' >/dev/null 
 echo "✓ pedidos"
 
 PTOKEN=$(curl -sf "$API/platform/auth/login" -H 'Content-Type: application/json' \
-  -d '{"email":"ops@moveos.co","password":"moveos123"}' | jq -r .token)
+  -d '{"email":"ops@dalego.co","password":"dalego123"}' | jq -r .token)
 curl -sf "$API/platform/flywheel" -H "Authorization: Bearer $PTOKEN" \
   | jq -e '.graph.totalPins' >/dev/null || fail "flywheel"
 echo "✓ plataforma + flywheel"

@@ -10,20 +10,20 @@ import { generateTrackingNumber, generateTrackingToken } from "../src/services/o
  * activos para explorar el producto completo.
  *
  * Credenciales demo:
- *   admin@demo.moveos.co    / moveos123  (ADMIN)
- *   despacho@demo.moveos.co / moveos123  (DISPATCHER)
- *   carlos@demo.moveos.co   / moveos123  (DRIVER, moto)
- *   maria@demo.moveos.co    / moveos123  (DRIVER, e-van)
+ *   admin@demo.dalego.co    / dalego123  (ADMIN)
+ *   despacho@demo.dalego.co / dalego123  (DISPATCHER)
+ *   carlos@demo.dalego.co   / dalego123  (DRIVER, moto)
+ *   maria@demo.dalego.co    / dalego123  (DRIVER, e-van)
  */
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("moveos123", 10);
+  const passwordHash = await bcrypt.hash("dalego123", 10);
 
   // Operador de plataforma (idempotente).
   await prisma.platformAdmin.upsert({
-    where: { email: "ops@moveos.co" },
-    create: { email: "ops@moveos.co", passwordHash, name: "Operador MoveOS" },
+    where: { email: "ops@dalego.co" },
+    create: { email: "ops@dalego.co", passwordHash, name: "Operador MoveOS" },
     update: {},
   });
 
@@ -148,7 +148,7 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "admin@demo.moveos.co",
+      email: "admin@demo.dalego.co",
       passwordHash,
       name: "Ana Admin",
       role: "ADMIN",
@@ -157,7 +157,7 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "despacho@demo.moveos.co",
+      email: "despacho@demo.dalego.co",
       passwordHash,
       name: "Diego Despachador",
       role: "DISPATCHER",
@@ -175,7 +175,7 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "carlos@demo.moveos.co",
+      email: "carlos@demo.dalego.co",
       passwordHash,
       name: "Carlos Rodríguez",
       role: "DRIVER",
@@ -194,7 +194,7 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "maria@demo.moveos.co",
+      email: "maria@demo.dalego.co",
       passwordHash,
       name: "María Gómez",
       role: "DRIVER",
@@ -338,7 +338,7 @@ async function main() {
   await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "cliente@demo.moveos.co",
+      email: "cliente@demo.dalego.co",
       passwordHash,
       name: "Carolina Ríos (Moda Express)",
       role: "CLIENT",
@@ -468,13 +468,13 @@ async function main() {
 
   console.log("Seed aplicado:");
   console.log("  Tenant:", tenant.name);
-  console.log("  admin@demo.moveos.co / moveos123 (ADMIN)");
-  console.log("  despacho@demo.moveos.co / moveos123 (DISPATCHER)");
-  console.log("  carlos@demo.moveos.co / moveos123 (DRIVER)");
-  console.log("  maria@demo.moveos.co / moveos123 (DRIVER)");
-  console.log("  cliente@demo.moveos.co / moveos123 (CLIENT, portal Tienda Moda Express)");
+  console.log("  admin@demo.dalego.co / dalego123 (ADMIN)");
+  console.log("  despacho@demo.dalego.co / dalego123 (DISPATCHER)");
+  console.log("  carlos@demo.dalego.co / dalego123 (DRIVER)");
+  console.log("  maria@demo.dalego.co / dalego123 (DRIVER)");
+  console.log("  cliente@demo.dalego.co / dalego123 (CLIENT, portal Tienda Moda Express)");
   console.log("  --- Panel de plataforma ---");
-  console.log("  ops@moveos.co / moveos123 (OPERADOR)");
+  console.log("  ops@dalego.co / dalego123 (OPERADOR)");
 }
 
 main()

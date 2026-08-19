@@ -8,6 +8,7 @@ import Flota from "./pages/Flota";
 import Auditoria from "./pages/Auditoria";
 import Flywheel from "./pages/Flywheel";
 import Integraciones from "./pages/Integraciones";
+import { Wordmark } from "./components/brand";
 
 function Shell() {
   const { admin, loading, logout } = useAuth();
@@ -20,7 +21,7 @@ function Shell() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-navy">
         <div className="border-b border-white/10 p-4">
           <div className="text-xl font-bold">
-            <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
+            <Wordmark size={24} className="text-humo" />
           </div>
           <div className="mt-1 text-xs text-cielo">Plataforma</div>
         </div>

@@ -52,8 +52,8 @@ try {
     const [out] = rest;
     await login(
       WEB_URL,
-      process.env.MOVEOS_EMAIL ?? "admin@demo.moveos.co",
-      process.env.MOVEOS_PASSWORD ?? "moveos123",
+      process.env.MOVEOS_EMAIL ?? "admin@demo.dalego.co",
+      process.env.MOVEOS_PASSWORD ?? "dalego123",
     );
     await page.waitForURL("**/excepciones", { timeout: 10000 });
     await page.click("text=Abrir triage");
@@ -65,7 +65,7 @@ try {
     await save(out);
   } else if (cmd === "flywheel") {
     const [out] = rest;
-    await login(ADMIN_URL, "ops@moveos.co", "moveos123");
+    await login(ADMIN_URL, "ops@dalego.co", "dalego123");
     await page.goto(`${ADMIN_URL}/flywheel`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500);
     await save(out);

@@ -45,12 +45,12 @@ beforeAll(async () => {
     data: {
       email: opsEmail,
       name: "Soporte Test",
-      passwordHash: await bcrypt.hash("moveos123", 10),
+      passwordHash: await bcrypt.hash("dalego123", 10),
     },
   });
   const login = await api("POST", "/platform/auth/login", undefined, {
     email: opsEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   platformToken = login.body.token;
 
@@ -59,7 +59,7 @@ beforeAll(async () => {
     adminName: "Admin Soporte",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   tenantToken = reg.body.token;
@@ -138,7 +138,7 @@ describe("consola de soporte + salud + onboarding", () => {
       plan: "FREE",
       adminName: "Admin Wizard",
       adminEmail: provisionedEmail,
-      adminPassword: "moveos123",
+      adminPassword: "dalego123",
       modules: ["TELEMATICS"],
     });
     expect(res.status).toBe(201);

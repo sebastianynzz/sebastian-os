@@ -86,14 +86,14 @@ function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
   const color = kind === "PICKUP" ? "#3a5169" : "#5a6b18";
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${color};color:#fff;font-size:11px;font-weight:700;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)">${n}</div>`,
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${color};color:#0C0F12;font-size:11px;font-weight:700;border:2px solid #F2F5F3">${n}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });
 }
 const depotIcon = L.divIcon({
   className: "",
-  html: `<div style="width:14px;height:14px;background:#233955;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
+  html: `<div style="width:14px;height:14px;background:#0C0F12;border:2px solid #F2F5F3"></div>`,
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
@@ -135,7 +135,7 @@ function RouteMap({ stops }: { stops: Stop[] }) {
         </Marker>
         <Polyline
           positions={line}
-          pathOptions={{ color: "#233955", weight: 3, opacity: 0.5, dashArray: "6 6" }}
+          pathOptions={{ color: "#8C949D", weight: 3, opacity: 0.6, dashArray: "6 6" }}
         />
         {pts.map(({ s, c }) => (
           <Marker key={s.id} position={c} icon={seqIcon(s.sequence, s.kind)}>

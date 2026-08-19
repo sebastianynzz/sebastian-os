@@ -48,7 +48,7 @@ const SOURCE_LABELS: Record<string, string> = {
 function pinIcon(color: string) {
   return L.divIcon({
     className: "",
-    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.35)"></div>`,
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #F2F5F3"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
   });
@@ -414,7 +414,7 @@ export default function Direcciones() {
                     <Marker
                       position={[draft.lat, draft.lng]}
                       draggable
-                      icon={pinIcon("#a32d2d")}
+                      icon={pinIcon("#CE2C32")}
                       eventHandlers={{
                         dragend: (e) => {
                           const m = e.target as L.Marker;

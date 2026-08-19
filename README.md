@@ -113,12 +113,12 @@ Demo credentials (seed):
 
 | Email | Password | Role |
 |---|---|---|
-| `admin@demo.moveos.co` | `moveos123` | ADMIN |
-| `despacho@demo.moveos.co` | `moveos123` | DISPATCHER |
-| `carlos@demo.moveos.co` | `moveos123` | DRIVER (moto) |
-| `maria@demo.moveos.co` | `moveos123` | DRIVER (e-van) |
-| `cliente@demo.moveos.co` | `moveos123` | CLIENT (portal de Tienda Moda Express) |
-| `ops@moveos.co` | `moveos123` | PLATFORM OPERATOR (admin panel :5175) |
+| `admin@demo.dalego.co` | `dalego123` | ADMIN |
+| `despacho@demo.dalego.co` | `dalego123` | DISPATCHER |
+| `carlos@demo.dalego.co` | `dalego123` | DRIVER (moto) |
+| `maria@demo.dalego.co` | `dalego123` | DRIVER (e-van) |
+| `cliente@demo.dalego.co` | `dalego123` | CLIENT (portal de Tienda Moda Express) |
+| `ops@dalego.co` | `dalego123` | PLATFORM OPERATOR (admin panel :5175) |
 
 MoveOS is **B2B**: the driver confirms delivery to the **business client** that
 originated the shipment (via webhook / WhatsApp / email / in-app feed), not to

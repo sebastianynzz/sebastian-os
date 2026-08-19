@@ -64,7 +64,7 @@ function severityOf(type: string): Severity {
 const SEV_RANK: Record<Severity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
 /** Hex solo para los divIcon de Leaflet (HTML en cadena, sin utilidades). */
 const SEV_COLOR: Record<Severity, string> = {
-  CRITICAL: "#a32d2d",
+  CRITICAL: "#CE2C32",
   HIGH: "#8a5a12",
   MEDIUM: "#3a5169",
 };
@@ -97,7 +97,7 @@ function dotIcon(color: string, selected: boolean) {
   const size = selected ? 22 : 16;
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:${selected ? 3 : 2}px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.3)"></div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:${selected ? 3 : 2}px solid #F2F5F3"></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });

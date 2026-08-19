@@ -54,7 +54,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -65,12 +65,12 @@ beforeAll(async () => {
     phone: "+573000000088",
     documentId: `88${runId}`.slice(0, 12),
     email: driverEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   driverToken = (
     await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     })
   ).body.token;
 
@@ -81,12 +81,12 @@ beforeAll(async () => {
   });
   await api("POST", `/clients/${client.body.id}/portal-access`, adminToken, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   portalToken = (
     await api("POST", "/auth/login", undefined, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     })
   ).body.token;
 
@@ -96,7 +96,7 @@ beforeAll(async () => {
     adminName: "Admin2",
     city: "Medellín",
     email: otherAdminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   otherTenantId = reg2.body!.tenant.id;
   otherAdminToken = reg2.body!.token;

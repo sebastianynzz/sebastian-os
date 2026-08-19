@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth";
 import { Button, inputClass } from "../components/ui";
+import { Wordmark } from "../components/brand";
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("ops@moveos.co");
-  const [password, setPassword] = useState("moveos123");
+  const [email, setEmail] = useState("ops@dalego.co");
+  const [password, setPassword] = useState("dalego123");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -29,7 +30,7 @@ export default function Login() {
         className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8"
       >
         <h1 className="text-3xl font-bold text-niebla">
-          <img src="/move-lime.svg" alt="move" className="h-6 w-auto" />
+          <Wordmark size={24} className="text-humo" />
         </h1>
         <p className="mb-6 mt-1 text-sm text-cielo">Panel de plataforma</p>
         <div className="space-y-4">
@@ -54,7 +55,7 @@ export default function Login() {
             {busy ? "Ingresando…" : "Ingresar"}
           </Button>
         </div>
-        <p className="mt-6 text-xs text-white/30">Demo: ops@moveos.co / moveos123</p>
+        <p className="mt-6 text-xs text-white/30">Demo: ops@dalego.co / dalego123</p>
       </form>
     </div>
   );

@@ -46,7 +46,7 @@ services:
       - key: VAPID_PRIVATE_KEY
         sync: false
       - key: VAPID_SUBJECT
-        value: mailto:ops@moveos.co
+        value: mailto:ops@dalego.co
       - key: SENTRY_DSN
         sync: false # P0.7 observabilidad (Sentry free); vacío = solo logs
       - key: OSRM_URL

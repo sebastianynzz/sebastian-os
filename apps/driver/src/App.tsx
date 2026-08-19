@@ -27,6 +27,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { Wordmark } from "./brand";
 import {
   api,
   apiOrQueue,
@@ -638,8 +639,7 @@ export default function App() {
           toggle claro (sol directo) y salida. */}
       <header className="sticky top-0 z-10 border-b border-border/70 bg-niebla/95 backdrop-blur dark:border-sky/12 dark:bg-navy-900/95">
         <div className="flex items-center gap-2.5 px-4 py-2.5">
-          <img src="/move-navy.svg" alt="move" className="h-[18px] w-auto dark:hidden" />
-          <img src="/move-lime.svg" alt="move" className="hidden h-[18px] w-auto dark:block" />
+          <Wordmark size={18} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-navy dark:text-niebla">
               Conductor
@@ -999,8 +999,8 @@ function Login({
   notice: string | null;
   onLogin: () => void;
 }) {
-  const [email, setEmail] = useState("carlos@demo.moveos.co");
-  const [password, setPassword] = useState("moveos123");
+  const [email, setEmail] = useState("carlos@demo.dalego.co");
+  const [password, setPassword] = useState("dalego123");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -1037,8 +1037,7 @@ function Login({
         className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-white p-6 shadow-soft dark:border-sky/18 dark:bg-navy-700"
       >
         <h1 className="flex items-center gap-2 text-xl font-bold text-navy dark:text-niebla">
-          <img src="/move-navy.svg" alt="move" className="h-6 w-auto dark:hidden" />
-          <img src="/move-lime.svg" alt="move" className="hidden h-6 w-auto dark:block" />
+          <Wordmark size={24} />
           conductor
         </h1>
         {notice && (

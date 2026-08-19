@@ -2,11 +2,12 @@ import { useState, type FormEvent } from "react";
 import { Info } from "lucide-react";
 import { useAuth } from "../auth";
 import { Button } from "../components/ui";
+import { BrandDescriptor, LuzVerde, Wordmark } from "../components/brand";
 
 /* Credenciales de la cuenta demo: pre-llenan el formulario y se muestran en la
  * fila copiable inferior. Una sola fuente para no divergir. */
-const DEMO_EMAIL = "admin@demo.moveos.co";
-const DEMO_PASSWORD = "moveos123";
+const DEMO_EMAIL = "admin@demo.dalego.co";
+const DEMO_PASSWORD = "dalego123";
 
 /* Input del login (mock 5a): 13.5px, borde fuerte, foco navy con anillo suave
  * de 3px (rgba navy al 12%). */
@@ -55,22 +56,22 @@ export default function Login() {
       // limón 14% arriba-derecha, cielo 12% abajo-izquierda.
       style={{
         backgroundImage:
-          "radial-gradient(420px 300px at 85% 0%, color-mix(in srgb, var(--lime) 14%, transparent), transparent), radial-gradient(360px 260px at 0% 100%, color-mix(in srgb, var(--sky) 12%, transparent), transparent)",
+          "radial-gradient(420px 300px at 85% 0%, color-mix(in srgb, var(--verde) 12%, transparent), transparent), radial-gradient(360px 260px at 0% 100%, color-mix(in srgb, var(--verde-profundo) 22%, transparent), transparent)",
       }}
     >
       <div className="flex w-[340px] max-w-full flex-col gap-[18px]">
         <div>
-          <img src="/move-lime.svg" alt="move" className="block h-[30px] w-auto" />
-          <p className="mt-2.5 text-[13.5px] leading-relaxed text-cielo">
-            Plataforma modular de última milla.
-            <br />
-            El motor limpio de tu operación.
+          <Wordmark size={34} className="text-humo" />
+          {/* El descriptor institucional va SOLO aquí (manual de marca). */}
+          <BrandDescriptor className="mt-3" />
+          <p className="mt-2 text-[13.5px] leading-relaxed text-gris-senal">
+            La luz verde de tu última milla <LuzVerde className="ml-0.5" />
           </p>
         </div>
 
         <form
           onSubmit={onSubmit}
-          className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px] shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+          className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px] border border-border"
         >
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-text-secondary">

@@ -34,9 +34,9 @@ pnpm --filter @moveos/api db:migrate:deploy
 pnpm --filter @moveos/api db:seed
 ```
 
-Demo logins after seed: `admin@demo.moveos.co`, `despacho@`, `carlos@`
-(driver), `maria@` (driver), `cliente@` (portal) — all `moveos123`; platform
-operator `ops@moveos.co / moveos123`.
+Demo logins after seed: `admin@demo.dalego.co`, `despacho@`, `carlos@`
+(driver), `maria@` (driver), `cliente@` (portal) — all `dalego123`; platform
+operator `ops@dalego.co / dalego123`.
 
 ## Run (agent path)
 
@@ -57,9 +57,9 @@ nohup pnpm dev:admin  > /tmp/admin.log  2>&1 &  # panel plataforma :5175
 cd .claude/skills/run-move-os && npm install && cd ../../..   # baja Chromium desde npm (~80 MB)
 mkdir -p /tmp/moveos-shots
 node .claude/skills/run-move-os/driver.mjs shot http://localhost:5173/ /tmp/moveos-shots/login.png
-node .claude/skills/run-move-os/driver.mjs shot http://localhost:5173/ /tmp/moveos-shots/excepciones.png admin@demo.moveos.co moveos123
+node .claude/skills/run-move-os/driver.mjs shot http://localhost:5173/ /tmp/moveos-shots/excepciones.png admin@demo.dalego.co dalego123
 node .claude/skills/run-move-os/driver.mjs triage /tmp/moveos-shots/triage.png
-node .claude/skills/run-move-os/driver.mjs shot http://localhost:5174/ /tmp/moveos-shots/conductor.png carlos@demo.moveos.co moveos123
+node .claude/skills/run-move-os/driver.mjs shot http://localhost:5174/ /tmp/moveos-shots/conductor.png carlos@demo.dalego.co dalego123
 node .claude/skills/run-move-os/driver.mjs flywheel /tmp/moveos-shots/flywheel.png
 ```
 
@@ -71,7 +71,7 @@ captura resultante.
 
 ```bash
 TOKEN=$(curl -s localhost:3000/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"admin@demo.moveos.co","password":"moveos123"}' | jq -r .token)
+  -d '{"email":"admin@demo.dalego.co","password":"dalego123"}' | jq -r .token)
 curl -s localhost:3000/exceptions -H "Authorization: Bearer $TOKEN" | jq .
 ```
 

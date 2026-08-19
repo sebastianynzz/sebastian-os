@@ -47,12 +47,12 @@ beforeAll(async () => {
     data: {
       email: opsEmail,
       name: "Ops Editabilidad",
-      passwordHash: await bcrypt.hash("moveos123", 10),
+      passwordHash: await bcrypt.hash("dalego123", 10),
     },
   });
   const login = await api("POST", "/platform/auth/login", undefined, {
     email: opsEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   platformToken = login.body.token;
 
@@ -61,7 +61,7 @@ beforeAll(async () => {
     adminName: "Admin Editable",
     city: "Bogotá",
     email: tenantAdminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   tenantToken = reg.body.token;
@@ -122,7 +122,7 @@ describe("presets de módulos por modelo de negocio", () => {
       businessModel: "FAAS",
       adminName: "Admin FaaS",
       adminEmail: faasAdminEmail,
-      adminPassword: "moveos123",
+      adminPassword: "dalego123",
     });
     expect(res.status).toBe(201);
     expect(res.body.tenant.businessModel).toBe("FAAS");
@@ -184,7 +184,7 @@ describe("usuarios del equipo del tenant", () => {
         name: "Despachador Test",
         email: dispatcherEmail,
         role: "DISPATCHER",
-        password: "moveos123",
+        password: "dalego123",
       },
     );
     expect(created.status).toBe(201);
@@ -192,7 +192,7 @@ describe("usuarios del equipo del tenant", () => {
 
     const login = await api("POST", "/auth/login", undefined, {
       email: dispatcherEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(login.status).toBe(200);
     expect(login.body.user.role).toBe("DISPATCHER");
@@ -209,7 +209,7 @@ describe("usuarios del equipo del tenant", () => {
 
     const oldLogin = await api("POST", "/auth/login", undefined, {
       email: dispatcherEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(oldLogin.status).toBe(401);
 

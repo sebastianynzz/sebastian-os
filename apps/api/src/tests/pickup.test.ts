@@ -42,7 +42,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -73,7 +73,7 @@ describe("flujo pickup→delivery", () => {
       phone: "+573000000099",
       documentId: "900900900",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(driver.status).toBe(201);
     driverId = driver.body.id;
@@ -117,7 +117,7 @@ describe("flujo pickup→delivery", () => {
     await api("POST", `/routes/${routeId}/dispatch`, adminToken, { driverId });
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     driverToken = login.body.token;
     await api("POST", `/routes/${routeId}/start`, driverToken);

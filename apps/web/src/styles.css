@@ -2,84 +2,110 @@
 @import "leaflet/dist/leaflet.css";
 
 /*
- * Sistema de diseño MoveOS — Manual de Identidad de Marca v2.0.
- * PASO A1 (fundación): tokens de color, estados semánticos, radios, sombras y
- * stack tipográfico. Esta es la única fuente de verdad de la paleta; los
- * componentes consumen tokens (sin hex codificado a mano).
+ * Sistema de diseño daleGo OS — Paleta Circuito.
+ * Reemplaza el sistema navy/limón de MoveOS. Fuente: handoff
+ * `design_handoff_dalego_rebrand` + las correcciones de la auditoría de
+ * contraste (agosto 2026), ya incorporadas en `_ds/.../tokens/colors.css`.
  *
- * Paleta de marca (los únicos colores de marca):
- *  - Azul Marino  #233955 — PRIMARIO: cabeceras, barras laterales, texto y botones primarios.
- *  - Blanco/Niebla #F3F3F3 — LIENZO (fondo de página).
- *  - Verde Limón  #CFDD80 — ACENTO: reservado para EV / carga / sustentabilidad y CTAs clave.
- *  - Azul Cielo   #A7B6C4 — SECUNDARIO: texto atenuado sobre navy, info y bordes.
+ * Proporción 60/30/10: los neutros dominan, el verde es la firma, el gris y el
+ * ámbar son detalle.
+ *  - Verde Eléctrico #00E571 — firma y acción. SOLO gráfico: nunca texto largo
+ *    ni fondo de párrafos. Sobre claro nunca es texto (1.54:1) — para texto
+ *    verde en claro se usa Verde Profundo #0E4D2E (9.03:1).
+ *  - Asfalto Profundo #0C0F12 — texto principal en claro, fondo en oscuro.
+ *  - Blanco Humo #F2F5F3 — lienzo.
+ *  - Ámbar Ciudad — advertencia. Rojo Alerta — SOLO error, emergencia y
+ *    acciones destructivas (nunca decorativo).
  *
- * Regla de contraste: el limón es claro — nunca texto limón sobre blanco. El
- * limón es relleno/acento (barras de carga, cifras EV/CO₂, badges de éxito, un
- * CTA) SIEMPRE con texto navy. El navy es el caballo de batalla del texto.
+ * REGLA DE SEMÁNTICA (auditoría D-02/D-07): el verde queda reservado para
+ * estados terminales positivos confirmados, la CTA primaria, el ítem activo de
+ * nav y los datos vivos. Nunca para contadores, alertas, severidad ni selección
+ * de fila. Toda señal de estado lleva un segundo canal además del color.
+ *
+ * Los NOMBRES de token se conservan del sistema anterior a propósito: son
+ * semánticos (`danger`, `warning`, `text-secondary`, `border`) y los consumen
+ * ~24.000 líneas de producto. Re-valorarlos aplica la paleta corregida en todos
+ * los sitios de uso sin tocar ni un componente. Los nombres de MARCA antiguos
+ * (navy, lima, cielo) quedan como alias mientras se migran las llamadas.
  */
 @theme {
-  /* Azul Marino (primario) */
-  --color-navy: #233955;
-  --color-navy-700: #1b2c43;
-  --color-navy-900: #152334;
+  /* ── Paleta Circuito (nombres nuevos, para código nuevo) ── */
+  --color-verde: #00e571; /* firma — solo gráfico */
+  --color-verde-hover: #00cc65;
+  --color-verde-profundo: #0e4d2e; /* verde legible sobre claro */
+  --color-asfalto: #0c0f12;
+  --color-asfalto-hover: #1a2027;
+  --color-humo: #f2f5f3;
+  --color-gris-senal: #8c949d; /* SOLO tema oscuro (6.26:1) */
+  --color-ambar: #ffb238;
+  --color-rojo-alerta: #ce2c32;
 
-  /* Lienzo y superficies */
-  --color-canvas: #f3f3f3;
+  /* ── Alias de marca del sistema anterior (migrar y retirar) ── */
+  --color-navy: #0c0f12;
+  --color-navy-700: #1a2027;
+  --color-navy-900: #080a0c;
+  --color-navydeep: #080a0c;
+  --color-lima: #00e571;
+  --color-lime: #00e571;
+  --color-lima-deep: #00cc65;
+  --color-lime-ink: #0c0f12; /* el texto sobre verde es asfalto */
+  --color-cielo: #8c949d;
+  --color-sky: #8c949d;
+  --color-sky-50: #e9efeb;
+  --color-olive: #0e4d2e; /* serie secundaria de gráficas */
+
+  /* ── Lienzo y superficies ── */
+  --color-canvas: #f2f5f3;
   --color-surface: #ffffff;
-  --color-niebla: #f3f3f3; /* alias histórico de canvas */
-  --color-navydeep: #152334; /* alias histórico de navy-900 (panel admin) */
+  --color-niebla: #f2f5f3;
+  --color-sidebar: #080a0c;
 
-  /* Verde Limón (acento EV / sustentabilidad) */
-  --color-lima: #cfdd80;
-  --color-lime: #cfdd80; /* alias por nombre de spec */
-  --color-lime-ink: #4b5320; /* texto sobre limón cuando no se usa navy */
+  /* ── Texto (auditoría D-01: el gris de marca falla en claro a 2.80:1) ── */
+  --color-text-primary: #0c0f12; /* 17.51:1 sobre humo */
+  --color-text-secondary: #5d6660; /* 5.41:1 — corregido, era #8c949d */
+  --color-text-tertiary: #69726d; /* 4.52:1 — sigue cumpliendo AA */
+  --color-text-on-dark: #f2f5f3;
 
-  /* Azul Cielo (secundario) */
-  --color-cielo: #a7b6c4;
-  --color-sky: #a7b6c4; /* alias por nombre de spec */
-  --color-sky-50: #eef2f5;
+  /* ── Bordes (auditoría D-10) ── */
+  --color-border: #c6ceca; /* decorativo */
+  --color-border-strong: #6e7873; /* controles e inputs: 4.57:1 (WCAG 1.4.11) */
+  --color-divider: #cbd3cf;
+  --color-row-active: #e9efeb; /* + pleca izquierda asfalto como 2º canal */
 
-  /* Texto */
-  --color-text-primary: #233955;
-  --color-text-secondary: #5b6b7d;
-  --color-text-tertiary: #8a99a8;
+  /* ── Estados semánticos ──
+     El ámbar es ADVERTENCIA y el rojo es ERROR: no se mezclan. Sin el rojo,
+     las ocho escalas de severidad del producto colapsaban a dos tonos. */
+  --color-success: #0e4d2e; /* 8.80:1 sobre success-bg */
+  --color-success-bg: #e3f6ec;
+  --color-info: #2a3230; /* 11.28:1 sobre info-bg */
+  --color-info-bg: #e9efeb;
+  --color-warning: #8a5a12; /* único ámbar de texto en claro: 5.29:1 */
+  --color-warning-bg: #fcf1df;
+  --color-danger: #ce2c32; /* 4.69:1 sobre danger-bg */
+  --color-danger-bg: #fdf0f1;
 
-  /* Bordes */
-  --color-border: #e6e6e4;
-  --color-border-strong: #d6dade;
+  /* ── Foco (auditoría D-09: el handoff no definía ningún estado) ── */
+  --color-focus: #0e4d2e; /* 9.03:1 sobre humo */
+  --color-focus-mixed: #008f4c; /* 3.80:1 humo / 4.61:1 asfalto */
 
-  /* Estados semánticos (la marca no tiene rojo/ámbar funcional;
-     se añaden tonos accesibles y atenuados). success = familia limón. */
-  --color-success: #5a6b18;
-  --color-success-bg: #eef1e3;
-  --color-info: #3a5169;
-  --color-info-bg: #eef2f5;
-  --color-warning: #8a5a12;
-  --color-warning-bg: #f7efe0;
-  --color-danger: #a32d2d;
-  --color-danger-bg: #fdecec;
+  /* ── Radios ── */
+  --radius-md: 12px; /* botón e input */
+  --radius-lg: 14px; /* módulo / tarjeta interna */
+  --radius-xl: 20px; /* tarjeta contenedora */
+  --radius-pleca: 0; /* badges y plecas: rectángulo recto */
 
-  /* Radios */
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* ── Sombras: NINGUNA ──
+     El manual es explícito: diseño plano, separación por color de superficie y
+     borde de 1px. Los tokens se conservan en `none` para neutralizar de una vez
+     los ~59 sitios que aún los invocan, sin tocar componentes. */
+  --shadow-soft: none;
+  --shadow-soft-lg: none;
+  --shadow-glow: none;
 
-  /* Verde Limón profundo (hover de CTA limón) y oliva (línea secundaria de
-     gráficas) — ambos del handoff del revamp, no inventados. */
-  --color-lima-deep: #b8c96d;
-  --color-olive: #8ea63c;
+  /* Curva de salida del manual: 150–250 ms, sin rebotes. */
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* Sombra suave de marca */
-  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
-  /* Sombra al elevar tarjetas en hover (misma familia, más profunda). */
-  --shadow-soft-lg: 0 2px 4px rgba(35, 57, 85, 0.08), 0 10px 28px rgba(35, 57, 85, 0.12);
-  /* Glow del CTA limón. */
-  --shadow-glow: 0 4px 14px rgba(184, 201, 109, 0.45);
-
-  /* Easing de marca para transiciones (150–300 ms). */
-  --ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Pulso del indicador "En vivo". */
+  /* Pulso «luz verde»: SOLO datos vivos. */
   --animate-livepulse: livepulse 2s ease-in-out infinite;
   @keyframes livepulse {
     0%,
@@ -87,67 +113,117 @@
       opacity: 1;
     }
     50% {
-      opacity: 0.3;
+      opacity: 0.25;
     }
   }
 
-  /* Tipografía. Stack: Aileron (pendiente de self-host) → Inter → sistema.
-     Usar 400 y 500 en producto; reservar Light (300) para grandes titulares. */
-  --font-sans: "Aileron", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* ── Tipografía ──
+     Gabarito para titulares, cifras y wordmark. Hanken Grotesk para cuerpo, UI
+     y tablas. Monoespaciado para guías, placas, horas y ETAs. */
+  --font-sans: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Gabarito", "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 /*
- * Tokens en :root con los nombres EXACTOS de la spec, para CSS plano / estilos
- * en línea que aún no migran a utilidades Tailwind (se barren en A3).
+ * Espejo en :root para CSS plano y estilos en línea que aún no consumen
+ * utilidades de Tailwind (marcadores de Leaflet, sobre todo).
  */
 :root {
-  --navy: #233955;
-  --navy-700: #1b2c43;
-  --navy-900: #152334;
-  --canvas: #f3f3f3;
+  --verde: #00e571;
+  --verde-profundo: #0e4d2e;
+  --asfalto: #0c0f12;
+  --humo: #f2f5f3;
+  --navy: #0c0f12;
+  --navy-700: #1a2027;
+  --navy-900: #080a0c;
+  --canvas: #f2f5f3;
   --surface: #ffffff;
-  --lime: #cfdd80;
-  --lime-ink: #4b5320;
-  --sky: #a7b6c4;
-  --sky-50: #eef2f5;
-  --text-primary: #233955;
-  --text-secondary: #5b6b7d;
-  --text-tertiary: #8a99a8;
-  --border: #e6e6e4;
-  --border-strong: #d6dade;
-  --success: #5a6b18;
-  --success-bg: #eef1e3;
-  --info: #3a5169;
-  --info-bg: #eef2f5;
+  --lime: #00e571;
+  --lime-ink: #0c0f12;
+  --sky: #8c949d;
+  --sky-50: #e9efeb;
+  --text-primary: #0c0f12;
+  --text-secondary: #5d6660;
+  --text-tertiary: #69726d;
+  --border: #c6ceca;
+  --border-strong: #6e7873;
+  --success: #0e4d2e;
+  --success-bg: #e3f6ec;
+  --info: #2a3230;
+  --info-bg: #e9efeb;
   --warning: #8a5a12;
-  --warning-bg: #f7efe0;
-  --danger: #a32d2d;
-  --danger-bg: #fdecec;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --shadow-soft: 0 1px 2px rgba(35, 57, 85, 0.06), 0 4px 16px rgba(35, 57, 85, 0.06);
+  --warning-bg: #fcf1df;
+  --danger: #ce2c32;
+  --danger-bg: #fdf0f1;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-soft: none;
 }
 
 /*
- * Aileron self-hosted (Manual de Identidad v2.0). Pesos: Light 300, Regular 400,
- * SemiBold 600 (+ itálicas). Aileron es libre; Soliden es licenciado → Inter.
- * Aún no hay Medium (500): el peso 500 cae a Regular 400 por el algoritmo de
- * coincidencia de CSS (sin negrita sintética). Al recibir Aileron Medium .woff2
- * se añade una cara 500.
+ * Gabarito y Hanken Grotesk (variables, subconjunto latino, de Google Fonts).
+ * Se autoalojan igual que Aileron antes: sin dependencia de red externa y sin
+ * parpadeo de fuente. El rango 100–900 cubre los pesos del manual —
+ * Gabarito 800 titulares / 900 wordmark y cifras hero / 600 subtítulos.
  */
-@font-face { font-family: "Aileron"; font-weight: 300; font-style: normal; font-display: swap; src: url("/fonts/aileron-light.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 300; font-style: italic; font-display: swap; src: url("/fonts/aileron-light-italic.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 400; font-style: normal; font-display: swap; src: url("/fonts/aileron-regular.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 400; font-style: italic; font-display: swap; src: url("/fonts/aileron-italic.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/aileron-semibold.woff2") format("woff2"); }
-@font-face { font-family: "Aileron"; font-weight: 600; font-style: italic; font-display: swap; src: url("/fonts/aileron-semibold-italic.woff2") format("woff2"); }
-
-body {
-  @apply bg-canvas text-navy font-sans;
+@font-face {
+  font-family: "Gabarito";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Gabarito-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/HankenGrotesk-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  src: url("/fonts/HankenGrotesk-latin-italic.woff2") format("woff2");
 }
 
-/* Accesibilidad: sin animaciones ni elevaciones para quien pide menos motion. */
+body {
+  @apply bg-canvas text-text-primary font-sans;
+}
+
+/* Titulares en Gabarito, alineados a la izquierda, interlineado corto y
+   tracking −1% según el manual. Nunca en TODO MAYÚSCULAS. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+/* Cifras y datos tabulares alineados en columna. */
+.tabular,
+table td,
+table th {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Foco visible (auditoría D-09). El handoff no definía ningún estado de foco
+ * pese a introducir el buscador ⌘K, que es navegación por teclado.
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accesibilidad: sin animaciones para quien pide menos motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

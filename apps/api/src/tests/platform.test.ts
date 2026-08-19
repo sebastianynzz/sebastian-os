@@ -45,7 +45,7 @@ beforeAll(async () => {
     data: {
       email: opsEmail,
       name: "Ops Test",
-      passwordHash: await bcrypt.hash("moveos123", 10),
+      passwordHash: await bcrypt.hash("dalego123", 10),
     },
   });
 
@@ -54,7 +54,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   tenantToken = reg.body.token;
@@ -77,7 +77,7 @@ describe("panel de plataforma + seguridad de planos", () => {
 
     const ok = await api("POST", "/platform/auth/login", undefined, {
       email: opsEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(ok.status).toBe(200);
     platformToken = ok.body.token;
@@ -184,7 +184,7 @@ describe("panel de plataforma + seguridad de planos", () => {
     // Login bloqueado.
     const login = await api("POST", "/auth/login", undefined, {
       email: adminEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(login.status).toBe(403);
     expect(login.body.code).toBe("TENANT_SUSPENDED");
@@ -224,7 +224,7 @@ describe("panel de plataforma + seguridad de planos", () => {
         parentTenantId: tenantId, // MOVE como matriz
         adminName: "Admin Cliente",
         adminEmail: subAdminEmail,
-        adminPassword: "moveos123",
+        adminPassword: "dalego123",
       });
       expect(res.status).toBe(201);
       expect(res.body.tenant.operatorType).toBe("SUB_OPERATOR");
@@ -235,7 +235,7 @@ describe("panel de plataforma + seguridad de planos", () => {
     it("el admin del sub-operador puede iniciar sesión y opera AISLADO", async () => {
       const login = await api("POST", "/auth/login", undefined, {
         email: subAdminEmail,
-        password: "moveos123",
+        password: "dalego123",
       });
       expect(login.status).toBe(200);
       const subToken = login.body.token;

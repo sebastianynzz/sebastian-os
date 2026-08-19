@@ -16,8 +16,8 @@ import "dotenv/config";
  */
 
 const API = process.env.API_URL ?? "http://localhost:3000";
-const EMAIL = process.env.SIM_EMAIL ?? "admin@demo.moveos.co";
-const PASSWORD = process.env.SIM_PASSWORD ?? "moveos123";
+const EMAIL = process.env.SIM_EMAIL ?? "admin@demo.dalego.co";
+const PASSWORD = process.env.SIM_PASSWORD ?? "dalego123";
 const TICK_MS = Number(process.env.SIM_TICK_MS ?? 2000);
 
 interface SimVehicle {
