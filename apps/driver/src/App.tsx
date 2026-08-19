@@ -820,7 +820,9 @@ export default function App() {
                   regreso al depósito
                 </div>
               </div>
-              <span className="shrink-0 rounded-full bg-asfalto/10 px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary dark:bg-gris-senal/15 dark:text-gris-senal">
+              {/* Chip de estado de ruta: cuadrado y con borde, como fija
+                  Driver del manual (era pastilla redondeada). */}
+              <span className="shrink-0 rounded-none border border-border bg-canvas px-2.5 py-0.5 text-[11px] font-semibold text-verde-profundo dark:border-gris-senal/25 dark:bg-gris-senal/15 dark:text-gris-senal">
                 {ROUTE_STATUS_LABELS[route.status] ?? route.status}
               </span>
             </div>
@@ -1687,7 +1689,9 @@ function StopActionSheet({
                 </div>
               )}
             </div>
-            <span className="shrink-0 rounded-md bg-verde/25 px-2 py-0.5 text-[10.5px] font-bold text-asfalto dark:bg-verde/20 dark:text-verde">
+            {/* Pleca REC/ENT: cuadrada y sobre tinte Verde al 16 %, como fija
+                DriverParada del manual (las plecas no llevan radio). */}
+            <span className="shrink-0 rounded-none bg-verde/16 px-2 py-0.5 text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-verde-profundo dark:bg-verde/16 dark:text-verde">
               {isPickup ? "REC" : "ENT"}
             </span>
           </div>
