@@ -38,11 +38,11 @@ model Tenant {
   status    String   @default("ACTIVE") // ACTIVE | SUSPENDED (panel de plataforma)
   plan      String   @default("FREE") // FREE | PRO | ENTERPRISE (etiqueta comercial)
   // Fleet-as-a-service: SELF_SERVE (se registró solo) | SUB_OPERATOR (cliente
-  // con vehículos de MOVE en sitio, aprovisionado por la plataforma) |
-  // PLATFORM_FLEET (el tenant operativo del propio MOVE).
+  // con vehículos de daleGo en sitio, aprovisionado por la plataforma) |
+  // PLATFORM_FLEET (el tenant operativo del propio daleGo).
   operatorType   String  @default("SELF_SERVE")
   parentTenantId String?
-  // Oferta comercial: SAAS (software autoservicio) | FAAS (flota de MOVE en
+  // Oferta comercial: SAAS (software autoservicio) | FAAS (flota de daleGo en
   // sitio) | LOGISTICS_3PL (operación logística completa). Ortogonal a
   // operatorType (mecánica de aprovisionamiento / propiedad de activos):
   // etiqueta + preset de módulos al aprovisionar, nunca lógica de cobro.
@@ -126,7 +126,7 @@ model SnoozedException {
   @@index([tenantId, until])
 }
 
-/// Bitácora del plano de plataforma: toda mutación del operador MOVE queda
+/// Bitácora del plano de plataforma: toda mutación del operador daleGo queda
 /// registrada (quién, qué, sobre qué tenant/usuario, con diff en details).
 model PlatformAuditLog {
   id             String   @id @default(cuid())
@@ -238,7 +238,7 @@ model Vehicle {
   // Quién OPERA el vehículo (scoping de todas las consultas operativas).
   tenantId       String
   tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  // Quién es DUEÑO del activo (fleet-as-a-service: MOVE presta el vehículo a
+  // Quién es DUEÑO del activo (fleet-as-a-service: daleGo presta el vehículo a
   // un sub-operador). Null = el operador es el dueño. Solo el plano de
   // plataforma agrega/lee a través de tenants por este campo.
   ownerTenantId  String?

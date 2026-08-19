@@ -43,7 +43,7 @@ async function main() {
         nit: "900.111.222-3",
         city: "Medellín",
         plan: "FREE",
-        // Cliente FaaS de demo: aprovisionado por MOVE con flota en sitio.
+        // Cliente FaaS de demo: aprovisionado por daleGo con flota en sitio.
         operatorType: "SUB_OPERATOR",
         businessModel: "FAAS",
         entitlements: {
@@ -113,7 +113,7 @@ async function main() {
       await prisma.chargingStation.create({
         data: {
           tenantId: existing.id,
-          name: "Depósito MOVE — Chapinero",
+          name: "Depósito daleGo — Chapinero",
           network: "DEPOSITO",
           address: "Cl 57 # 10-32, Chapinero",
           city: "Bogotá",
@@ -305,7 +305,7 @@ async function main() {
   await prisma.chargingStation.create({
     data: {
       tenantId: tenant.id,
-      name: "Depósito MOVE — Chapinero",
+      name: "Depósito daleGo — Chapinero",
       network: "DEPOSITO",
       address: "Cl 57 # 10-32, Chapinero",
       city: "Bogotá",

@@ -61,9 +61,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Aprovisionar un tenant desde la plataforma (fleet-as-a-service): MOVE crea
+   * Aprovisionar un tenant desde la plataforma (fleet-as-a-service): daleGo crea
    * la cuenta de un cliente con vehículos en sitio (SUB_OPERATOR) junto con su
-   * usuario administrador. El cliente opera solo; MOVE conserva la vista de
+   * usuario administrador. El cliente opera solo; daleGo conserva la vista de
    * plataforma y la propiedad de los activos.
    */
   app.post("/", async (request, reply) => {
@@ -197,7 +197,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
 
   /**
    * Flota cruzada (solo plano de plataforma): los vehículos cuyo dueño es un
-   * tenant (MOVE) operando en OTROS tenants — utilización del activo, estado
+   * tenant (daleGo) operando en OTROS tenants — utilización del activo, estado
    * de telemetría y SoC, agrupados sin cruzar el plano de datos de cada uno.
    */
   app.get("/fleet/owned", async () => {

@@ -362,7 +362,7 @@ export default function TenantDetail() {
               <span className="mb-1 block text-gris-senal">Modelo de negocio</span>
               <select name="businessModel" className={inputClass} defaultValue={t.businessModel}>
                 <option value="SAAS">SaaS autoservicio</option>
-                <option value="FAAS">FaaS (flota de MOVE)</option>
+                <option value="FAAS">FaaS (flota de daleGo)</option>
                 <option value="LOGISTICS_3PL">Logística 3PL</option>
               </select>
             </label>
@@ -525,7 +525,7 @@ export default function TenantDetail() {
         </div>
       </Card>
 
-      <Card title="Asignar vehículo de MOVE (fleet-as-a-service)">
+      <Card title="Asignar vehículo de daleGo (fleet-as-a-service)">
         <p className="mb-3 text-xs text-gris-senal">
           El vehículo queda operado por esta empresa; la propiedad del activo
           (ownerTenantId) se conserva para la vista de Flota en sitio.
@@ -573,7 +573,7 @@ export default function TenantDetail() {
           )}
           <label className="block text-sm">
             <span className="mb-1 block text-gris-senal">Dueño (tenant id, opc.)</span>
-            <input name="ownerTenantId" className={inputClass} placeholder="id del tenant MOVE" />
+            <input name="ownerTenantId" className={inputClass} placeholder="id del tenant daleGo" />
           </label>
           {/* Specs derivadas del catálogo (no editables): el perfil es la verdad. */}
           <p className="col-span-2 self-end text-xs text-gris-senal sm:col-span-3">

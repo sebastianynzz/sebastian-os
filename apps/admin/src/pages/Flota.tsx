@@ -9,7 +9,7 @@ import { api, BASE_URL, getToken } from "../api";
 import { Card } from "../components/ui";
 
 /**
- * Flota propia de MOVE operando en tenants de clientes (fleet-as-a-service):
+ * Flota propia de daleGo operando en tenants de clientes (fleet-as-a-service):
  * vista cruzada del plano de plataforma — quién opera cada activo, su estado
  * de telemetría y SoC — sin tocar el plano de datos de cada tenant.
  *
@@ -134,7 +134,7 @@ export default function Flota() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Flota en sitio (FaaS)</h1>
       <p className="text-sm text-gris-senal">
-        Vehículos propiedad de MOVE operando en las instalaciones de clientes.
+        Vehículos propiedad de daleGo operando en las instalaciones de clientes.
         Telemetría y estado del activo a través de todos los tenants.
       </p>
 

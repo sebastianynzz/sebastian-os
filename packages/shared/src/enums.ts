@@ -282,7 +282,7 @@ export type TenantOperatorType = (typeof TENANT_OPERATOR_TYPES)[number];
 
 // Oferta comercial del tenant. Ortogonal a operatorType (propiedad de
 // activos / aprovisionamiento): un contrato 3PL puede ser un SUB_OPERATOR con
-// vehículos de MOVE. Etiqueta + preset de módulos, nunca lógica de cobro.
+// vehículos de daleGo. Etiqueta + preset de módulos, nunca lógica de cobro.
 export const TENANT_BUSINESS_MODELS = [
   "SAAS",
   "FAAS",

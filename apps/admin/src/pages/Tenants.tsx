@@ -25,7 +25,7 @@ interface TenantRow {
 const OPERATOR_LABEL: Record<string, string> = {
   SELF_SERVE: "Autoservicio",
   SUB_OPERATOR: "Cliente FaaS",
-  PLATFORM_FLEET: "Flota MOVE",
+  PLATFORM_FLEET: "Flota daleGo",
 };
 
 const BUSINESS_MODEL_LABEL: Record<string, string> = {
@@ -188,7 +188,7 @@ function OnboardingWizard({
                 }));
               }}
             >
-              <option value="FAAS">FaaS (flota de MOVE en sitio)</option>
+              <option value="FAAS">FaaS (flota de daleGo en sitio)</option>
               <option value="LOGISTICS_3PL">Logística 3PL</option>
               <option value="SAAS">SaaS autoservicio</option>
             </select>
@@ -480,7 +480,7 @@ export default function Tenants() {
             <option value="">Todos los tipos</option>
             <option value="SELF_SERVE">Autoservicio</option>
             <option value="SUB_OPERATOR">Cliente FaaS</option>
-            <option value="PLATFORM_FLEET">Flota MOVE</option>
+            <option value="PLATFORM_FLEET">Flota daleGo</option>
           </select>
           {hasFilters && (
             <button

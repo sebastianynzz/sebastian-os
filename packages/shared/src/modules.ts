@@ -42,7 +42,7 @@ import type { TenantBusinessModel } from "./enums.js";
 /**
  * Preset de módulos por modelo de negocio: valores INICIALES al aprovisionar
  * un tenant desde la plataforma. Cada módulo sigue siendo togglable por
- * tenant después. FAAS incluye lo que MOVE necesita para operar su flota en
+ * tenant después. FAAS incluye lo que daleGo necesita para operar su flota en
  * sitio; LOGISTICS_3PL lo que un contrato de operación logística espera.
  */
 export const MODULE_PRESETS_BY_BUSINESS_MODEL: Record<
