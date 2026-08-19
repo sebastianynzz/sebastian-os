@@ -56,8 +56,8 @@ export function describeApiError(
 
 const KIND_STYLES: Record<ToastKind, string> = {
   error: "border-danger bg-danger-bg text-danger",
-  success: "border-lima bg-lima/10 text-navy",
-  info: "border-cielo bg-cielo/10 text-navy",
+  success: "border-verde bg-verde/10 text-asfalto",
+  info: "border-gris-senal bg-gris-senal/10 text-asfalto",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {

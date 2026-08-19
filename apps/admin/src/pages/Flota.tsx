@@ -133,13 +133,13 @@ export default function Flota() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Flota en sitio (FaaS)</h1>
-      <p className="text-sm text-cielo">
+      <p className="text-sm text-gris-senal">
         Vehículos propiedad de MOVE operando en las instalaciones de clientes.
         Telemetría y estado del activo a través de todos los tenants.
       </p>
 
       <Card>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-cielo/70">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gris-senal/70">
           <span>
             {positioned.length} en el mapa
             {noFix > 0 && ` · ${noFix} sin posición`}
@@ -200,7 +200,7 @@ export default function Flota() {
       <Card>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
+            <tr className="border-b border-white/10 text-left text-xs uppercase text-gris-senal/60">
               <th className="py-2">Placa</th>
               <th>Tipo</th>
               <th>Opera en</th>
@@ -217,14 +217,14 @@ export default function Flota() {
               return (
                 <tr
                   key={v.id}
-                  className={`border-b border-white/5 ${selected === v.id ? "bg-lima/10" : ""}`}
+                  className={`border-b border-white/5 ${selected === v.id ? "bg-verde/10" : ""}`}
                 >
                   <td className="py-2 font-mono font-medium">
                     {hasFix ? (
                       <button
                         onClick={() => locate(v)}
                         title="Ubicar en el mapa"
-                        className="rounded text-niebla hover:text-lima focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lima"
+                        className="rounded text-canvas hover:text-verde focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-verde"
                       >
                         {v.plate} {v.isElectric && "⚡"} {v.immobilized && "🔒"}
                       </button>
@@ -234,11 +234,11 @@ export default function Flota() {
                       </span>
                     )}
                   </td>
-                  <td className="text-cielo">{v.type}</td>
+                  <td className="text-gris-senal">{v.type}</td>
                   <td>{v.operatedBy.name}</td>
-                  <td className="text-cielo">{v.ownerName ?? "—"}</td>
+                  <td className="text-gris-senal">{v.ownerName ?? "—"}</td>
                   <td>
-                    <span className={v.engineOn ? "text-lima" : "text-red-400"}>
+                    <span className={v.engineOn ? "text-verde" : "text-red-400"}>
                       {v.engineOn ? "● encendido" : "○ apagado"}
                     </span>
                   </td>
@@ -246,7 +246,7 @@ export default function Flota() {
                   <td>
                     {v.lastSpeedKmh !== null ? `${v.lastSpeedKmh.toFixed(0)} km/h` : "—"}
                   </td>
-                  <td className="text-xs text-cielo">
+                  <td className="text-xs text-gris-senal">
                     {v.lastSeenAt ? formatDateTimeBogota(v.lastSeenAt) : "sin señal"}
                   </td>
                 </tr>

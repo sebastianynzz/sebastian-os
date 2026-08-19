@@ -4,7 +4,7 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       {title && (
-        <h2 className="mb-3 text-sm font-semibold text-cielo">{title}</h2>
+        <h2 className="mb-3 text-sm font-semibold text-gris-senal">{title}</h2>
       )}
       {children}
     </div>
@@ -25,8 +25,8 @@ export function Button({
   disabled?: boolean;
 }) {
   const styles = {
-    primary: "bg-lima text-navy hover:brightness-95 font-semibold",
-    secondary: "bg-white/10 text-niebla hover:bg-white/20",
+    primary: "bg-verde text-asfalto hover:brightness-95 font-semibold",
+    secondary: "bg-white/10 text-canvas hover:bg-white/20",
     danger: "bg-danger text-white hover:brightness-110",
   };
   return (
@@ -42,9 +42,9 @@ export function Button({
 }
 
 const PLAN_STYLES: Record<string, string> = {
-  FREE: "bg-white/10 text-cielo",
-  PRO: "bg-lima/20 text-lima",
-  ENTERPRISE: "bg-lima text-navy",
+  FREE: "bg-white/10 text-gris-senal",
+  PRO: "bg-verde/20 text-verde",
+  ENTERPRISE: "bg-verde text-asfalto",
 };
 export function PlanBadge({ plan }: { plan: string }) {
   return (
@@ -83,7 +83,7 @@ export function Toggle({
       disabled={disabled}
       onClick={onClick}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
-        on ? "bg-lima" : "bg-white/20"
+        on ? "bg-verde" : "bg-white/20"
       }`}
     >
       <span
@@ -96,4 +96,4 @@ export function Toggle({
 }
 
 export const inputClass =
-  "w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-niebla placeholder:text-white/30 focus:border-lima focus:outline-none";
+  "w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-canvas placeholder:text-white/30 focus:border-verde focus:outline-none";

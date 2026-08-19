@@ -45,7 +45,14 @@ export function generateTrackingToken(): string {
   return randomBytes(18).toString("base64url");
 }
 
-/** Número de guía legible: MV-XXXXXXXX (base32 sin caracteres ambiguos). */
+/**
+ * Número de guía legible: DG-XXXXXXXX (base32 sin caracteres ambiguos).
+ *
+ * Las guías emitidas antes del rebrand siguen siendo MV-…: se conservan tal
+ * cual, no hay backfill. La búsqueda es por coincidencia exacta del string, así
+ * que ambos prefijos conviven sin lógica adicional — cualquier etiqueta ya
+ * impresa o guardada en el sistema de un comercio sigue resolviendo.
+ */
 export function generateTrackingNumber(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
   const bytes = randomBytes(8);
@@ -53,5 +60,5 @@ export function generateTrackingNumber(): string {
   for (let i = 0; i < 8; i++) {
     out += alphabet[bytes[i]! % alphabet.length];
   }
-  return `MV-${out}`;
+  return `DG-${out}`;
 }

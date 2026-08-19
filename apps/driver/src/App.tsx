@@ -317,9 +317,9 @@ function writeCachedRoute(route: DriverRoute | null) {
 function RouteSkeleton() {
   return (
     <div className="space-y-3" aria-hidden>
-      <div className="h-40 animate-pulse rounded-xl bg-white/70 shadow-soft dark:bg-navy-700/60" />
+      <div className="h-40 animate-pulse rounded-xl bg-white/70 shadow-soft dark:bg-asfalto-hover/60" />
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-28 animate-pulse rounded-xl bg-white/70 shadow-soft dark:bg-navy-700/60" />
+        <div key={i} className="h-28 animate-pulse rounded-xl bg-white/70 shadow-soft dark:bg-asfalto-hover/60" />
       ))}
     </div>
   );
@@ -637,14 +637,14 @@ export default function App() {
     >
       {/* Cabecera fija: marca + placa/vehículo, SOS siempre a mano (52×44),
           toggle claro (sol directo) y salida. */}
-      <header className="sticky top-0 z-10 border-b border-border/70 bg-niebla/95 backdrop-blur dark:border-sky/12 dark:bg-navy-900/95">
+      <header className="sticky top-0 z-10 border-b border-border/70 bg-canvas/95 backdrop-blur dark:border-gris-senal/12 dark:bg-sidebar/95">
         <div className="flex items-center gap-2.5 px-4 py-2.5">
           <Wordmark size={18} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-navy dark:text-niebla">
+            <div className="truncate text-sm font-semibold text-asfalto dark:text-canvas">
               Conductor
             </div>
-            <div className="flex items-center gap-1 text-[11px] text-text-tertiary dark:text-sky/70">
+            <div className="flex items-center gap-1 text-[11px] text-text-tertiary dark:text-gris-senal/70">
               {route && (
                 <>
                   <span className="font-mono">{route.vehicle.plate}</span>
@@ -656,7 +656,7 @@ export default function App() {
                       fill="currentColor"
                       strokeWidth={0}
                       aria-label="Vehículo eléctrico"
-                      className="shrink-0 text-success dark:text-lima"
+                      className="shrink-0 text-success dark:text-verde"
                     />
                   )}
                   <span aria-hidden>·</span>
@@ -670,7 +670,7 @@ export default function App() {
                 <span
                   aria-hidden
                   className={`h-1.5 w-1.5 rounded-full ${
-                    online ? "animate-livepulse bg-success dark:bg-lima" : "bg-text-tertiary"
+                    online ? "animate-livepulse bg-success dark:bg-verde" : "bg-text-tertiary"
                   }`}
                 />
                 {online ? "En línea" : "Sin conexión"}
@@ -686,7 +686,7 @@ export default function App() {
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             aria-label={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
             title="Cambiar tema"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary dark:text-sky"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary dark:text-gris-senal"
           >
             {theme === "dark" ? (
               <Sun size={17} strokeWidth={1.75} aria-hidden />
@@ -701,7 +701,7 @@ export default function App() {
             }}
             aria-label="Cerrar sesión"
             title="Salir"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary dark:text-sky"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary dark:text-gris-senal"
           >
             <LogOut size={16} strokeWidth={1.75} aria-hidden />
           </button>
@@ -712,7 +712,7 @@ export default function App() {
       {message && (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 bg-success-bg px-4 py-1.5 text-sm text-success dark:bg-lima/15 dark:text-lima"
+          className="flex items-center justify-between gap-3 bg-success-bg px-4 py-1.5 text-sm text-success dark:bg-verde/15 dark:text-verde"
         >
           <span>{message}</span>
           <button
@@ -730,7 +730,7 @@ export default function App() {
         {(pull > 0 || refreshing) && (
           <div
             role="status"
-            className="flex items-center justify-center overflow-hidden text-xs font-medium text-navy/60 dark:text-niebla/60"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-asfalto/60 dark:text-canvas/60"
             style={{
               height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
             }}
@@ -747,11 +747,11 @@ export default function App() {
         {!loaded && !route && <RouteSkeleton />}
 
         {loaded && !route && (
-          <div className="rounded-xl border border-border bg-white p-6 text-center text-sm text-text-tertiary shadow-soft dark:border-sky/18 dark:bg-navy-700 dark:text-sky/70">
+          <div className="rounded-xl border border-border bg-white p-6 text-center text-sm text-text-tertiary shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover dark:text-gris-senal/70">
             No tiene ruta asignada hoy.
             <button
               onClick={load}
-              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-niebla text-sm font-semibold text-navy dark:bg-navy-900 dark:text-niebla"
+              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-canvas text-sm font-semibold text-asfalto dark:bg-sidebar dark:text-canvas"
             >
               <RefreshCw size={14} strokeWidth={2} aria-hidden />
               Actualizar
@@ -790,18 +790,18 @@ export default function App() {
             atenuadas con check, pendientes neutras. Tocar una parada abre la
             gestión (con la ruta en curso). */}
         {route && route.stops.length > 0 && (
-          <section className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-sky/18 dark:bg-navy-700">
+          <section className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
             <div className="mb-2.5 flex items-start justify-between gap-2">
               <div>
-                <div className="text-[15px] font-semibold text-navy dark:text-niebla">
+                <div className="text-[15px] font-semibold text-asfalto dark:text-canvas">
                   Ruta de hoy
                 </div>
-                <div className="text-[11.5px] text-text-tertiary dark:text-sky/70">
+                <div className="text-[11.5px] text-text-tertiary dark:text-gris-senal/70">
                   {route.stops.length} paradas · ~{Math.max(1, Math.round(kmLeft))} km ·
                   regreso al depósito
                 </div>
               </div>
-              <span className="shrink-0 rounded-full bg-navy/10 px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary dark:bg-sky/15 dark:text-sky">
+              <span className="shrink-0 rounded-full bg-asfalto/10 px-2.5 py-0.5 text-[11px] font-semibold text-text-secondary dark:bg-gris-senal/15 dark:text-gris-senal">
                 {ROUTE_STATUS_LABELS[route.status] ?? route.status}
               </span>
             </div>
@@ -835,19 +835,19 @@ export default function App() {
                   : "No se pudieron activar los avisos en este dispositivo",
               );
             }}
-            className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-border bg-white px-3 py-2.5 text-left shadow-soft dark:border-sky/18 dark:bg-navy-700"
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-border bg-white px-3 py-2.5 text-left shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover"
           >
             <Bell
               size={15}
               strokeWidth={2}
               aria-hidden
-              className="shrink-0 text-text-tertiary dark:text-sky"
+              className="shrink-0 text-text-tertiary dark:text-gris-senal"
             />
-            <span className="flex-1 text-[11.5px] leading-snug text-text-secondary dark:text-sky">
+            <span className="flex-1 text-[11.5px] leading-snug text-text-secondary dark:text-gris-senal">
               Activa los avisos para enterarte de rutas asignadas y paradas
               insertadas.
             </span>
-            <span className="shrink-0 text-xs font-semibold text-success dark:text-lima">
+            <span className="shrink-0 text-xs font-semibold text-success dark:text-verde">
               Activar
             </span>
           </button>
@@ -856,12 +856,12 @@ export default function App() {
         {/* Pila de CTAs: un único CTA limón (iniciar ruta) + manifiesto en
             fantasma (Tier 2 §11: verificar la carga antes de salir). */}
         {route && ["DISPATCHED", "IN_PROGRESS"].includes(route.status) && (
-          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-border/60 bg-niebla/95 p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-sky/12 dark:bg-navy-900/95">
+          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-border/60 bg-canvas/95 p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-gris-senal/12 dark:bg-sidebar/95">
             {route.status === "DISPATCHED" && (
               <button
                 onClick={startRoute}
                 disabled={starting}
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lima text-[15px] font-bold text-navy-900 shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-60 disabled:shadow-none"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-sidebar shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-60 disabled:shadow-none"
               >
                 <Play size={16} fill="currentColor" strokeWidth={0} aria-hidden />
                 {starting
@@ -871,7 +871,7 @@ export default function App() {
             )}
             <button
               onClick={() => setLoadSheet(true)}
-              className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl border border-navy/25 bg-transparent text-[13px] font-semibold text-navy transition duration-200 ease-brand dark:border-sky/35 dark:text-sky"
+              className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl border border-asfalto/25 bg-transparent text-[13px] font-semibold text-asfalto transition duration-200 ease-brand dark:border-gris-senal/35 dark:text-gris-senal"
             >
               <ScanBarcode size={14} strokeWidth={2} aria-hidden />
               Escanear manifiesto
@@ -931,7 +931,7 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label="Alerta de pánico"
-            className="w-full rounded-t-2xl border-t border-border bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-sky/25 dark:bg-navy-700"
+            className="w-full rounded-t-2xl border-t border-border bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-gris-senal/25 dark:bg-asfalto-hover"
             onClick={(e) => e.stopPropagation()}
           >
             {sos === "confirm" ? (
@@ -940,14 +940,14 @@ export default function App() {
                   <Siren size={20} strokeWidth={2} aria-hidden />
                   ¿Enviar alerta de pánico?
                 </div>
-                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
+                <p className="mt-1 text-sm text-text-secondary dark:text-gris-senal">
                   Se notificará a la central con tu ubicación. Úsalo solo ante
                   una emergencia real.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy dark:bg-navy-900 dark:text-niebla"
+                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-sidebar dark:text-canvas"
                   >
                     Cancelar
                   </button>
@@ -965,14 +965,14 @@ export default function App() {
                   <Siren size={20} strokeWidth={2} aria-hidden />
                   Alerta enviada
                 </div>
-                <p className="mt-1 text-sm text-text-secondary dark:text-sky">
+                <p className="mt-1 text-sm text-text-secondary dark:text-gris-senal">
                   La central fue notificada. Si sigues en peligro, puedes
                   reenviarla.
                 </p>
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-niebla py-4 text-base font-bold text-navy dark:bg-navy-900 dark:text-niebla"
+                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-sidebar dark:text-canvas"
                   >
                     Cerrar
                   </button>
@@ -1034,9 +1034,9 @@ function Login({
     <div className="flex min-h-screen items-center justify-center p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-white p-6 shadow-soft dark:border-sky/18 dark:bg-navy-700"
+        className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-white p-6 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover"
       >
-        <h1 className="flex items-center gap-2 text-xl font-bold text-navy dark:text-niebla">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-asfalto dark:text-canvas">
           <Wordmark size={24} />
           conductor
         </h1>
@@ -1049,7 +1049,7 @@ function Login({
           </p>
         )}
         <input
-          className="w-full rounded-lg border border-cielo bg-white px-3 py-3 text-base text-navy focus:border-navy focus:outline-none dark:border-sky/25 dark:bg-navy-900 dark:text-niebla dark:placeholder:text-sky/50 dark:focus:border-lima"
+          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
           type="email"
           placeholder="Correo"
           aria-label="Correo electrónico"
@@ -1059,7 +1059,7 @@ function Login({
           onChange={(e) => setEmail(e.target.value)}
         />
         <input
-          className="w-full rounded-lg border border-cielo bg-white px-3 py-3 text-base text-navy focus:border-navy focus:outline-none dark:border-sky/25 dark:bg-navy-900 dark:text-niebla dark:placeholder:text-sky/50 dark:focus:border-lima"
+          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
           type="password"
           placeholder="Contraseña"
           aria-label="Contraseña"
@@ -1075,7 +1075,7 @@ function Login({
         )}
         <button
           disabled={busy}
-          className="min-h-[48px] w-full rounded-lg bg-navy font-bold text-white disabled:opacity-60 dark:bg-lima dark:text-navy-900 dark:shadow-glow"
+          className="min-h-[48px] w-full rounded-lg bg-asfalto font-bold text-white disabled:opacity-60 dark:bg-verde dark:text-sidebar dark:shadow-glow"
         >
           {busy ? "Ingresando…" : "Ingresar"}
         </button>
@@ -1143,51 +1143,51 @@ function LoadManifestSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Manifiesto de carga"
-        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-sky/25 dark:bg-navy-700"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:border-gris-senal/25 dark:bg-asfalto-hover"
         onClick={(e) => e.stopPropagation()}
       >
         <span
           aria-hidden
-          className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-sky/35"
+          className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-gris-senal/35"
         />
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-navy dark:text-niebla">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-asfalto dark:text-canvas">
             <Package
               size={16}
               strokeWidth={1.75}
               aria-hidden
-              className="text-text-secondary dark:text-lima"
+              className="text-text-secondary dark:text-verde"
             />
             Cargar vehículo
           </h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="flex h-11 w-11 items-center justify-center rounded-lg bg-niebla text-navy dark:bg-sky/12 dark:text-sky"
+            className="flex h-11 w-11 items-center justify-center rounded-lg bg-canvas text-asfalto dark:bg-gris-senal/12 dark:text-gris-senal"
           >
             <X size={15} strokeWidth={2} aria-hidden />
           </button>
         </div>
         {message && (
-          <p className="mb-2 rounded-lg bg-lima/30 px-3 py-2 text-xs font-medium text-lime-ink dark:bg-lima/15 dark:text-lima">
+          <p className="mb-2 rounded-lg bg-verde/30 px-3 py-2 text-xs font-medium text-asfalto dark:bg-verde/15 dark:text-verde">
             {message}
           </p>
         )}
         {manifest === null ? (
-          <p className="text-sm text-text-tertiary dark:text-sky/70">
+          <p className="text-sm text-text-tertiary dark:text-gris-senal/70">
             Cargando manifiesto…
           </p>
         ) : (
           <>
-            <p className="mb-1.5 text-sm font-semibold text-navy dark:text-niebla">
+            <p className="mb-1.5 text-sm font-semibold text-asfalto dark:text-canvas">
               {manifest.loaded} de {manifest.total} bultos cargados
             </p>
             <div
               aria-hidden
-              className="mb-3 h-1.5 overflow-hidden rounded-full bg-navy/10 dark:bg-sky/15"
+              className="mb-3 h-1.5 overflow-hidden rounded-full bg-asfalto/10 dark:bg-gris-senal/15"
             >
               <span
-                className="block h-full rounded-full bg-lima"
+                className="block h-full rounded-full bg-verde"
                 style={{
                   width: `${manifest.total > 0 ? Math.round((manifest.loaded / manifest.total) * 100) : 0}%`,
                 }}
@@ -1197,21 +1197,21 @@ function LoadManifestSheet({
               {manifest.orders.map((o) => (
                 <li
                   key={o.orderId}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 dark:border-sky/18"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 dark:border-gris-senal/18"
                 >
                   <div className="min-w-0">
-                    <div className="font-mono text-xs font-bold text-navy dark:text-niebla">
+                    <div className="font-mono text-xs font-bold text-asfalto dark:text-canvas">
                       {o.trackingNumber ?? "—"}
                     </div>
-                    <div className="truncate text-sm text-text-secondary dark:text-sky">
+                    <div className="truncate text-sm text-text-secondary dark:text-gris-senal">
                       {o.customerName}
                     </div>
                   </div>
                   <span
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
                       o.loaded
-                        ? "bg-success-bg text-success dark:bg-lima/18 dark:text-lima"
-                        : "bg-niebla text-navy/50 dark:bg-navy-900 dark:text-sky/60"
+                        ? "bg-success-bg text-success dark:bg-verde/18 dark:text-verde"
+                        : "bg-canvas text-asfalto/50 dark:bg-sidebar dark:text-gris-senal/60"
                     }`}
                   >
                     {o.loaded && <Check size={11} strokeWidth={2.5} aria-hidden />}
@@ -1222,7 +1222,7 @@ function LoadManifestSheet({
             </ul>
             <button
               onClick={() => setScanOpen(true)}
-              className="mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-navy text-sm font-bold text-white dark:border dark:border-sky/25 dark:bg-sky/12 dark:text-niebla"
+              className="mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-asfalto text-sm font-bold text-white dark:border dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-canvas"
             >
               <ScanBarcode size={15} strokeWidth={2} aria-hidden />
               Escanear paquete
@@ -1289,7 +1289,7 @@ function StopRow({
       className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border ${
         failed
           ? "border-danger/40 text-danger dark:border-[#c65454]/60 dark:text-[#ff9d9d]"
-          : "border-navy/20 text-text-tertiary dark:border-sky/30 dark:text-sky/70"
+          : "border-asfalto/20 text-text-tertiary dark:border-gris-senal/30 dark:text-gris-senal/70"
       }`}
     >
       {failed ? (
@@ -1303,8 +1303,8 @@ function StopRow({
       aria-hidden
       className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
         isCurrent
-          ? "bg-lima text-navy-900"
-          : "bg-navy/10 text-navy dark:bg-sky/20 dark:text-sky"
+          ? "bg-verde text-sidebar"
+          : "bg-asfalto/10 text-asfalto dark:bg-gris-senal/20 dark:text-gris-senal"
       }`}
     >
       {stop.sequence}
@@ -1318,7 +1318,7 @@ function StopRow({
         {!last && (
           <span
             aria-hidden
-            className="my-0.5 w-0.5 flex-1 rounded bg-navy/10 dark:bg-sky/20"
+            className="my-0.5 w-0.5 flex-1 rounded bg-asfalto/10 dark:bg-gris-senal/20"
           />
         )}
       </div>
@@ -1332,19 +1332,19 @@ function StopRow({
             <span
               className={`truncate text-[13px] font-semibold ${
                 done
-                  ? "text-text-tertiary dark:text-sky/60"
-                  : "text-navy dark:text-niebla"
+                  ? "text-text-tertiary dark:text-gris-senal/60"
+                  : "text-asfalto dark:text-canvas"
               }`}
             >
               {stop.order.customerName}
             </span>
             {isPickup && !done && (
-              <span className="shrink-0 rounded-md bg-sky-50 px-1.5 py-px text-[10px] font-bold text-info dark:bg-sky/15 dark:text-sky">
+              <span className="shrink-0 rounded-md bg-info-bg px-1.5 py-px text-[10px] font-bold text-info dark:bg-gris-senal/15 dark:text-gris-senal">
                 REC
               </span>
             )}
             {isCurrent && !done && routeActive && (
-              <span className="shrink-0 rounded-full bg-navy px-1.5 py-px text-[10px] font-bold text-white dark:bg-lima/20 dark:text-lima">
+              <span className="shrink-0 rounded-full bg-asfalto px-1.5 py-px text-[10px] font-bold text-white dark:bg-verde/20 dark:text-verde">
                 {arrived ? "En sitio" : "Siguiente"}
               </span>
             )}
@@ -1352,8 +1352,8 @@ function StopRow({
           <span
             className={`block truncate text-[11px] ${
               done
-                ? "text-text-tertiary/70 dark:text-sky/40"
-                : "text-text-tertiary dark:text-sky/70"
+                ? "text-text-tertiary/70 dark:text-gris-senal/40"
+                : "text-text-tertiary dark:text-gris-senal/70"
             }`}
           >
             {address}
@@ -1364,7 +1364,7 @@ function StopRow({
             </span>
           )}
         </span>
-        <span className="mt-0.5 shrink-0 font-mono text-[11px] text-text-secondary dark:text-sky">
+        <span className="mt-0.5 shrink-0 font-mono text-[11px] text-text-secondary dark:text-gris-senal">
           {formatEta(stop.etaMin)}
         </span>
       </div>
@@ -1376,7 +1376,7 @@ function StopRow({
     <button
       onClick={onOpen}
       aria-label={`Gestionar parada ${stop.sequence}: ${stop.order.customerName}`}
-      className="-mx-1.5 block min-h-11 w-full rounded-lg px-1.5 text-left transition duration-200 ease-brand active:bg-navy/5 dark:active:bg-sky/10"
+      className="-mx-1.5 block min-h-11 w-full rounded-lg px-1.5 text-left transition duration-200 ease-brand active:bg-asfalto/5 dark:active:bg-gris-senal/10"
     >
       {content}
     </button>
@@ -1618,10 +1618,10 @@ function StopActionSheet({
   }
 
   const navButtonClass =
-    "flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong bg-sky-50 text-[12.5px] font-semibold text-navy dark:border-sky/25 dark:bg-sky/12 dark:text-[#dfe5ec]";
+    "flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-border-strong bg-info-bg text-[12.5px] font-semibold text-asfalto dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-[#dfe5ec]";
 
   const evidenceTileClass =
-    "flex min-h-[88px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-navy/30 text-xs font-semibold text-text-secondary transition duration-200 ease-brand dark:border-sky/35 dark:text-sky";
+    "flex min-h-[88px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-asfalto/30 text-xs font-semibold text-text-secondary transition duration-200 ease-brand dark:border-gris-senal/35 dark:text-gris-senal";
 
   return (
     <div className="fixed inset-0 z-20 flex items-end bg-black/40" onClick={onClose}>
@@ -1629,7 +1629,7 @@ function StopActionSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`Gestionar entrega de la parada ${stop.sequence}`}
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-niebla p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-sky/25 dark:bg-navy-900"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-canvas p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-gris-senal/25 dark:bg-sidebar"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barra superior: volver + "Parada N de M" + SOS (mismo botón fijo). */}
@@ -1637,15 +1637,15 @@ function StopActionSheet({
           <button
             onClick={onClose}
             aria-label="Volver a la ruta"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white text-navy dark:border-sky/25 dark:bg-navy-700 dark:text-sky"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white text-asfalto dark:border-gris-senal/25 dark:bg-asfalto-hover dark:text-gris-senal"
           >
             <ChevronLeft size={16} strokeWidth={2} aria-hidden />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-navy dark:text-niebla">
+            <div className="text-sm font-semibold text-asfalto dark:text-canvas">
               Parada {stop.sequence} de {totalStops}
             </div>
-            <div className="truncate text-[11px] text-text-tertiary dark:text-sky/70">
+            <div className="truncate text-[11px] text-text-tertiary dark:text-gris-senal/70">
               Ruta <span className="font-mono">{plate}</span> · en curso
             </div>
           </div>
@@ -1653,22 +1653,22 @@ function StopActionSheet({
         </div>
 
         {/* Contexto de la parada PRIMERO: evita confirmar la entrega equivocada. */}
-        <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-sky/18 dark:bg-navy-700">
+        <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-base font-semibold text-navy dark:text-niebla">
+              <div className="truncate text-base font-semibold text-asfalto dark:text-canvas">
                 {stop.order.customerName}
               </div>
-              <div className="mt-0.5 text-xs text-text-secondary dark:text-sky">
+              <div className="mt-0.5 text-xs text-text-secondary dark:text-gris-senal">
                 {sheetAddress}
               </div>
               {stop.order.trackingNumber && (
-                <div className="mt-1 font-mono text-[10.5px] text-text-tertiary dark:text-sky/70">
+                <div className="mt-1 font-mono text-[10.5px] text-text-tertiary dark:text-gris-senal/70">
                   {stop.order.trackingNumber}
                 </div>
               )}
             </div>
-            <span className="shrink-0 rounded-md bg-lima/25 px-2 py-0.5 text-[10.5px] font-bold text-lime-ink dark:bg-lima/20 dark:text-lima">
+            <span className="shrink-0 rounded-md bg-verde/25 px-2 py-0.5 text-[10.5px] font-bold text-asfalto dark:bg-verde/20 dark:text-verde">
               {isPickup ? "REC" : "ENT"}
             </span>
           </div>
@@ -1683,8 +1683,8 @@ function StopActionSheet({
             <dl className="mt-2 space-y-0.5 text-xs">
               {stop.order.customProperties.map((cp) => (
                 <div key={cp.id} className="flex gap-1">
-                  <dt className="text-navy/50 dark:text-sky/60">{cp.name}:</dt>
-                  <dd className="font-semibold text-navy dark:text-niebla">{cp.value}</dd>
+                  <dt className="text-asfalto/50 dark:text-gris-senal/60">{cp.name}:</dt>
+                  <dd className="font-semibold text-asfalto dark:text-canvas">{cp.value}</dd>
                 </div>
               ))}
             </dl>
@@ -1741,7 +1741,7 @@ function StopActionSheet({
               }
             }}
             disabled={arriveBusy}
-            className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-navy/25 bg-transparent text-[13px] font-semibold text-navy disabled:opacity-60 dark:border-sky/35 dark:text-sky"
+            className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-asfalto/25 bg-transparent text-[13px] font-semibold text-asfalto disabled:opacity-60 dark:border-gris-senal/35 dark:text-gris-senal"
           >
             <MapPin size={14} strokeWidth={2} aria-hidden />
             {arriveBusy ? "Registrando llegada…" : "Llegué al punto"}
@@ -1754,16 +1754,16 @@ function StopActionSheet({
           (pinDriftM <= GEOFENCE_RADIUS_M ? (
             <div
               role="status"
-              className="mt-2.5 flex items-center gap-2 rounded-xl border border-success/25 bg-success-bg px-3 py-2.5 dark:border-lima/40 dark:bg-lima/14"
+              className="mt-2.5 flex items-center gap-2 rounded-xl border border-success/25 bg-success-bg px-3 py-2.5 dark:border-verde/40 dark:bg-verde/14"
             >
               <span
                 aria-hidden
-                className="h-2 w-2 shrink-0 animate-livepulse rounded-full bg-success dark:bg-lima"
+                className="h-2 w-2 shrink-0 animate-livepulse rounded-full bg-success dark:bg-verde"
               />
-              <span className="text-[12.5px] font-semibold text-success dark:text-lima">
+              <span className="text-[12.5px] font-semibold text-success dark:text-verde">
                 Estás en el punto de entrega
               </span>
-              <span className="ml-auto shrink-0 text-[11px] text-text-secondary dark:text-sky">
+              <span className="ml-auto shrink-0 text-[11px] text-text-secondary dark:text-gris-senal">
                 a ~{pinDriftM} m
               </span>
             </div>
@@ -1782,14 +1782,14 @@ function StopActionSheet({
           ))}
 
         {!actionsEnabled ? (
-          <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 dark:border-sky/18 dark:bg-navy-700">
+          <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2.5 dark:border-gris-senal/18 dark:bg-asfalto-hover">
             <Info
               size={14}
               strokeWidth={2}
               aria-hidden
-              className="shrink-0 text-text-tertiary dark:text-sky/70"
+              className="shrink-0 text-text-tertiary dark:text-gris-senal/70"
             />
-            <span className="text-[11.5px] text-text-secondary dark:text-sky">
+            <span className="text-[11.5px] text-text-secondary dark:text-gris-senal">
               Inicia la ruta para registrar llegada y confirmar la{" "}
               {isPickup ? "recogida" : "entrega"}.
             </span>
@@ -1798,9 +1798,9 @@ function StopActionSheet({
           <div className="mt-2.5 space-y-2.5">
             {/* Evidencia: foto/escaneo como fichas, requisito visible desde el
                 inicio (no como error al final). */}
-            <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-sky/18 dark:bg-navy-700">
+            <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-navy dark:text-niebla">
+                <span className="text-[13px] font-semibold text-asfalto dark:text-canvas">
                   Evidencia de {isPickup ? "recogida" : "entrega"}
                 </span>
                 {requiresPhoto && (
@@ -1812,13 +1812,13 @@ function StopActionSheet({
 
               {/* Tipo de parada (política POD por tipo): define qué evidencia se exige. */}
               <label className="mb-2 block text-sm">
-                <span className="mb-1 block text-xs font-medium text-text-secondary dark:text-sky/70">
+                <span className="mb-1 block text-xs font-medium text-text-secondary dark:text-gris-senal/70">
                   {isPickup ? "Tipo de recogida" : "Tipo de entrega"}
                 </span>
                 <select
                   value={stopType}
                   onChange={(e) => setStopType(e.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-cielo bg-white px-3 text-navy focus:border-navy focus:outline-none dark:border-sky/25 dark:bg-navy-900 dark:text-niebla dark:focus:border-lima"
+                  className="min-h-11 w-full rounded-lg border border-gris-senal bg-white px-3 text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:focus:border-verde"
                 >
                   {typeOptions.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -1830,7 +1830,7 @@ function StopActionSheet({
 
               {/* Política POD del comercio: qué pruebas exige para esta entrega. */}
               {podRequired.length > 0 && (
-                <div className="mb-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-info dark:bg-sky/12 dark:text-sky">
+                <div className="mb-2 rounded-lg bg-info-bg px-3 py-2 text-xs text-info dark:bg-gris-senal/12 dark:text-gris-senal">
                   Este cliente exige:{" "}
                   {[
                     requiresPhoto ? "foto de evidencia" : null,
@@ -1847,7 +1847,7 @@ function StopActionSheet({
                   <button
                     onClick={() => photoRef.current?.click()}
                     aria-label="Cambiar foto de evidencia"
-                    className="relative flex min-h-[88px] items-center justify-center overflow-hidden rounded-xl border border-border dark:border-sky/25"
+                    className="relative flex min-h-[88px] items-center justify-center overflow-hidden rounded-xl border border-border dark:border-gris-senal/25"
                   >
                     <img
                       src={photo.preview}
@@ -1871,17 +1871,17 @@ function StopActionSheet({
                     Escanear paquete
                   </button>
                 ) : scan.match ? (
-                  <div className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-xl border border-success/25 bg-success-bg px-2 text-center dark:border-lima/40 dark:bg-lima/14">
+                  <div className="flex min-h-[88px] flex-col items-center justify-center gap-1 rounded-xl border border-success/25 bg-success-bg px-2 text-center dark:border-verde/40 dark:bg-verde/14">
                     <Check
                       size={18}
                       strokeWidth={2.5}
                       aria-hidden
-                      className="text-success dark:text-lima"
+                      className="text-success dark:text-verde"
                     />
-                    <span className="text-xs font-semibold text-success dark:text-lima">
+                    <span className="text-xs font-semibold text-success dark:text-verde">
                       Paquete verificado
                     </span>
-                    <span className="font-mono text-[10px] text-text-secondary dark:text-sky">
+                    <span className="font-mono text-[10px] text-text-secondary dark:text-gris-senal">
                       {scan.code}
                     </span>
                   </div>
@@ -1920,7 +1920,7 @@ function StopActionSheet({
 
               {!isPickup && (
                 <input
-                  className="mt-2 min-h-11 w-full rounded-[10px] border border-cielo bg-white px-3 text-[13px] text-navy focus:border-navy focus:outline-none dark:border-sky/25 dark:bg-navy-900 dark:text-niebla dark:placeholder:text-sky/50 dark:focus:border-lima"
+                  className="mt-2 min-h-11 w-full rounded-[10px] border border-gris-senal bg-white px-3 text-[13px] text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
                   placeholder={
                     requiresReceiver ? "¿Quién recibe? — nombre (obligatorio)" : "¿Quién recibe? — nombre"
                   }
@@ -1948,7 +1948,7 @@ function StopActionSheet({
 
             {/* Pin-drop: el tap que alimenta el grafo de direcciones. */}
             {offerPinFix && (
-              <label className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2 text-xs text-info dark:bg-sky/12 dark:text-sky">
+              <label className="flex items-start gap-2 rounded-lg bg-info-bg px-3 py-2 text-xs text-info dark:bg-gris-senal/12 dark:text-gris-senal">
                 <input
                   type="checkbox"
                   checked={fixPin}
@@ -1964,14 +1964,14 @@ function StopActionSheet({
 
             {/* Cola offline como estado del sistema, no como error. */}
             {!online && (
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 dark:border-sky/18 dark:bg-navy-700">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 dark:border-gris-senal/18 dark:bg-asfalto-hover">
                 <Loader
                   size={14}
                   strokeWidth={2}
                   aria-hidden
                   className="shrink-0 text-warning dark:text-[#e8b96a]"
                 />
-                <span className="text-[11.5px] text-text-secondary dark:text-sky">
+                <span className="text-[11.5px] text-text-secondary dark:text-gris-senal">
                   Sin señal: la confirmación se encola y se envía sola al volver
                   la conexión.
                 </span>
@@ -1987,7 +1987,7 @@ function StopActionSheet({
             <button
               onClick={deliver}
               disabled={busy || (requiresPhoto && !photo)}
-              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-lima text-[15px] font-bold text-navy-900 shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-50 disabled:shadow-none"
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-sidebar shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-50 disabled:shadow-none"
             >
               <Check size={16} strokeWidth={2.5} aria-hidden />
               {busy
@@ -2015,7 +2015,7 @@ function StopActionSheet({
                   className={`min-h-11 rounded-lg border px-2 py-2.5 text-sm font-medium ${
                     failReason === value
                       ? "border-danger/40 bg-danger-bg text-danger dark:border-[#c65454]/60 dark:bg-danger/18 dark:text-[#ff9d9d]"
-                      : "border-border bg-white text-navy dark:border-sky/20 dark:bg-navy-700 dark:text-niebla"
+                      : "border-border bg-white text-asfalto dark:border-gris-senal/20 dark:bg-asfalto-hover dark:text-canvas"
                   }`}
                 >
                   {label}
@@ -2028,7 +2028,7 @@ function StopActionSheet({
               <button
                 onClick={() => photoRef.current?.click()}
                 aria-label="Cambiar foto de evidencia"
-                className="relative flex min-h-[88px] w-full items-center justify-center overflow-hidden rounded-xl border border-border dark:border-sky/25"
+                className="relative flex min-h-[88px] w-full items-center justify-center overflow-hidden rounded-xl border border-border dark:border-gris-senal/25"
               >
                 <img
                   src={photo.preview}
@@ -2045,7 +2045,7 @@ function StopActionSheet({
                 className={`flex min-h-[88px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed text-xs font-semibold ${
                   EVIDENCE_REQUIRED_REASONS.includes(failReason)
                     ? "border-danger/40 text-danger dark:border-[#c65454]/60 dark:text-[#ff9d9d]"
-                    : "border-navy/30 text-text-secondary dark:border-sky/35 dark:text-sky"
+                    : "border-asfalto/30 text-text-secondary dark:border-gris-senal/35 dark:text-gris-senal"
                 }`}
               >
                 <Camera size={20} strokeWidth={1.75} aria-hidden />
@@ -2060,14 +2060,14 @@ function StopActionSheet({
             )}
 
             {!online && (
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 dark:border-sky/18 dark:bg-navy-700">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 dark:border-gris-senal/18 dark:bg-asfalto-hover">
                 <Loader
                   size={14}
                   strokeWidth={2}
                   aria-hidden
                   className="shrink-0 text-warning dark:text-[#e8b96a]"
                 />
-                <span className="text-[11.5px] text-text-secondary dark:text-sky">
+                <span className="text-[11.5px] text-text-secondary dark:text-gris-senal">
                   Sin señal: el registro se encola y se envía solo al volver la
                   conexión.
                 </span>
@@ -2088,7 +2088,7 @@ function StopActionSheet({
             </button>
             <button
               onClick={() => setMode("deliver")}
-              className="flex min-h-[46px] w-full items-center justify-center rounded-xl border border-navy/25 bg-transparent text-[13px] font-semibold text-navy dark:border-sky/35 dark:text-sky"
+              className="flex min-h-[46px] w-full items-center justify-center rounded-xl border border-asfalto/25 bg-transparent text-[13px] font-semibold text-asfalto dark:border-gris-senal/35 dark:text-gris-senal"
             >
               Volver a {isPickup ? "la recogida" : "la entrega"}
             </button>

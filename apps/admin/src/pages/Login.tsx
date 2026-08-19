@@ -29,10 +29,10 @@ export default function Login() {
         onSubmit={onSubmit}
         className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8"
       >
-        <h1 className="text-3xl font-bold text-niebla">
+        <h1 className="text-3xl font-bold text-canvas">
           <Wordmark size={24} className="text-humo" />
         </h1>
-        <p className="mb-6 mt-1 text-sm text-cielo">Panel de plataforma</p>
+        <p className="mb-6 mt-1 text-sm text-gris-senal">Panel de plataforma</p>
         <div className="space-y-4">
           <input
             className={inputClass}

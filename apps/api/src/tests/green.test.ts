@@ -193,6 +193,6 @@ describe("informe verde mensual (CO₂)", () => {
     expect(r.orders.length).toBe(2);
     expect(r.co2SavedKg).toBeGreaterThan(0);
     expect(r.orders[0].vehicle.isElectric).toBe(true);
-    expect(r.orders[0].trackingNumber).toMatch(/^MV-/);
+    expect(r.orders[0].trackingNumber).toMatch(/^DG-/);
   });
 });

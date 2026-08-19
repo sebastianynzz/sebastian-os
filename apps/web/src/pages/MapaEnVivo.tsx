@@ -94,7 +94,7 @@ interface Command {
 const CMD_STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "PENDIENTE", cls: "text-warning" },
   SENT: { label: "ENVIADO", cls: "text-info" },
-  ACK: { label: "CONFIRMADO", cls: "text-lime-ink" },
+  ACK: { label: "CONFIRMADO", cls: "text-asfalto" },
   REJECTED: { label: "RECHAZADO", cls: "text-danger" },
 };
 
@@ -165,7 +165,7 @@ function SocBar({ pct, track, className = "" }: { pct: number; track: string; cl
   return (
     <span aria-hidden="true" className={`block h-[5px] overflow-hidden rounded-full ${track} ${className}`}>
       <span
-        className={`block h-full ${clamped < 30 ? "bg-warning" : "bg-lima"}`}
+        className={`block h-full ${clamped < 30 ? "bg-warning" : "bg-verde"}`}
         style={{ width: `${clamped}%` }}
       />
     </span>
@@ -178,7 +178,7 @@ function TelemetryTile({
   label,
   value,
   unit,
-  valueCls = "text-navy",
+  valueCls = "text-asfalto",
   children,
 }: {
   icon: ReactNode;
@@ -349,14 +349,14 @@ export default function MapaEnVivo() {
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className="h-2.5 w-2.5 border-2 border-white bg-navy shadow-[0_0_0_1px_rgba(0,0,0,.2)]"
+                className="h-2.5 w-2.5 border-2 border-white bg-asfalto shadow-[0_0_0_1px_rgba(0,0,0,.2)]"
               />
               Depósito
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-lima/85 text-[9px] font-bold text-navy"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-verde/85 text-[9px] font-bold text-asfalto"
               >
                 n
               </span>
@@ -369,7 +369,7 @@ export default function MapaEnVivo() {
         <div className="flex min-h-[600px] flex-col gap-3">
           <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-3 shadow-soft">
             <div className="flex items-center justify-between px-1">
-              <span className="text-[13px] font-semibold text-navy">Vehículos</span>
+              <span className="text-[13px] font-semibold text-asfalto">Vehículos</span>
               <span className="text-[11px] text-text-tertiary">
                 {reporting} de {entries.length} reportando
               </span>
@@ -388,8 +388,8 @@ export default function MapaEnVivo() {
                     key={e.vehicle.id}
                     onClick={() => selectVehicle(e.vehicle.id)}
                     aria-pressed={isSel}
-                    className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy ${
-                      isSel ? "border-sky bg-sky-50" : "border-transparent hover:bg-niebla"
+                    className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-asfalto ${
+                      isSel ? "border-gris-senal bg-info-bg" : "border-transparent hover:bg-canvas"
                     }`}
                   >
                     <span
@@ -398,7 +398,7 @@ export default function MapaEnVivo() {
                         e.vehicle.engineOn ? "bg-success" : "bg-danger"
                       }`}
                     />
-                    <span className="font-mono text-[13px] font-bold text-navy">
+                    <span className="font-mono text-[13px] font-bold text-asfalto">
                       {e.vehicle.plate}
                     </span>
                     <span className="truncate text-[11px] text-text-secondary">
@@ -414,7 +414,7 @@ export default function MapaEnVivo() {
                       ) : soc != null ? (
                         <SocBar
                           pct={soc}
-                          track={isSel ? "bg-surface" : "bg-niebla"}
+                          track={isSel ? "bg-surface" : "bg-canvas"}
                           className="w-[54px]"
                         />
                       ) : null}
@@ -422,7 +422,7 @@ export default function MapaEnVivo() {
                         className={`text-[11px] font-semibold ${
                           soc != null && soc < 30 && !e.vehicle.immobilized
                             ? "text-warning"
-                            : "text-navy"
+                            : "text-asfalto"
                         }`}
                       >
                         {soc != null ? `${soc.toFixed(0)}%` : "—"}
@@ -438,7 +438,7 @@ export default function MapaEnVivo() {
             <div className="flex flex-1 flex-col gap-2.5 rounded-lg border border-border bg-surface p-3.5 shadow-soft">
               {/* Cabecera: placa + tipo + estado + frescura del ping */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[15px] font-bold text-navy">
+                <span className="font-mono text-[15px] font-bold text-asfalto">
                   {selectedEntry.vehicle.plate}
                 </span>
                 <Badge tone="info">{selectedEntry.vehicle.type}</Badge>
@@ -460,8 +460,8 @@ export default function MapaEnVivo() {
                 onClick={() => setFollow((f) => !f)}
                 aria-pressed={follow}
                 disabled={!followTarget}
-                className={`inline-flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50 ${
-                  follow ? "bg-navy text-white" : "bg-niebla text-navy hover:bg-sky-50"
+                className={`inline-flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50 ${
+                  follow ? "bg-asfalto text-white" : "bg-canvas text-asfalto hover:bg-info-bg"
                 }`}
               >
                 <MapPin aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
@@ -483,12 +483,12 @@ export default function MapaEnVivo() {
                   label="Carga (SoC)"
                   value={selectedEntry.vehicle.socPercent?.toFixed(0) ?? "—"}
                   unit="%"
-                  valueCls="text-lime-ink"
+                  valueCls="text-asfalto"
                 >
                   {selectedEntry.vehicle.socPercent != null && (
                     <SocBar
                       pct={selectedEntry.vehicle.socPercent}
-                      track="bg-niebla"
+                      track="bg-canvas"
                       className="mt-1 w-full"
                     />
                   )}

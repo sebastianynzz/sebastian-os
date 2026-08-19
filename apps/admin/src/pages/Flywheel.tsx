@@ -60,12 +60,12 @@ export default function Flywheel() {
 
   if (error) {
     return (
-      <div className="py-10 text-center text-cielo">
+      <div className="py-10 text-center text-gris-senal">
         No se pudo cargar el monitor del flywheel. Reintenta en unos segundos.
       </div>
     );
   }
-  if (!data) return <div className="py-10 text-center text-cielo">Cargando flywheel…</div>;
+  if (!data) return <div className="py-10 text-center text-gris-senal">Cargando flywheel…</div>;
 
   const days = data.daily.map((d) => d.day);
 
@@ -73,7 +73,7 @@ export default function Flywheel() {
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold text-white">Data flywheel</h1>
-        <p className="text-sm text-cielo">
+        <p className="text-sm text-gris-senal">
           Crecimiento del grafo de direcciones y su unit economics: cada acierto
           del grafo es una geocodificación que no se pagó.
         </p>
@@ -81,22 +81,22 @@ export default function Flywheel() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card>
-          <div className="text-3xl font-bold text-lima">{data.graph.totalPins}</div>
-          <div className="text-xs text-cielo">pines aprendidos (total)</div>
+          <div className="text-3xl font-bold text-verde">{data.graph.totalPins}</div>
+          <div className="text-xs text-gris-senal">pines aprendidos (total)</div>
         </Card>
         <Card>
           <div className="text-3xl font-bold text-white">+{data.graph.newPins7d}</div>
-          <div className="text-xs text-cielo">pines nuevos · 7 días</div>
+          <div className="text-xs text-gris-senal">pines nuevos · 7 días</div>
         </Card>
         <Card>
           <div className="text-3xl font-bold text-white">{pct(data.geocoding30d.hitRate)}</div>
-          <div className="text-xs text-cielo">graph hit rate · 30 días</div>
+          <div className="text-xs text-gris-senal">graph hit rate · 30 días</div>
         </Card>
         <Card>
-          <div className="text-3xl font-bold text-lima">
+          <div className="text-3xl font-bold text-verde">
             {data.geocoding30d.paidCallsAvoided}
           </div>
-          <div className="text-xs text-cielo">llamadas pagas evitadas · 30 días</div>
+          <div className="text-xs text-gris-senal">llamadas pagas evitadas · 30 días</div>
         </Card>
       </div>
 
@@ -105,25 +105,25 @@ export default function Flywheel() {
       <Card title="Unit economics del grafo">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <div className="text-3xl font-bold text-lima">
+            <div className="text-3xl font-bold text-verde">
               {usd(data.geocoding30d.estimatedSavingsUsd)}
             </div>
-            <div className="text-xs text-cielo">ahorro estimado · 30 días</div>
+            <div className="text-xs text-gris-senal">ahorro estimado · 30 días</div>
           </div>
           <div>
             <div className="text-3xl font-bold text-white">
               {usd(data.graph.lifetimeSavingsUsd)}
             </div>
-            <div className="text-xs text-cielo">ahorro acumulado (vida del grafo)</div>
+            <div className="text-xs text-gris-senal">ahorro acumulado (vida del grafo)</div>
           </div>
           <div>
             <div className="text-3xl font-bold text-white">
               {data.graph.lifetimeReuses.toLocaleString("es-CO")}
             </div>
-            <div className="text-xs text-cielo">reusos del grafo (llamadas evitadas, total)</div>
+            <div className="text-xs text-gris-senal">reusos del grafo (llamadas evitadas, total)</div>
           </div>
         </div>
-        <p className="mt-3 text-xs text-cielo/60">
+        <p className="mt-3 text-xs text-gris-senal/60">
           Estimado a {usd(data.costPerGeocodeUsd)} por geocodificación (tarifa de
           referencia de Google Geocoding). Cada acierto del grafo es una llamada
           paga a Google/Lupap que no se realizó.
@@ -154,7 +154,7 @@ export default function Flywheel() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Cobertura por ciudad">
           {data.graph.byCity.length === 0 ? (
-            <p className="text-sm text-cielo">Aún no hay pines con ciudad registrada.</p>
+            <p className="text-sm text-gris-senal">Aún no hay pines con ciudad registrada.</p>
           ) : (
             <table className="w-full text-sm text-white">
               <tbody>
@@ -171,11 +171,11 @@ export default function Flywheel() {
 
         <Card title="Grafo por tenant">
           {data.graph.byTenant.length === 0 ? (
-            <p className="text-sm text-cielo">Aún no hay pines aprendidos.</p>
+            <p className="text-sm text-gris-senal">Aún no hay pines aprendidos.</p>
           ) : (
             <table className="w-full text-sm text-white">
               <thead>
-                <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo">
+                <tr className="border-b border-white/10 text-left text-xs uppercase text-gris-senal">
                   <th className="py-2">Tenant</th>
                   <th className="py-2 text-right">Pines</th>
                   <th className="py-2 text-right">Reusos</th>
@@ -200,13 +200,13 @@ export default function Flywheel() {
           {data.geocoding30d.bySource.map((s) => (
             <span
               key={s.source}
-              className="rounded-full border border-white/15 px-3 py-1 text-cielo"
+              className="rounded-full border border-white/15 px-3 py-1 text-gris-senal"
             >
               {s.source}: <span className="font-mono text-white">{s.count}</span>
             </span>
           ))}
           {data.geocoding30d.bySource.length === 0 && (
-            <span className="text-cielo">Sin geocodificaciones registradas aún.</span>
+            <span className="text-gris-senal">Sin geocodificaciones registradas aún.</span>
           )}
         </div>
       </Card>

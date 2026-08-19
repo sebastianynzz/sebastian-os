@@ -211,10 +211,12 @@ function groupHasActive(group: NavGroup, pathname: string): boolean {
 
 /** Clase compartida de los enlaces de navegación (activo = limón con navy). */
 function navLinkClass(isActive: boolean): string {
-  return `flex items-center justify-between gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima ${
+  // Manual: el ítem activo es TEXTO Verde Eléctrico + punto ●, sin fondo de
+  // píldora. El resto en Gris Señal.
+  return `flex items-center justify-between gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde ${
     isActive
-      ? "bg-lima font-semibold text-navy"
-      : "font-medium text-cielo hover:bg-white/10 hover:text-white"
+      ? "font-semibold text-verde"
+      : "font-medium text-gris-senal hover:text-humo"
   }`;
 }
 
@@ -250,8 +252,10 @@ function ExceptionsNavBadge({ active }: { active: boolean }) {
   if (!count) return null;
   return (
     <span
-      className={`rounded-full px-1.5 py-px text-[11px] font-bold ${
-        active ? "bg-navy text-lima" : "bg-white/10 text-cielo"
+      // Es un contador de alertas: va en ámbar (atención), nunca en verde —
+      // el verde significa estado positivo confirmado (auditoría D-07).
+      className={`rounded-none px-1.5 py-px text-[11px] font-extrabold tabular-nums ${
+        active ? "bg-ambar text-asfalto" : "bg-ambar/20 text-ambar"
       }`}
     >
       {count}
@@ -310,14 +314,14 @@ function Shell() {
       <div className="flex min-h-screen flex-col">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-verde focus:px-3 focus:py-2 focus:text-sm focus:font-bold focus:text-asfalto"
         >
           Saltar al contenido
         </a>
         <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-border bg-surface px-4 py-3 md:px-6">
           <Wordmark size={20} />
           <span aria-hidden="true" className="hidden h-5 w-px bg-border sm:block" />
-          <span className="hidden truncate text-[13px] font-semibold text-navy sm:block">
+          <span className="hidden truncate text-[13px] font-semibold text-asfalto sm:block">
             Portal de clientes · {session.tenant.name}
           </span>
           <nav
@@ -331,8 +335,8 @@ function Shell() {
                 className={({ isActive }) =>
                   `whitespace-nowrap border-b-2 pb-0.5 text-xs transition duration-200 ease-brand ${
                     isActive
-                      ? "border-lima font-semibold text-navy"
-                      : "border-transparent text-text-tertiary hover:text-navy"
+                      ? "border-verde font-semibold text-asfalto"
+                      : "border-transparent text-text-tertiary hover:text-asfalto"
                   }`
                 }
               >
@@ -342,13 +346,13 @@ function Shell() {
           </nav>
           <span
             aria-hidden="true"
-            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-lima"
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-asfalto text-[10px] font-bold text-verde"
           >
             {initials(session.user.name)}
           </span>
           <button
             onClick={logout}
-            className="shrink-0 text-xs text-text-secondary underline-offset-2 hover:text-navy hover:underline"
+            className="shrink-0 text-xs text-text-secondary underline-offset-2 hover:text-asfalto hover:underline"
           >
             Cerrar sesión
           </button>
@@ -392,16 +396,16 @@ function Shell() {
       {/* a11y: saltar el nav e ir directo al contenido (visible al enfocar con teclado). */}
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-verde focus:px-3 focus:py-2 focus:text-sm focus:font-bold focus:text-asfalto"
       >
         Saltar al contenido
       </a>
       {/* En pantallas pequeñas la barra lateral se vuelve barra superior con menú. */}
-      <aside className="flex shrink-0 flex-col bg-navy md:w-56">
+      <aside className="flex shrink-0 flex-col bg-sidebar md:w-56">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 p-4 md:block">
           <div className="min-w-0">
             <Wordmark size={22} className="text-humo" />
-            <div className="mt-1 truncate text-xs text-cielo">
+            <div className="mt-1 truncate text-xs text-gris-senal">
               {session.tenant.name}
             </div>
           </div>
@@ -442,11 +446,14 @@ function Shell() {
                   onClick={() => toggleGroup(group.id)}
                   aria-expanded={open}
                   aria-controls={`navgroup-${group.id}`}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-cielo/80 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gris-senal transition hover:text-humo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"
                 >
                   {group.step != null && (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-cielo">
+                    <span className="flex shrink-0 items-center gap-0.5 font-display text-[11px] font-extrabold text-gris-senal">
                       {group.step}
+                      <span aria-hidden="true" className="text-verde">
+                        »
+                      </span>
                     </span>
                   )}
                   <GroupIcon
@@ -481,7 +488,15 @@ function Shell() {
                       >
                         {({ isActive }) => (
                           <>
-                            <span className="min-w-0 truncate">{item.label}</span>
+                            <span className="flex min-w-0 items-center gap-2">
+                              {isActive && (
+                                <span
+                                  aria-hidden="true"
+                                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-verde"
+                                />
+                              )}
+                              <span className="min-w-0 truncate">{item.label}</span>
+                            </span>
                             {item.badge === "exceptions" && (
                               <ExceptionsNavBadge active={isActive} />
                             )}
@@ -495,7 +510,7 @@ function Shell() {
             );
           })}
         </nav>
-        <div className="mt-auto hidden border-t border-white/10 p-4 text-xs text-cielo md:block">
+        <div className="mt-auto hidden border-t border-white/10 p-4 text-xs text-gris-senal md:block">
           <div className="mb-2 truncate">{session.user.name}</div>
           <button
             onClick={logout}

@@ -166,14 +166,14 @@ function rateTrend(cur: number | null, prev: number | null): Trend | null {
 
 /** Línea Δ del KPI: flecha lucide 12px + magnitud + «vs ant.» atenuado. */
 function Delta({ trend, hero = false }: { trend: Trend; hero?: boolean }) {
-  const dimCls = hero ? "text-cielo/70" : "text-text-tertiary";
+  const dimCls = hero ? "text-gris-senal/70" : "text-text-tertiary";
   if (trend.dir === "flat") {
     return <span className={dimCls}>— vs ant.</span>;
   }
   const up = trend.dir === "up";
   const mainCls = hero
     ? up
-      ? "text-lima"
+      ? "text-verde"
       : "text-danger-bg"
     : up
       ? "text-success"
@@ -366,10 +366,10 @@ export default function Analitica() {
                     key={r.days}
                     onClick={() => applyPreset(r.days)}
                     aria-pressed={active}
-                    className={`rounded-md px-2.5 py-1 text-xs transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+                    className={`rounded-md px-2.5 py-1 text-xs transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
                       active
-                        ? "bg-navy font-semibold text-white"
-                        : "border border-border bg-surface font-medium text-text-secondary hover:border-border-strong hover:text-navy"
+                        ? "bg-asfalto font-semibold text-white"
+                        : "border border-border bg-surface font-medium text-text-secondary hover:border-border-strong hover:text-asfalto"
                     }`}
                   >
                     {r.label}
@@ -508,7 +508,7 @@ export default function Analitica() {
                 <span className="inline-flex items-center gap-1.5">
                   <span
                     aria-hidden="true"
-                    className="h-[3px] w-2.5 rounded-[2px] bg-navy"
+                    className="h-[3px] w-2.5 rounded-[2px] bg-asfalto"
                   />
                   Creados
                 </span>
@@ -593,7 +593,7 @@ export default function Analitica() {
               <div className="text-xs font-medium uppercase tracking-wide text-text-tertiary">
                 {k.label}
               </div>
-              <div className="mt-1 text-[23px] font-semibold leading-tight text-navy">
+              <div className="mt-1 text-[23px] font-semibold leading-tight text-asfalto">
                 {k.value}
               </div>
             </div>
@@ -609,7 +609,7 @@ export default function Analitica() {
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
             >
               <StatusBadge status={s.status} />
-              <span className="text-lg font-semibold text-navy">{s.count}</span>
+              <span className="text-lg font-semibold text-asfalto">{s.count}</span>
             </div>
           ))}
         </div>
@@ -667,7 +667,7 @@ function SlaByClientCard({
         Promesa del servicio desde la creación del pedido · rango {rangeDays} días
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[12.5px] text-navy">
+        <table className="w-full border-collapse text-[12.5px] text-asfalto">
           <thead>
             <tr className={theadRowClass}>
               <th className="py-1 pr-4 font-semibold">Negocio</th>
@@ -690,7 +690,7 @@ function SlaByClientCard({
                     <span className="inline-flex items-center justify-end gap-1.5">
                       <span
                         aria-hidden="true"
-                        className="h-[5px] w-11 overflow-hidden rounded-full bg-niebla"
+                        className="h-[5px] w-11 overflow-hidden rounded-full bg-canvas"
                       >
                         <span
                           className={`block h-full ${level.barCls}`}
@@ -717,18 +717,18 @@ function SlaByClientCard({
  */
 function CostCard({ report }: { report: CostReport }) {
   return (
-    <div className="rounded-xl border border-navy bg-navy p-4 text-white shadow-soft transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg">
+    <div className="rounded-xl border border-asfalto bg-asfalto p-4 text-white shadow-soft transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg">
       <h2 className="text-sm font-semibold">Costo por entrega</h2>
-      <p className="mt-0.5 text-[10.5px] text-cielo">
+      <p className="mt-0.5 text-[10.5px] text-gris-senal">
         energía-nativo: horas × costo/h + kWh × tarifa
       </p>
-      <div className="mt-2 text-[26px] font-bold leading-tight tracking-[-0.02em] text-lima">
+      <div className="mt-2 text-[26px] font-bold leading-tight tracking-[-0.02em] text-verde">
         {report.costPerDeliveryCop === null ? (
           "—"
         ) : (
           <>
             $ {miles(report.costPerDeliveryCop)}{" "}
-            <span className="text-xs font-medium text-cielo">COP</span>
+            <span className="text-xs font-medium text-gris-senal">COP</span>
           </>
         )}
       </div>
@@ -764,7 +764,7 @@ function FailureCard({ report }: { report: FailureReport }) {
   const showTriage = top !== undefined && top.count > 0 && top.reason === "DIRECCION_ERRADA";
   return (
     <Card title={`Análisis de fallos (${report.total})`}>
-      <div className="flex flex-col gap-[7px] text-xs text-navy">
+      <div className="flex flex-col gap-[7px] text-xs text-asfalto">
         {rows.map((r) => (
           <div key={r.reason} className="flex items-center gap-2">
             <span
@@ -773,7 +773,7 @@ function FailureCard({ report }: { report: FailureReport }) {
             >
               {FAIL_REASON_LABELS[r.reason]}
             </span>
-            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-niebla">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-canvas">
               <span
                 className="block h-full bg-danger/60"
                 style={{ width: `${(r.count / max) * 100}%` }}
@@ -788,7 +788,7 @@ function FailureCard({ report }: { report: FailureReport }) {
       {showTriage && (
         <Link
           to="/direcciones"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-asfalto/25 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
         >
           <MapPinned size={14} strokeWidth={1.75} aria-hidden="true" />
           Dirección errada domina → abrir triage de direcciones

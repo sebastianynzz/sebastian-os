@@ -13,17 +13,17 @@ import { Wordmark } from "./components/brand";
 function Shell() {
   const { admin, loading, logout } = useAuth();
 
-  if (loading) return <div className="p-10 text-center text-cielo">Cargando…</div>;
+  if (loading) return <div className="p-10 text-center text-gris-senal">Cargando…</div>;
   if (!admin) return <Login />;
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-navy">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-asfalto">
         <div className="border-b border-white/10 p-4">
           <div className="text-xl font-bold">
             <Wordmark size={24} className="text-humo" />
           </div>
-          <div className="mt-1 text-xs text-cielo">Plataforma</div>
+          <div className="mt-1 text-xs text-gris-senal">Plataforma</div>
         </div>
         <nav className="flex flex-col gap-1 p-2">
           {[
@@ -39,7 +39,7 @@ function Shell() {
               to={item.to}
               className={({ isActive }) =>
                 `rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive ? "bg-lima text-navy" : "text-cielo hover:bg-white/10"
+                  isActive ? "bg-verde text-asfalto" : "text-gris-senal hover:bg-white/10"
                 }`
               }
             >
@@ -47,9 +47,9 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-white/10 p-4 text-xs text-cielo">
+        <div className="mt-auto border-t border-white/10 p-4 text-xs text-gris-senal">
           <div className="mb-2 truncate">{admin.name}</div>
-          <button onClick={logout} className="text-niebla hover:underline">
+          <button onClick={logout} className="text-canvas hover:underline">
             Cerrar sesión
           </button>
         </div>

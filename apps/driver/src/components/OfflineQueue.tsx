@@ -70,13 +70,13 @@ export function OfflineQueue() {
         className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-semibold text-white shadow-lg ${
           errors > 0
             ? "border-danger/40 bg-danger dark:border-[#c65454] dark:bg-danger"
-            : "border-navy/25 bg-navy dark:border-sky/18 dark:bg-navy-700"
+            : "border-asfalto/25 bg-asfalto dark:border-gris-senal/18 dark:bg-asfalto-hover"
         }`}
       >
         {errors > 0 ? (
           <TriangleAlert size={15} strokeWidth={2} aria-hidden className="shrink-0" />
         ) : (
-          <RefreshCw size={15} strokeWidth={2} aria-hidden className="shrink-0 text-lima" />
+          <RefreshCw size={15} strokeWidth={2} aria-hidden className="shrink-0 text-verde" />
         )}
         <span className="flex-1">
           {errors > 0
@@ -92,19 +92,19 @@ export function OfflineQueue() {
       </button>
 
       {open && (
-        <ul className="mt-1 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-border bg-white p-2 shadow-lg dark:border-sky/18 dark:bg-navy-700">
+        <ul className="mt-1 max-h-64 space-y-1 overflow-y-auto rounded-xl border border-border bg-white p-2 shadow-lg dark:border-gris-senal/18 dark:bg-asfalto-hover">
           {items.map((i) => (
             <li
               key={i.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-2 text-xs dark:border-sky/15"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-2 text-xs dark:border-gris-senal/15"
             >
               <div className="min-w-0">
-                <div className="font-medium text-text-secondary dark:text-sky">{displayLabel(i)}</div>
+                <div className="font-medium text-text-secondary dark:text-gris-senal">{displayLabel(i)}</div>
                 <div
                   className={
                     i.status === "ERROR"
                       ? "text-danger dark:text-[#ff9d9d]"
-                      : "text-text-tertiary dark:text-sky/70"
+                      : "text-text-tertiary dark:text-gris-senal/70"
                   }
                 >
                   {i.status === "ERROR"
@@ -121,7 +121,7 @@ export function OfflineQueue() {
                       retryAction(i.id);
                       void flushQueue().then(refresh);
                     }}
-                    className="min-h-11 rounded-lg bg-navy-900 px-3 font-semibold text-white dark:bg-sky/15 dark:text-niebla"
+                    className="min-h-11 rounded-lg bg-sidebar px-3 font-semibold text-white dark:bg-gris-senal/15 dark:text-canvas"
                   >
                     Reintentar
                   </button>
@@ -130,7 +130,7 @@ export function OfflineQueue() {
                       discardAction(i.id);
                       refresh();
                     }}
-                    className="min-h-11 rounded-lg border border-border px-3 font-semibold text-text-secondary dark:border-sky/25 dark:text-sky"
+                    className="min-h-11 rounded-lg border border-border px-3 font-semibold text-text-secondary dark:border-gris-senal/25 dark:text-gris-senal"
                   >
                     Descartar
                   </button>

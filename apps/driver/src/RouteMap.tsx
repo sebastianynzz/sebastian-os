@@ -141,10 +141,12 @@ export default function RouteMap({
       const pos = geo.current;
       if (!map || !pos) return;
       if (!driverMarkerRef.current) {
+        // Manual, sección Mapas: el conductor es un punto Verde Eléctrico
+        // con anillo.
         driverMarkerRef.current = L.circleMarker([pos.lat, pos.lng], {
           radius: 7,
-          color: "#ffffff",
-          fillColor: "#5a6b18",
+          color: "#F2F5F3",
+          fillColor: "#00E571",
           fillOpacity: 1,
           weight: 2,
         }).addTo(map);
@@ -160,7 +162,7 @@ export default function RouteMap({
       ref={containerRef}
       role="img"
       aria-label="Mapa de la ruta del día"
-      className="h-52 w-full overflow-hidden rounded-xl border border-border shadow-soft dark:border-sky/18"
+      className="h-52 w-full overflow-hidden rounded-xl border border-border shadow-soft dark:border-gris-senal/18"
     />
   );
 }

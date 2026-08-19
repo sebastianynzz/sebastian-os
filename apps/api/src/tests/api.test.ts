@@ -128,7 +128,7 @@ describe("flujo completo MoveOS", () => {
     });
     expect(withCoords.status).toBe(201);
     expect(withCoords.body.status).toBe("GEOCODED");
-    expect(withCoords.body.trackingNumber).toMatch(/^MV-[A-Z2-9]{8}$/);
+    expect(withCoords.body.trackingNumber).toMatch(/^DG-[A-Z2-9]{8}$/);
 
     // Dirección informal sin coordenadas: debe geocodificar (mock en dev).
     const informal = await api("POST", "/orders", adminToken, {

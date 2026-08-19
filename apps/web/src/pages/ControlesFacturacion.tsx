@@ -212,13 +212,13 @@ export default function ControlesFacturacion() {
                   <tbody>
                     {data.invoices.map((inv) => (
                       <tr key={inv.id} className={tableRowClass}>
-                        <td className="py-2 pr-4 font-mono text-xs font-semibold text-navy">
+                        <td className="py-2 pr-4 font-mono text-xs font-semibold text-asfalto">
                           {inv.number}
                         </td>
                         <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {inv.periodMonth}
                         </td>
-                        <td className="py-2 pr-4 text-navy">{COP.format(inv.amountCop)}</td>
+                        <td className="py-2 pr-4 text-asfalto">{COP.format(inv.amountCop)}</td>
                         <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {formatDateTimeBogota(inv.issuedAt)}
                         </td>

@@ -94,11 +94,11 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "consultar_pedido",
     description:
-      "Busca un pedido por número de guía (MV-XXXXXXXX) o id y devuelve su bitácora completa de eventos, prueba de entrega (POD: foto, geofence, receptor), paradas y estado de recuperación. Llámala para responder '¿qué pasó con el pedido X?' o '¿por qué falló?'.",
+      "Busca un pedido por número de guía (DG-XXXXXXXX, o MV-… si es anterior al rebrand) o id y devuelve su bitácora completa de eventos, prueba de entrega (POD: foto, geofence, receptor), paradas y estado de recuperación. Llámala para responder '¿qué pasó con el pedido X?' o '¿por qué falló?'.",
     input_schema: {
       type: "object",
       properties: {
-        guia: { type: "string", description: "Número de guía MV-… o id del pedido" },
+        guia: { type: "string", description: "Número de guía DG-… (o MV-… anterior al rebrand) o id del pedido" },
       },
       required: ["guia"],
       additionalProperties: false,

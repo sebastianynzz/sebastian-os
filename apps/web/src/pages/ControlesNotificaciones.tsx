@@ -12,7 +12,7 @@ import { Badge, Banner, Button, Card, Loading, PageHeader, PillToggle, inputClas
 /* Chip monoespaciado para las variables de plantilla del subtítulo. */
 function Var({ children }: { children: string }) {
   return (
-    <code className="rounded bg-niebla px-1 py-0.5 font-mono text-[11px] text-navy">
+    <code className="rounded bg-canvas px-1 py-0.5 font-mono text-[11px] text-asfalto">
       {children}
     </code>
   );
@@ -100,7 +100,7 @@ export default function ControlesNotificaciones() {
           {rows.map((row) => (
             <Card key={row.event}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2 font-semibold text-navy">
+                <div className="flex flex-wrap items-center gap-2 font-semibold text-asfalto">
                   {NOTIFICATION_EVENT_LABELS[row.event]}
                   {row.isDefault && <Badge tone="neutral">Por defecto</Badge>}
                 </div>

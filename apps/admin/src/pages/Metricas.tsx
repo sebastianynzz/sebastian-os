@@ -116,12 +116,12 @@ type Trend = { text: string; cls: string };
 /** Variación relativa de un conteo (más es mejor). */
 function countTrend(cur: number, prev: number): Trend {
   if (cur === prev) return { text: "—", cls: "text-white/30" };
-  if (prev === 0) return { text: "▲ nuevo", cls: "text-lima" };
+  if (prev === 0) return { text: "▲ nuevo", cls: "text-verde" };
   const pct = ((cur - prev) / prev) * 100;
   const up = cur > prev;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}%`,
-    cls: up ? "text-lima" : "text-red-400",
+    cls: up ? "text-verde" : "text-red-400",
   };
 }
 /** Variación en puntos porcentuales de la tasa de entrega. */
@@ -132,7 +132,7 @@ function rateTrend(cur: number | null, prev: number | null): Trend {
   const up = diff > 0;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pp`,
-    cls: up ? "text-lima" : "text-red-400",
+    cls: up ? "text-verde" : "text-red-400",
   };
 }
 
@@ -240,7 +240,7 @@ export default function Metricas() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Métricas de plataforma</h1>
-          <p className="text-sm text-cielo">
+          <p className="text-sm text-gris-senal">
             {tenantId
               ? `Salud operativa de ${tenantName ?? "tenant"} · ${from} → ${to}`
               : `Toda la plataforma · ${from} → ${to}`}
@@ -255,8 +255,8 @@ export default function Metricas() {
                 onClick={() => applyPreset(p.days)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                   active
-                    ? "bg-lima text-navy"
-                    : "bg-white/10 text-niebla hover:bg-white/20"
+                    ? "bg-verde text-asfalto"
+                    : "bg-white/10 text-canvas hover:bg-white/20"
                 }`}
               >
                 {p.label}
@@ -294,7 +294,7 @@ export default function Metricas() {
           <button
             onClick={() => void exportCsv()}
             disabled={exporting || !!rangeError}
-            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-niebla hover:bg-white/20 disabled:opacity-50"
+            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-canvas hover:bg-white/20 disabled:opacity-50"
           >
             {exporting ? "Exportando…" : "⬇ Exportar CSV"}
           </button>
@@ -313,7 +313,7 @@ export default function Metricas() {
             <span className="text-red-300">No se pudieron cargar las métricas.</span>
             <button
               onClick={() => void loadSeries()}
-              className="rounded-lg bg-lima px-3 py-1.5 font-semibold text-navy"
+              className="rounded-lg bg-verde px-3 py-1.5 font-semibold text-asfalto"
             >
               Reintentar
             </button>
@@ -323,7 +323,7 @@ export default function Metricas() {
 
       {!curSum ? (
         <Card>
-          <p className="py-8 text-center text-cielo">Cargando métricas…</p>
+          <p className="py-8 text-center text-gris-senal">Cargando métricas…</p>
         </Card>
       ) : (
         <>
@@ -357,7 +357,7 @@ export default function Metricas() {
 
           {curSum.created === 0 && curSum.delivered === 0 && (
             <Card>
-              <p className="text-sm text-cielo">
+              <p className="text-sm text-gris-senal">
                 Sin actividad de pedidos en el rango seleccionado.
               </p>
             </Card>
@@ -421,13 +421,13 @@ export default function Metricas() {
                     <div key={a.moduleKey}>
                       <div className="flex justify-between text-xs">
                         <span>{a.nombre}</span>
-                        <span className="text-cielo">
+                        <span className="text-gris-senal">
                           {a.enabledCount}/{a.tenantCount}
                         </span>
                       </div>
                       <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-cielo"
+                          className="h-full rounded-full bg-gris-senal"
                           style={{
                             width: `${a.tenantCount === 0 ? 0 : (a.enabledCount / a.tenantCount) * 100}%`,
                           }}
@@ -456,7 +456,7 @@ function Stat({
 }) {
   return (
     <Card>
-      <div className="text-xs uppercase text-cielo/60">{label}</div>
+      <div className="text-xs uppercase text-gris-senal/60">{label}</div>
       <div className="mt-1 text-2xl font-bold">{value}</div>
       {delta && (
         <div className={`mt-0.5 text-xs ${delta.cls}`}>
@@ -470,7 +470,7 @@ function Stat({
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase text-cielo/60">{label}</div>
+      <div className="text-xs uppercase text-gris-senal/60">{label}</div>
       <div className="mt-1 text-xl font-bold">{value}</div>
     </div>
   );

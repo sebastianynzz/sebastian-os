@@ -81,8 +81,8 @@ function LimeSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={onChange}
-      className={`relative h-[19px] w-[34px] shrink-0 rounded-full transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 ${
-        checked ? "bg-lima" : "bg-border"
+      className={`relative h-[19px] w-[34px] shrink-0 rounded-full transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-40 ${
+        checked ? "bg-verde" : "bg-border"
       }`}
     >
       <span
@@ -151,19 +151,19 @@ export default function Modulos() {
       {!loading && (
         <>
           {/* Banda de núcleo: siempre incluido, sin switches. */}
-          <div className="flex items-center gap-3 rounded-lg bg-navy px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded-lg bg-asfalto px-4 py-3.5">
             <Shield
               aria-hidden="true"
-              className="h-[18px] w-[18px] shrink-0 text-lima"
+              className="h-[18px] w-[18px] shrink-0 text-verde"
               strokeWidth={2}
             />
             <div className="min-w-0 flex-1">
               <div className="text-[13.5px] font-semibold text-white">
                 Núcleo — siempre incluido
               </div>
-              <div className="text-xs text-cielo">{coreList.join(" · ")}</div>
+              <div className="text-xs text-gris-senal">{coreList.join(" · ")}</div>
             </div>
-            <span className="shrink-0 rounded-full bg-lima/90 px-3 py-[3px] text-[11.5px] font-bold text-navy">
+            <span className="shrink-0 rounded-full bg-verde/90 px-3 py-[3px] text-[11.5px] font-bold text-asfalto">
               Incluido
             </span>
           </div>
@@ -199,13 +199,13 @@ export default function Modulos() {
                     <Icon
                       aria-hidden="true"
                       className={`h-4 w-4 shrink-0 ${
-                        lockedOff ? "text-text-tertiary" : "text-navy"
+                        lockedOff ? "text-text-tertiary" : "text-asfalto"
                       }`}
                       strokeWidth={2}
                     />
                     <span
                       className={`flex-1 text-[13.5px] font-semibold ${
-                        lockedOff ? "text-text-tertiary" : "text-navy"
+                        lockedOff ? "text-text-tertiary" : "text-asfalto"
                       }`}
                     >
                       {m.nombre}
@@ -230,7 +230,7 @@ export default function Modulos() {
                       {requires.map((dep) => (
                         <span
                           key={dep}
-                          className="rounded-full bg-sky-50 px-2 py-px font-semibold text-info"
+                          className="rounded-full bg-info-bg px-2 py-px font-semibold text-info"
                         >
                           {moduleName(dep)}
                           {(enabledByKey.get(dep) ?? false) ? " ✓" : ""}

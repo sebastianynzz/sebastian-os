@@ -120,17 +120,17 @@ function SocBar({ soc, kwh }: { soc: number | null; kwh: number | null }) {
     );
   }
   const pct = Math.max(0, Math.min(100, soc));
-  const fill = pct < 20 ? "bg-danger" : pct < 40 ? "bg-warning" : "bg-lima";
+  const fill = pct < 20 ? "bg-danger" : pct < 40 ? "bg-warning" : "bg-verde";
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
         role="img"
         aria-label={`Carga ${soc}%`}
-        className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-niebla"
+        className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-canvas"
       >
         <span className={`block h-full ${fill}`} style={{ width: `${pct}%` }} />
       </span>
-      <span className="font-mono text-xs font-semibold text-navy">{soc}%</span>
+      <span className="font-mono text-xs font-semibold text-asfalto">{soc}%</span>
       {kwh != null && (
         <span className="whitespace-nowrap text-[11px] text-text-tertiary">· {kwh} kWh</span>
       )}
@@ -439,7 +439,7 @@ export default function Vehiculos() {
 
             {/* Cold Box: configuración de zona refrigerada (solo lectura). */}
             {profile.reefer && (
-              <div className="flex items-center gap-2 rounded-lg border border-sky/40 bg-sky-50 px-3 py-2 text-sm text-info sm:col-span-3">
+              <div className="flex items-center gap-2 rounded-lg border border-gris-senal/40 bg-info-bg px-3 py-2 text-sm text-info sm:col-span-3">
                 <Snowflake aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2} />
                 <span>
                   Caja refrigerada <strong>{profile.reefer.unit}</strong> —{" "}
@@ -551,7 +551,7 @@ export default function Vehiculos() {
                       <td
                         className={`py-2 ${atRisk ? "border-l-[3px] border-l-danger pl-1" : ""}`}
                       >
-                        <span className="block font-mono text-[13px] font-bold text-navy">
+                        <span className="block font-mono text-[13px] font-bold text-asfalto">
                           {v.plate}
                         </span>
                         {v.nominalRangeKm != null && (
@@ -577,7 +577,7 @@ export default function Vehiculos() {
                       </td>
                       <td>
                         {p?.reefer ? (
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10.5px] font-semibold text-info">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-info-bg px-2 py-0.5 text-[10.5px] font-semibold text-info">
                             <Snowflake
                               aria-hidden="true"
                               className="h-2.5 w-2.5"
@@ -603,7 +603,7 @@ export default function Vehiculos() {
                           />
                           <select
                             aria-label={`Estado de ${v.plate}`}
-                            className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25 disabled:opacity-50"
+                            className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-asfalto focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25 disabled:opacity-50"
                             value={v.status}
                             disabled={busyId === v.id}
                             onChange={(e) => void patchVehicle(v.id, { status: e.target.value })}
@@ -637,7 +637,7 @@ export default function Vehiculos() {
             <p className="mt-3 flex items-center gap-1.5 text-[11.5px] text-text-tertiary">
               <Zap
                 aria-hidden="true"
-                className="h-3 w-3 shrink-0 text-lime-ink"
+                className="h-3 w-3 shrink-0 text-asfalto"
                 strokeWidth={1}
                 fill="currentColor"
               />

@@ -125,30 +125,30 @@ export function RangeBanner({
     return (
       <div
         role="status"
-        className="rounded-xl border border-success/25 bg-success-bg px-3.5 py-3 shadow-soft dark:border-lima/40 dark:bg-lima/14"
+        className="rounded-xl border border-success/25 bg-success-bg px-3.5 py-3 shadow-soft dark:border-verde/40 dark:bg-verde/14"
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-success dark:text-lima">
+          <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-success dark:text-verde">
             <Zap size={15} fill="currentColor" strokeWidth={0} aria-hidden />
             Batería {Math.round(soc)}% · ~{Math.round(usableKm)} km útiles
           </span>
-          <span className="shrink-0 text-[11.5px] text-text-secondary dark:text-sky">
+          <span className="shrink-0 text-[11.5px] text-text-secondary dark:text-gris-senal">
             faltan ~{needKm} km
           </span>
         </div>
         <div className="mt-1.5 flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-xs text-navy dark:text-[#dfe5ec]">
+          <span className="flex items-center gap-1.5 text-xs text-asfalto dark:text-[#dfe5ec]">
             <Check
               size={13}
               strokeWidth={2.5}
               aria-hidden
-              className="text-success dark:text-lima"
+              className="text-success dark:text-verde"
             />
             Alcanza para terminar la ruta
           </span>
           <button
             onClick={onFindCharger}
-            className="-my-2 min-h-11 shrink-0 text-xs font-semibold text-success underline underline-offset-[3px] dark:text-lima"
+            className="-my-2 min-h-11 shrink-0 text-xs font-semibold text-success underline underline-offset-[3px] dark:text-verde"
           >
             Cargadores
           </button>
@@ -179,7 +179,7 @@ export function RangeBanner({
       </div>
       <div
         aria-hidden
-        className="relative mt-2 h-[7px] overflow-hidden rounded-full bg-navy/10 dark:bg-white/10"
+        className="relative mt-2 h-[7px] overflow-hidden rounded-full bg-asfalto/10 dark:bg-white/10"
       >
         <span
           className="block h-full bg-danger dark:bg-[#c65454]"
@@ -187,7 +187,7 @@ export function RangeBanner({
         />
         <span
           title="necesario para terminar"
-          className="absolute inset-y-0 w-0.5 bg-navy/60 dark:bg-niebla/60"
+          className="absolute inset-y-0 w-0.5 bg-asfalto/60 dark:bg-canvas/60"
           style={{ left: `${markerPct}%` }}
         />
       </div>
@@ -226,24 +226,24 @@ export function EnergyTiles({
       : null;
   return (
     <div className="grid grid-cols-2 gap-2">
-      <div className="rounded-xl border border-border bg-white p-3 shadow-soft dark:border-sky/18 dark:bg-navy-700">
-        <div className="text-[10.5px] text-text-tertiary dark:text-sky/70">
+      <div className="rounded-xl border border-border bg-white p-3 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
+        <div className="text-[10.5px] text-text-tertiary dark:text-gris-senal/70">
           Energía en batería
         </div>
-        <div className="text-lg font-semibold text-navy dark:text-niebla">
+        <div className="text-lg font-semibold text-asfalto dark:text-canvas">
           {kwhLeft !== null ? kwhLeft.toFixed(1) : "—"}{" "}
-          <span className="text-[11px] font-normal text-text-tertiary dark:text-sky/70">
+          <span className="text-[11px] font-normal text-text-tertiary dark:text-gris-senal/70">
             kWh
           </span>
         </div>
       </div>
-      <div className="rounded-xl border border-border bg-white p-3 shadow-soft dark:border-sky/18 dark:bg-navy-700">
-        <div className="text-[10.5px] text-text-tertiary dark:text-sky/70">
+      <div className="rounded-xl border border-border bg-white p-3 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
+        <div className="text-[10.5px] text-text-tertiary dark:text-gris-senal/70">
           Paradas restantes
         </div>
-        <div className="text-lg font-semibold text-navy dark:text-niebla">
+        <div className="text-lg font-semibold text-asfalto dark:text-canvas">
           {pendingStops}{" "}
-          <span className="text-[11px] font-normal text-text-tertiary dark:text-sky/70">
+          <span className="text-[11px] font-normal text-text-tertiary dark:text-gris-senal/70">
             · ~{Math.max(1, Math.round(remainingKm))} km + regreso
           </span>
         </div>
@@ -315,27 +315,27 @@ export function ChargerSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Estaciones de carga cercanas"
-        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-white p-4 pb-[max(1.125rem,env(safe-area-inset-bottom))] shadow-[0_-12px_30px_rgba(0,0,0,.35)] dark:border-sky/25 dark:bg-navy-700"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-white p-4 pb-[max(1.125rem,env(safe-area-inset-bottom))] shadow-[0_-12px_30px_rgba(0,0,0,.35)] dark:border-gris-senal/25 dark:bg-asfalto-hover"
         onClick={(e) => e.stopPropagation()}
       >
         <span
           aria-hidden
-          className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-sky/35"
+          className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-gris-senal/35"
         />
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-navy dark:text-niebla">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-asfalto dark:text-canvas">
             <PlugZap
               size={15}
               strokeWidth={2}
               aria-hidden
-              className="text-success dark:text-lima"
+              className="text-success dark:text-verde"
             />
             Cargadores cercanos
           </h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="flex h-11 w-11 items-center justify-center rounded-lg bg-niebla text-navy dark:bg-sky/12 dark:text-sky"
+            className="flex h-11 w-11 items-center justify-center rounded-lg bg-canvas text-asfalto dark:bg-gris-senal/12 dark:text-gris-senal"
           >
             <X size={15} strokeWidth={2} aria-hidden />
           </button>
@@ -354,10 +354,10 @@ export function ChargerSheet({
           </div>
         )}
         {stations === null && (
-          <p className="text-sm text-text-tertiary dark:text-sky/70">Buscando…</p>
+          <p className="text-sm text-text-tertiary dark:text-gris-senal/70">Buscando…</p>
         )}
         {stations !== null && stations.length === 0 && (
-          <p className="text-sm text-text-tertiary dark:text-sky/70">
+          <p className="text-sm text-text-tertiary dark:text-gris-senal/70">
             No hay estaciones en el directorio todavía.
           </p>
         )}
@@ -370,8 +370,8 @@ export function ChargerSheet({
                 key={s.id}
                 className={`rounded-xl border px-3 py-2.5 ${
                   s.dcFast
-                    ? "border-success/40 bg-lima/10 dark:border-lima/45 dark:bg-lima/8"
-                    : "border-border dark:border-sky/25"
+                    ? "border-success/40 bg-verde/10 dark:border-verde/45 dark:bg-verde/8"
+                    : "border-border dark:border-gris-senal/25"
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -380,10 +380,10 @@ export function ChargerSheet({
                       size={13}
                       strokeWidth={2}
                       aria-label="Depósito"
-                      className="shrink-0 text-success dark:text-lima"
+                      className="shrink-0 text-success dark:text-verde"
                     />
                   ) : s.dcFast ? (
-                    <span className="shrink-0 rounded-full bg-lima px-1.5 py-px text-[10px] font-extrabold text-navy-900">
+                    <span className="shrink-0 rounded-full bg-verde px-1.5 py-px text-[10px] font-extrabold text-sidebar">
                       DC
                     </span>
                   ) : (
@@ -391,19 +391,19 @@ export function ChargerSheet({
                       size={13}
                       strokeWidth={2}
                       aria-hidden
-                      className="shrink-0 text-text-tertiary dark:text-sky"
+                      className="shrink-0 text-text-tertiary dark:text-gris-senal"
                     />
                   )}
-                  <span className="min-w-0 truncate text-[13px] font-semibold text-navy dark:text-niebla">
+                  <span className="min-w-0 truncate text-[13px] font-semibold text-asfalto dark:text-canvas">
                     {s.name}
                   </span>
                   {s.distanceKm !== null && (
-                    <span className="ml-auto shrink-0 font-mono text-xs font-bold text-navy dark:text-niebla">
+                    <span className="ml-auto shrink-0 font-mono text-xs font-bold text-asfalto dark:text-canvas">
                       {s.distanceKm.toFixed(1)} km
                     </span>
                   )}
                 </div>
-                <div className="mb-2 ml-5 mt-0.5 text-[11px] text-text-tertiary dark:text-sky/70">
+                <div className="mb-2 ml-5 mt-0.5 text-[11px] text-text-tertiary dark:text-gris-senal/70">
                   {s.network}
                   {s.address ? ` · ${s.address}` : ""}
                   {s.connectors.length > 0 ? ` · ${s.connectors.join("/")}` : ""}
@@ -416,7 +416,7 @@ export function ChargerSheet({
                     href={nav.waze}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-[9px] bg-sky-50 text-xs font-bold text-navy dark:bg-sky/15 dark:text-[#dfe5ec]"
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-[9px] bg-info-bg text-xs font-bold text-asfalto dark:bg-gris-senal/15 dark:text-[#dfe5ec]"
                   >
                     Waze
                   </a>
@@ -424,7 +424,7 @@ export function ChargerSheet({
                     href={nav.gmaps}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-[9px] bg-success-bg text-xs font-bold text-success dark:bg-lima/18 dark:text-lima"
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-[9px] bg-success-bg text-xs font-bold text-success dark:bg-verde/18 dark:text-verde"
                   >
                     Maps
                   </a>

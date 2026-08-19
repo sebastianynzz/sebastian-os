@@ -134,7 +134,7 @@ function geoLevel(o: Order): GeoLevel {
 }
 
 const GEO_DOT: Record<GeoLevel, { dot: string; title: string }> = {
-  confirmada: { dot: "bg-lima", title: "Dirección confirmada" },
+  confirmada: { dot: "bg-verde", title: "Dirección confirmada" },
   media: { dot: "bg-warning", title: "Dirección informal — confianza media" },
   errada: { dot: "bg-danger", title: "Dirección errada reportada" },
 };
@@ -146,10 +146,10 @@ const STATUS_CARDS: {
   top: string;
   valueClass?: string;
 }[] = [
-  { status: "PENDING", label: "Pendientes", top: "border-t-cielo" },
+  { status: "PENDING", label: "Pendientes", top: "border-t-gris-senal" },
   { status: "ASSIGNED", label: "Asignados", top: "border-t-info" },
-  { status: "IN_TRANSIT", label: "En camino", top: "border-t-navy" },
-  { status: "DELIVERED", label: "Entregados hoy", top: "border-t-lima", valueClass: "text-lime-ink" },
+  { status: "IN_TRANSIT", label: "En camino", top: "border-t-asfalto" },
+  { status: "DELIVERED", label: "Entregados hoy", top: "border-t-verde", valueClass: "text-asfalto" },
   { status: "FAILED", label: "Fallidos", top: "border-t-danger", valueClass: "text-danger" },
 ];
 
@@ -170,11 +170,11 @@ function fmtTs(iso: string): string {
 
 /** Botón fantasma compacto para enlaces (Ver en mapa / Llamar / Corregir). */
 const ghostLinkClass =
-  "inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-2.5 py-1 text-xs font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy";
+  "inline-flex items-center gap-1.5 rounded-md border border-asfalto/25 bg-surface px-2.5 py-1 text-xs font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto";
 
 /** Select compacto de la toolbar unificada. */
 const toolbarSelectClass =
-  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25";
+  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-asfalto focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25";
 
 /** Plantilla CSV — incluye una columna por cada campo personalizado del tenant. */
 function buildCsvTemplate(props: CustomPropDef[]): string {
@@ -587,7 +587,7 @@ export default function Pedidos() {
       {importResult && (
         <div
           role="status"
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-lima bg-lima/30 px-3 py-1.5 text-[13px] text-lime-ink"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-verde bg-verde/30 px-3 py-1.5 text-[13px] text-asfalto"
         >
           <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>
@@ -600,7 +600,7 @@ export default function Pedidos() {
           {importResult.failed > 0 && importFailures.length > 0 && (
             <button
               onClick={() => setShowImportDetail((v) => !v)}
-              className="text-xs font-semibold text-lime-ink underline-offset-2 hover:underline"
+              className="text-xs font-semibold text-asfalto underline-offset-2 hover:underline"
             >
               {showImportDetail ? "Ocultar detalle" : "Ver detalle"}
             </button>
@@ -651,7 +651,10 @@ export default function Pedidos() {
               key={c.status}
               label={c.label}
               value={
-                !active && c.valueClass ? (
+                // El color semántico solo aplica si HAY algo que señalar:
+                // un «0 fallidos» en rojo lee como alarma cuando es la
+                // mejor noticia del tablero.
+                !active && c.valueClass && value > 0 ? (
                   <span className={c.valueClass}>{value}</span>
                 ) : (
                   value
@@ -739,7 +742,7 @@ export default function Pedidos() {
           {activeFilters && (
             <button
               onClick={clearFilters}
-              className="inline-flex items-center gap-1 text-xs font-medium text-text-tertiary transition hover:text-navy"
+              className="inline-flex items-center gap-1 text-xs font-medium text-text-tertiary transition hover:text-asfalto"
             >
               <X aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
               Limpiar
@@ -756,14 +759,14 @@ export default function Pedidos() {
                 key={v.id}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand ${
                   active
-                    ? "bg-navy text-white"
-                    : "border border-border bg-surface text-text-secondary hover:border-border-strong hover:text-navy"
+                    ? "bg-asfalto text-white"
+                    : "border border-border bg-surface text-text-secondary hover:border-border-strong hover:text-asfalto"
                 }`}
               >
                 <button
                   onClick={() => applyView(v)}
                   aria-pressed={active}
-                  className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                  className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                 >
                   {v.name}
                 </button>
@@ -782,7 +785,7 @@ export default function Pedidos() {
           <button
             onClick={() => void saveCurrentView()}
             disabled={!activeFilters}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong px-3 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:border-navy/40 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong px-3 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:border-asfalto/40 hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus aria-hidden="true" className="h-[11px] w-[11px]" strokeWidth={2} />
             Guardar vista
@@ -796,7 +799,7 @@ export default function Pedidos() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-navy">
+              <table className="w-full text-sm text-asfalto">
                 <thead>
                   <tr className={theadRowClass}>
                     <th className="w-36 py-2 font-semibold">Guía</th>
@@ -818,7 +821,7 @@ export default function Pedidos() {
                           /* Virtualización ligera: el navegador omite el render de las
                              filas fuera de pantalla (sin dependencias ni refactor de la
                              tabla); no-op donde no haya soporte. */
-                          className={`cursor-pointer hover:bg-niebla/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
+                          className={`cursor-pointer hover:bg-canvas/60 [content-visibility:auto] [contain-intrinsic-size:auto_44px] ${tableRowClass}`}
                           role="button"
                           tabIndex={0}
                           aria-expanded={isOpen}
@@ -848,7 +851,7 @@ export default function Pedidos() {
                             {o.service ? (
                               <span
                                 title={o.service.name}
-                                className="rounded bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-info"
+                                className="rounded bg-info-bg px-1.5 py-px text-[11px] font-semibold text-info"
                               >
                                 {o.service.identifier}
                               </span>
@@ -892,7 +895,7 @@ export default function Pedidos() {
                           </td>
                         </tr>
                         {isOpen && (
-                          <tr className="border-b border-border/60 bg-sky-50/50">
+                          <tr className="border-b border-border/60 bg-info-bg/50">
                             <td colSpan={7} className="px-4 pb-4 pt-3">
                               <div className="flex flex-col gap-5 md:flex-row md:gap-6">
                                 {/* Bitácora: línea de tiempo limón del OrderEvent. */}
@@ -912,12 +915,12 @@ export default function Pedidos() {
                                             <span
                                               className={`mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full ${
                                                 isLast
-                                                  ? "bg-navy ring-[3px] ring-lima/50"
-                                                  : "bg-lima"
+                                                  ? "bg-asfalto ring-[3px] ring-verde/50"
+                                                  : "bg-verde"
                                               }`}
                                             />
                                             {!isLast && (
-                                              <span className="w-[2px] flex-1 bg-lima/40" />
+                                              <span className="w-[2px] flex-1 bg-verde/40" />
                                             )}
                                           </div>
                                           <div
@@ -928,7 +931,7 @@ export default function Pedidos() {
                                             <span className="font-mono text-[11px] text-text-tertiary">
                                               {fmtTs(ev.createdAt)}
                                             </span>
-                                            <span className="text-[12.5px] font-semibold text-navy">
+                                            <span className="text-[12.5px] font-semibold text-asfalto">
                                               {EVENT_LABELS[ev.type] ?? ev.type}
                                             </span>
                                             {ev.details && (
@@ -963,7 +966,7 @@ export default function Pedidos() {
                                             <dt className="text-text-tertiary">
                                               {p.name}:
                                             </dt>
-                                            <dd className="font-medium text-navy">
+                                            <dd className="font-medium text-asfalto">
                                               {o.customFields?.[p.id]}
                                             </dd>
                                           </div>
@@ -1030,7 +1033,7 @@ export default function Pedidos() {
                   <span className="inline-flex items-center gap-1.5">
                     <span
                       aria-hidden="true"
-                      className="h-2 w-2 rounded-full bg-lima"
+                      className="h-2 w-2 rounded-full bg-verde"
                     />
                     confirmada
                   </span>

@@ -177,7 +177,7 @@ interface Manifest {
 /* ————— Ayudas visuales del revamp (1f) ————— */
 
 const selectClass =
-  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25";
+  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-asfalto focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25";
 
 /** Iniciales del conductor para el avatar (máx. dos palabras). */
 function initials(name: string): string {
@@ -190,7 +190,7 @@ function SocPill({ soc }: { soc: number }) {
   return (
     <span
       className={`inline-flex items-center gap-[3px] rounded-full px-2 py-px text-[11px] font-semibold ${
-        soc < 30 ? "bg-warning-bg text-warning" : "bg-lima/45 text-lime-ink"
+        soc < 30 ? "bg-warning-bg text-warning" : "bg-verde/45 text-asfalto"
       }`}
     >
       <Zap aria-hidden="true" className="h-2.5 w-2.5" fill="currentColor" strokeWidth={0} />
@@ -205,11 +205,11 @@ function DriverIdentity({ name }: { name: string }) {
     <span className="flex items-center gap-[7px]">
       <span
         aria-hidden="true"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-navy text-[11px] font-bold text-white"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-asfalto text-[11px] font-bold text-white"
       >
         {initials(name)}
       </span>
-      <span className="text-[13px] font-medium text-navy">{name}</span>
+      <span className="text-[13px] font-medium text-asfalto">{name}</span>
     </span>
   );
 }
@@ -243,9 +243,9 @@ function RouteProgress({
       </span>
       <span
         aria-hidden="true"
-        className="flex h-1.5 overflow-hidden rounded-full bg-niebla"
+        className="flex h-1.5 overflow-hidden rounded-full bg-canvas"
       >
-        <span className="h-full bg-lima" style={{ width: `${(delivered / total) * 100}%` }} />
+        <span className="h-full bg-verde" style={{ width: `${(delivered / total) * 100}%` }} />
         {failed > 0 && (
           <span
             className="h-full bg-danger opacity-55"
@@ -261,10 +261,10 @@ function RouteProgress({
 function StopNumber({ n, status }: { n: number; status: string }) {
   const tone =
     status === "COMPLETED"
-      ? "bg-navy text-white"
+      ? "bg-asfalto text-white"
       : status === "FAILED"
         ? "bg-danger text-white"
-        : "bg-sky-50 text-info";
+        : "bg-info-bg text-info";
   return (
     <span
       className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${tone}`}
@@ -477,7 +477,7 @@ export default function Rutas() {
             action={
               <Link
                 to="/planificacion"
-                className="rounded-md bg-lima px-4 py-2 text-sm font-semibold text-navy hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                className="rounded-md bg-verde px-4 py-2 text-sm font-semibold text-asfalto hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
               >
                 Ir a Planificación
               </Link>
@@ -496,10 +496,10 @@ export default function Rutas() {
           <Card key={r.id}>
             {/* Encabezado de la ruta: placa + píldoras + chips + clúster derecho. */}
             <div className="mb-1.5 flex flex-wrap items-center gap-2.5">
-              <span className="text-base font-semibold text-navy">
+              <span className="text-base font-semibold text-asfalto">
                 {r.vehicle.plate}
               </span>
-              <span className="rounded-full bg-sky-50 px-2 py-px text-[11px] font-semibold text-info">
+              <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
                 {r.vehicle.type}
               </span>
               {/* EV sin telemetría aún: nunca perder la marca eléctrica. */}
@@ -507,10 +507,10 @@ export default function Rutas() {
                 (r.vehicle.socPercent != null ? (
                   <SocPill soc={r.vehicle.socPercent} />
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-lime-ink">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-asfalto">
                     <Zap
                       aria-hidden="true"
-                      className="h-3 w-3 fill-lime-ink text-lime-ink"
+                      className="h-3 w-3 fill-asfalto text-asfalto"
                       strokeWidth={2}
                     />
                     EV
@@ -574,7 +574,7 @@ export default function Rutas() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px] text-navy">
+              <table className="w-full text-[13px] text-asfalto">
                 <thead>
                   <tr className={theadRowClass}>
                     <th className="w-[70px] py-1.5 font-semibold">#</th>
@@ -607,8 +607,8 @@ export default function Rutas() {
                             <span
                               className={`rounded px-1 py-0.5 text-[10px] font-bold ${
                                 s.kind === "PICKUP"
-                                  ? "bg-cielo/40 text-navy"
-                                  : "bg-lima/50 text-navy"
+                                  ? "bg-gris-senal/40 text-asfalto"
+                                  : "bg-verde/50 text-asfalto"
                               }`}
                             >
                               {s.kind === "PICKUP" ? "REC" : "ENT"}
@@ -632,7 +632,7 @@ export default function Rutas() {
                                   target="_blank"
                                   rel="noreferrer"
                                   aria-label="Ver foto de la entrega"
-                                  className="shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                                  className="shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                                 >
                                   <img
                                     src={s.pod.photoUrl}
@@ -643,7 +643,7 @@ export default function Rutas() {
                               ) : s.pod.geofenceOk !== false ? (
                                 <span
                                   aria-hidden="true"
-                                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] bg-niebla text-text-tertiary"
+                                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] bg-canvas text-text-tertiary"
                                 >
                                   <Camera className="h-3 w-3" strokeWidth={2} />
                                 </span>
@@ -672,7 +672,7 @@ export default function Rutas() {
                               // Recuperación de la entrega fallida → cockpit de excepciones (1b).
                               <Link
                                 to="/excepciones"
-                                className="whitespace-nowrap text-[11px] font-semibold text-danger hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                                className="whitespace-nowrap text-[11px] font-semibold text-danger hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                               >
                                 Recuperar →
                               </Link>
@@ -755,7 +755,7 @@ export default function Rutas() {
                             className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                               o.loaded
                                 ? "bg-success-bg text-success"
-                                : "bg-niebla text-text-secondary"
+                                : "bg-canvas text-text-secondary"
                             }`}
                           >
                             {o.loaded ? "✓ Cargado" : "Pendiente"}

@@ -190,7 +190,7 @@ function StatusIndicator({ status, active }: { status?: ItemStatus; active: bool
       className={`ml-auto rounded-full px-1.5 py-px text-[10px] font-semibold ${
         status.tone === "warning"
           ? "bg-warning-bg text-warning"
-          : "bg-niebla text-text-tertiary"
+          : "bg-canvas text-text-tertiary"
       }`}
     >
       {status.text}
@@ -206,10 +206,10 @@ export default function ControlesShell() {
       key={it.to}
       to={it.to}
       className={({ isActive }) =>
-        `flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+        `flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
           isActive
-            ? "bg-lima font-semibold text-navy"
-            : "text-text-secondary hover:bg-niebla hover:text-navy"
+            ? "bg-verde font-semibold text-asfalto"
+            : "text-text-secondary hover:bg-canvas hover:text-asfalto"
         }`
       }
     >
@@ -229,9 +229,9 @@ export default function ControlesShell() {
     <div className="-m-4 flex flex-col md:-m-6 md:min-h-[calc(100%+3rem)] md:flex-row">
       <aside className="flex shrink-0 flex-col gap-3.5 border-b border-border bg-surface p-3 pt-4 md:min-h-full md:w-[230px] md:border-b-0 md:border-r">
         <div className="flex items-center gap-2 px-1.5">
-          <SlidersHorizontal aria-hidden="true" className="h-[15px] w-[15px] text-navy" strokeWidth={1.75} />
-          <span className="text-sm font-semibold text-navy">Controles</span>
-          <span className="ml-auto rounded-full bg-niebla px-2 py-0.5 text-[10px] font-semibold text-text-tertiary">
+          <SlidersHorizontal aria-hidden="true" className="h-[15px] w-[15px] text-asfalto" strokeWidth={1.75} />
+          <span className="text-sm font-semibold text-asfalto">Controles</span>
+          <span className="ml-auto rounded-full bg-canvas px-2 py-0.5 text-[10px] font-semibold text-text-tertiary">
             ADMIN
           </span>
         </div>

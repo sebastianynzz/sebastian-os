@@ -196,10 +196,10 @@ export default function ControlesCampos() {
                 maxLength={60}
               />
             </Field>
-            <label className="flex items-center gap-2 text-sm text-navy/80">
+            <label className="flex items-center gap-2 text-sm text-asfalto/80">
               <input
                 type="checkbox"
-                className="accent-navy"
+                className="accent-asfalto"
                 checked={form.visibleToDriver}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, visibleToDriver: e.target.checked }))
@@ -207,10 +207,10 @@ export default function ControlesCampos() {
               />
               Visible para el conductor (app)
             </label>
-            <label className="flex items-center gap-2 text-sm text-navy/80">
+            <label className="flex items-center gap-2 text-sm text-asfalto/80">
               <input
                 type="checkbox"
-                className="accent-navy"
+                className="accent-asfalto"
                 checked={form.visibleToRecipient}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, visibleToRecipient: e.target.checked }))
@@ -265,7 +265,7 @@ export default function ControlesCampos() {
               <tbody>
                 {data.items.map((p) => (
                   <tr key={p.id} className={tableRowClass}>
-                    <td className="py-2 pr-4 font-medium text-navy">{p.name}</td>
+                    <td className="py-2 pr-4 font-medium text-asfalto">{p.name}</td>
                     <td className="py-2 pr-4">
                       <div className="flex flex-wrap gap-1.5">
                         {p.visibleToDriver && <Badge tone="info">Conductor</Badge>}

@@ -12,7 +12,7 @@ const DEMO_PASSWORD = "dalego123";
 /* Input del login (mock 5a): 13.5px, borde fuerte, foco navy con anillo suave
  * de 3px (rgba navy al 12%). */
 const loginInputClass =
-  "w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-[13.5px] text-navy placeholder:text-text-tertiary transition duration-200 ease-brand focus:border-navy focus:outline-none focus:ring-[3px] focus:ring-navy/12";
+  "w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-[13.5px] text-asfalto placeholder:text-text-tertiary transition duration-200 ease-brand focus:border-asfalto focus:outline-none focus:ring-[3px] focus:ring-asfalto/12";
 
 /**
  * Login — propuesta 5a del revamp: marca protagonista sobre navy profundo con
@@ -51,7 +51,7 @@ export default function Login() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-navy-900 p-6 sm:p-10"
+      className="flex min-h-screen items-center justify-center bg-sidebar p-6 sm:p-10"
       // Lavados radiales de marca (solo gradientes, tokens de :root):
       // limón 14% arriba-derecha, cielo 12% abajo-izquierda.
       style={{
@@ -115,20 +115,20 @@ export default function Login() {
         </form>
 
         {/* Credenciales demo: fila "vidrio" copiable sobre el lienzo navy. */}
-        <div className="flex items-center gap-2 rounded-[10px] border border-white/14 bg-white/6 px-3 py-[9px] text-[11.5px] text-cielo">
+        <div className="flex items-center gap-2 rounded-[10px] border border-white/14 bg-white/6 px-3 py-[9px] text-[11.5px] text-gris-senal">
           <Info
             aria-hidden="true"
-            className="h-[13px] w-[13px] shrink-0 text-lima"
+            className="h-[13px] w-[13px] shrink-0 text-verde"
             strokeWidth={2}
           />
           <span className="min-w-0">
-            Demo: <span className="font-mono text-sky-50">{DEMO_EMAIL}</span> ·{" "}
-            <span className="font-mono text-sky-50">{DEMO_PASSWORD}</span>
+            Demo: <span className="font-mono text-info-bg">{DEMO_EMAIL}</span> ·{" "}
+            <span className="font-mono text-info-bg">{DEMO_PASSWORD}</span>
           </span>
           <button
             type="button"
             onClick={copyDemo}
-            className="ml-auto shrink-0 font-semibold text-lima transition duration-200 ease-brand hover:text-lima-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lima"
+            className="ml-auto shrink-0 font-semibold text-verde transition duration-200 ease-brand hover:text-verde-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"
           >
             {copied ? "Copiado ✓" : "Copiar"}
           </button>

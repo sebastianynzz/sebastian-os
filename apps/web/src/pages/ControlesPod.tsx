@@ -93,14 +93,14 @@ export default function ControlesPod() {
     const value = group[type] ?? { signature: "OPTIONAL", photo: "OPTIONAL" };
     return (
       <tr className={tableRowClass}>
-        <td className="py-2 pr-4 text-sm font-medium text-navy">{label}</td>
+        <td className="py-2 pr-4 text-sm font-medium text-asfalto">{label}</td>
         {(["signature", "photo"] as const).map((field) => (
           <td key={field} className="py-2 pr-4">
             <select
               aria-label={`${label} — ${field === "signature" ? "firma" : "foto"}`}
               value={value[field]}
               onChange={(e) => setReq(kind, type, field, e.target.value as PodReq)}
-              className="rounded-md border border-border-strong bg-surface px-2 py-1 text-sm text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25"
+              className="rounded-md border border-border-strong bg-surface px-2 py-1 text-sm text-asfalto focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25"
             >
               {POD_REQ.map((r) => (
                 <option key={r} value={r}>

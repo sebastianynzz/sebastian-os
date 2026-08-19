@@ -262,8 +262,8 @@ export default function Seguridad() {
               onClick={() => setMuted((m) => !m)}
               aria-pressed={muted}
               title={muted ? "Activar sonido" : "Silenciar"}
-              className={`inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
-                muted ? "text-text-tertiary" : "text-navy"
+              className={`inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
+                muted ? "text-text-tertiary" : "text-asfalto"
               }`}
             >
               {muted ? (
@@ -309,7 +309,7 @@ export default function Seguridad() {
               setSevFilter(new Set());
               setStatusFilter(new Set());
             }}
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:bg-niebla hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-text-tertiary transition duration-200 ease-brand hover:bg-canvas hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
           >
             <X aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
             Limpiar
@@ -365,7 +365,7 @@ export default function Seguridad() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
-                          <span className="text-[14.5px] font-bold text-navy">
+                          <span className="text-[14.5px] font-bold text-asfalto">
                             {TYPE_LABELS[a.type] ?? a.type}
                           </span>
                           <span className="text-[11.5px] font-bold text-danger">
@@ -428,7 +428,7 @@ export default function Seguridad() {
                   key={a.id}
                   onClick={() => setSelectedId(a.id)}
                   className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-l-4 bg-surface px-3.5 py-2.5 transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg ${
-                    isSel ? "border-navy bg-sky-50/60" : "border-border"
+                    isSel ? "border-asfalto bg-info-bg/60" : "border-border"
                   } ${SEV_BORDER[sev]} ${actionable ? "" : "opacity-75"}`}
                 >
                   <Icon
@@ -437,7 +437,7 @@ export default function Seguridad() {
                     strokeWidth={2}
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold text-navy">
+                    <span className="block text-[13px] font-semibold text-asfalto">
                       {TYPE_LABELS[a.type] ?? a.type}
                     </span>
                     <span className="block text-[11.5px] text-text-tertiary">

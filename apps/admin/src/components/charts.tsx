@@ -47,7 +47,7 @@ export function TrendChart({
       <div className="mb-1 flex items-center justify-between text-xs">
         <div className="flex flex-wrap gap-3">
           {series.map((s, idx) => (
-            <span key={s.label} className="flex items-center gap-1.5 text-cielo">
+            <span key={s.label} className="flex items-center gap-1.5 text-gris-senal">
               <span
                 aria-hidden="true"
                 className="h-2 w-2 rounded-full"

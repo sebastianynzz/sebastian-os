@@ -46,7 +46,7 @@ function Meter({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-        <span className="flex items-center gap-1.5 font-medium text-navy">
+        <span className="flex items-center gap-1.5 font-medium text-asfalto">
           <span aria-hidden="true" className="text-text-secondary [&>svg]:h-3.5 [&>svg]:w-3.5">
             {icon}
           </span>
@@ -56,16 +56,16 @@ function Meter({
           {used} {unlimited ? "· ilimitado" : `de ${limit}`}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-niebla">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
         <div
           className={`h-full rounded-full ${
             unlimited
-              ? "bg-cielo"
+              ? "bg-gris-senal"
               : over
                 ? "bg-danger"
                 : near(used, limit)
                   ? "bg-warning"
-                  : "bg-lima"
+                  : "bg-verde"
           }`}
           style={{ width: unlimited ? "12%" : `${Math.max(p, 4)}%` }}
         />

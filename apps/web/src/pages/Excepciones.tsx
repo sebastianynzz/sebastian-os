@@ -74,21 +74,21 @@ const SEVERITY_LABELS: Record<Severity, string> = {
 const GROUP_HEADER_STYLES: Record<Severity, { dot: string; text: string }> = {
   CRITICAL: { dot: "bg-danger", text: "text-danger" },
   HIGH: { dot: "bg-warning", text: "text-warning" },
-  MEDIUM: { dot: "bg-cielo", text: "text-text-tertiary" },
+  MEDIUM: { dot: "bg-gris-senal", text: "text-text-tertiary" },
 };
 
 /** Círculo de 36px del ícono, tintado por severidad (pánico: relleno sólido). */
 const ICON_CIRCLE_STYLES: Record<Severity, string> = {
   CRITICAL: "bg-danger-bg text-danger",
   HIGH: "bg-warning-bg text-warning",
-  MEDIUM: "bg-sky-50 text-info",
+  MEDIUM: "bg-info-bg text-info",
 };
 
 /** Borde izquierdo de 3px de la tarjeta según severidad. */
 const CARD_LEFT_BORDER: Record<Severity, string> = {
   CRITICAL: "border-l-danger",
   HIGH: "border-l-warning",
-  MEDIUM: "border-l-cielo",
+  MEDIUM: "border-l-gris-senal",
 };
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
@@ -135,7 +135,7 @@ const SNOOZE_OPTIONS = [
 
 /** Enlace de acción con la misma apariencia del botón navy sólido. */
 const navyLinkClass =
-  "inline-flex items-center whitespace-nowrap rounded-md bg-navy px-3 py-1.5 text-sm font-medium text-white transition duration-200 ease-brand hover:bg-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy";
+  "inline-flex items-center whitespace-nowrap rounded-md bg-asfalto px-3 py-1.5 text-sm font-medium text-white transition duration-200 ease-brand hover:bg-asfalto-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto";
 
 /** Hora relativa en español ("hace 6 min"), como en la propuesta 1b. */
 function relTime(iso: string): string {
@@ -185,7 +185,7 @@ function SnoozeMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-navy/25 bg-surface px-2.5 py-1.5 text-xs font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-asfalto/25 bg-surface px-2.5 py-1.5 text-xs font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Clock aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
         Posponer
@@ -209,7 +209,7 @@ function SnoozeMenu({
                 setOpen(false);
                 onSnooze(o.minutes);
               }}
-              className="block w-full px-3 py-1.5 text-left text-xs font-medium text-navy transition hover:bg-niebla"
+              className="block w-full px-3 py-1.5 text-left text-xs font-medium text-asfalto transition hover:bg-canvas"
             >
               {o.label}
             </button>
@@ -385,14 +385,14 @@ export default function Excepciones() {
 
       {/* P0.6: sin esta suscripción, el push de pánico no tiene a quién llegar. */}
       {pushOffer && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-sky bg-sky-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gris-senal bg-info-bg px-4 py-3">
           <span
             aria-hidden="true"
             className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-surface text-info"
           >
             <Bell className="h-4 w-4" strokeWidth={2} />
           </span>
-          <p className="min-w-0 flex-1 text-sm text-navy">
+          <p className="min-w-0 flex-1 text-sm text-asfalto">
             Recibe el botón de pánico y alertas críticas aunque el dashboard esté
             cerrado.
           </p>
@@ -442,7 +442,7 @@ export default function Excepciones() {
             <KpiCard
               label="Críticas"
               value={
-                sevFilter.has("CRITICAL") ? (
+                sevFilter.has("CRITICAL") || counts.CRITICAL === 0 ? (
                   counts.CRITICAL
                 ) : (
                   <span className="text-danger">{counts.CRITICAL}</span>
@@ -455,7 +455,7 @@ export default function Excepciones() {
             <KpiCard
               label="Altas"
               value={
-                sevFilter.has("HIGH") ? (
+                sevFilter.has("HIGH") || counts.HIGH === 0 ? (
                   counts.HIGH
                 ) : (
                   <span className="text-warning">{counts.HIGH}</span>
@@ -471,7 +471,7 @@ export default function Excepciones() {
           {/* Filtros por tipo: una sola fila de pastillas + contador. */}
           {items.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[.04em] text-navy/40">
+              <span className="text-xs font-semibold uppercase tracking-[.04em] text-asfalto/40">
                 Filtrar
               </span>
               <FilterPill
@@ -489,7 +489,7 @@ export default function Excepciones() {
                   {TYPE_LABELS[t] ?? t}
                 </FilterPill>
               ))}
-              <span className="ml-auto text-xs text-navy/40">
+              <span className="ml-auto text-xs text-asfalto/40">
                 {filtered.length} de {items.length}
               </span>
             </div>
@@ -514,7 +514,7 @@ export default function Excepciones() {
                         aria-pressed={sevFilter.has(group.sev)}
                         onClick={() => setSevFilter((f) => toggle(f, group.sev))}
                         title={`Filtrar ${SEVERITY_LABELS[group.sev].toLowerCase()}`}
-                        className={`flex items-center gap-2 rounded-md text-[11px] font-semibold uppercase tracking-[.06em] transition duration-200 ease-brand hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${header.text}`}
+                        className={`flex items-center gap-2 rounded-md text-[11px] font-semibold uppercase tracking-[.06em] transition duration-200 ease-brand hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${header.text}`}
                       >
                         <span
                           aria-hidden="true"
@@ -544,7 +544,7 @@ export default function Excepciones() {
                             </span>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-baseline gap-2">
-                                <span className="text-sm font-semibold text-navy">
+                                <span className="text-sm font-semibold text-asfalto">
                                   {item.title}
                                 </span>
                                 <span
@@ -626,7 +626,7 @@ export default function Excepciones() {
           {snoozed.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-dashed border-border-strong px-4 py-2.5 text-[13px] text-text-secondary">
               <Clock aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-              <span className="font-semibold text-navy">
+              <span className="font-semibold text-asfalto">
                 Pospuestas ({snoozed.length}):
               </span>
               {snoozed.map((s, i) => (
@@ -642,7 +642,7 @@ export default function Excepciones() {
                   </span>
                   <button
                     onClick={() => unsnooze(s.key)}
-                    className="text-xs font-medium text-navy underline transition hover:text-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                    className="text-xs font-medium text-asfalto underline transition hover:text-asfalto-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                   >
                     Reactivar
                   </button>

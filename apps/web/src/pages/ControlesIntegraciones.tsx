@@ -62,10 +62,10 @@ const dangerGhostClass =
 
 /* Chips multiselección (eventos/permisos): patrón de pastilla del revamp. */
 function chipClass(selected: boolean): string {
-  return `rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+  return `rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
     selected
-      ? "bg-navy text-white"
-      : "border border-border bg-surface text-navy/70 hover:border-border-strong hover:text-navy"
+      ? "bg-asfalto text-white"
+      : "border border-border bg-surface text-asfalto/70 hover:border-border-strong hover:text-asfalto"
   }`;
 }
 
@@ -258,7 +258,7 @@ export default function ControlesIntegraciones() {
               {webhooks.map((w) => (
                 <div key={w.id} className="rounded-lg border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="break-all font-mono text-sm text-navy">{w.url}</span>
+                    <span className="break-all font-mono text-sm text-asfalto">{w.url}</span>
                     <span className="flex items-center gap-2 text-xs text-text-secondary">
                       {w.enabled ? "Activo" : "Pausado"}
                       <PillToggle
@@ -276,7 +276,7 @@ export default function ControlesIntegraciones() {
                     ))}
                   </div>
                   <div className="mt-2 break-all text-xs text-text-tertiary">
-                    Secreto: <code className="font-mono text-navy/70">{w.secret}</code>
+                    Secreto: <code className="font-mono text-asfalto/70">{w.secret}</code>
                   </div>
                   {w.lastStatus !== null && (
                     <div className="mt-2 flex items-center gap-1.5 text-xs text-text-tertiary">
@@ -361,7 +361,7 @@ export default function ControlesIntegraciones() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
                 >
                   <div>
-                    <div className="font-medium text-navy">{k.name}</div>
+                    <div className="font-medium text-asfalto">{k.name}</div>
                     <div className="font-mono text-xs text-text-tertiary">{k.prefix}…</div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {k.scopes.map((s) => (
@@ -388,7 +388,7 @@ export default function ControlesIntegraciones() {
           Conecta tu tienda o marketplace para que sus pedidos entren a MoveOS.
           Configura el webhook de la plataforma apuntando a la URL del conector y
           autentícalo con una API key con permiso{" "}
-          <code className="font-mono text-navy">orders:write</code>.
+          <code className="font-mono text-asfalto">orders:write</code>.
         </p>
         <div className="mt-3 space-y-2">
           {[
@@ -401,8 +401,8 @@ export default function ControlesIntegraciones() {
               key={source}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"
             >
-              <span className="font-medium text-navy">{label}</span>
-              <code className="break-all rounded-md bg-niebla px-2 py-1 font-mono text-xs text-navy">
+              <span className="font-medium text-asfalto">{label}</span>
+              <code className="break-all rounded-md bg-canvas px-2 py-1 font-mono text-xs text-asfalto">
                 POST {BASE_URL}/ingest/orders/{source}
               </code>
             </div>
