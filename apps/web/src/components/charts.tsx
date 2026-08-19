@@ -1,7 +1,7 @@
 /**
  * Gráficas SVG sin dependencias (convención del repo: dependencias mínimas).
  * `TrendChart` dibuja hasta dos series diarias sobre el mismo eje; el tooltip
- * nativo (<title>) muestra los valores del día. Paleta Move: serie principal
+ * nativo (<title>) muestra los valores del día. Paleta Circuito: serie principal
  * navy con área lima, comparativa en cielo.
  */
 

@@ -691,7 +691,7 @@ export default function Planificacion() {
 
           {/* Franja de resumen: rutas / asignados / km+tiempo / excluidos. Las
               exclusiones (p. ej. pico y placa de un no-EV) van como chip de
-              advertencia — los EV de MoveOS están exentos por Ley 1964/2019. */}
+              advertencia — los EV de daleGo están exentos por Ley 1964/2019. */}
           <div className="flex flex-wrap items-center gap-y-3 rounded-xl border border-border bg-surface px-5 py-3.5 shadow-soft">
             <div className="border-r border-border pr-6">
               <div className="text-[23px] font-semibold leading-tight text-asfalto">

@@ -7,7 +7,7 @@ import { Wordmark } from "../components/brand";
 
 /**
  * Página pública de rastreo (sin login). El negocio cliente abre el enlace
- * /t/:token y ve el estado de su envío con una línea de tiempo. Marca Move.
+ * /t/:token y ve el estado de su envío con una línea de tiempo. Marca daleGo.
  * Sin shell autenticado: layout propio, restilizado con los tokens del revamp.
  */
 
@@ -99,9 +99,7 @@ export default function Track() {
     <div className="min-h-screen bg-canvas">
       <header className="bg-asfalto px-4 py-4 text-humo">
         <div className="mx-auto max-w-lg">
-          <div className="text-xl font-bold">
-            move<span className="text-verde">.</span>
-          </div>
+          <Wordmark size={22} />
           <div className="text-xs text-gris-senal">Rastreo de envío</div>
         </div>
       </header>

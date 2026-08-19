@@ -54,7 +54,7 @@ interface DayPoint {
 
 const BUSINESS_MODEL_LABEL: Record<string, string> = {
   SAAS: "SaaS autoservicio",
-  FAAS: "FaaS (flota de MOVE)",
+  FAAS: "FaaS (flota de daleGo)",
   LOGISTICS_3PL: "Logística 3PL",
 };
 
@@ -250,7 +250,7 @@ export default function TenantDetail() {
 
   const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
   // Asignación FaaS dirigida por el catálogo de 6 configuraciones EV: la
-  // configuración define payload, batería y autonomía; toda la flota MOVE es
+  // configuración define payload, batería y autonomía; toda la flota daleGo es
   // eléctrica (restricción dura 1), así que no hay opción de no-eléctrico.
   const [vType, setVType] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [vBatteryKwh, setVBatteryKwh] = useState<number>(
@@ -265,7 +265,7 @@ export default function TenantDetail() {
     setVBatteryKwh(VEHICLE_TYPE_PROFILES[next].batteryOptions[0]!.batteryKwh);
   }
 
-  /** Asignar un vehículo de MOVE al tenant (fleet-as-a-service). */
+  /** Asignar un vehículo de daleGo al tenant (fleet-as-a-service). */
   async function assignVehicle(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setVehicleNotice(null);
@@ -355,7 +355,7 @@ export default function TenantDetail() {
               <select name="operatorType" className={inputClass} defaultValue={t.operatorType}>
                 <option value="SELF_SERVE">Autoservicio</option>
                 <option value="SUB_OPERATOR">Sub-operador (FaaS)</option>
-                <option value="PLATFORM_FLEET">Flota MOVE</option>
+                <option value="PLATFORM_FLEET">Flota daleGo</option>
               </select>
             </label>
             <label className="block text-sm">

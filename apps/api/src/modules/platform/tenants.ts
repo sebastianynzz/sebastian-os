@@ -150,7 +150,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Asignar un vehículo (propiedad de MOVE) a un tenant sub-operador: el
+   * Asignar un vehículo (propiedad de daleGo) a un tenant sub-operador: el
    * vehículo queda en el tenant OPERADOR para todas las consultas operativas,
    * con ownerTenantId registrando la propiedad del activo.
    */

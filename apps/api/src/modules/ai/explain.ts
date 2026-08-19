@@ -20,7 +20,7 @@ function getClient(): Anthropic | null {
   return client;
 }
 
-const SYSTEM = `Eres el asistente de optimización de MoveOS (última milla, Colombia).
+const SYSTEM = `Eres el asistente de optimización de daleGo (última milla, Colombia).
 Te paso el RESULTADO ya calculado por un solver determinista (JSON). Tu única
 tarea es redactarlo en español colombiano claro y operativo para un despachador,
 en 1-2 frases. Reglas estrictas:

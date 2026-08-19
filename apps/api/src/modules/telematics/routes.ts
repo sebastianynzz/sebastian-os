@@ -148,7 +148,7 @@ export default async function telematicsRoutes(app: FastifyInstance) {
               batterySoc: v.socPercent,
               odometerKm: v.lastOdometerKm,
               engineOn: v.engineOn,
-              // Campos CAN de combustión: MoveOS es EV-only, así que son
+              // Campos CAN de combustión: daleGo es EV-only, así que son
               // no-ops permanentes (restricción dura 1.2). Se mantienen en el
               // contrato para no romper al dispatcher, siempre en null.
               rpm: null,

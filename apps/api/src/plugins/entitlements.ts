@@ -8,7 +8,7 @@ import { prisma } from "../lib/prisma.js";
  * cada módulo de pago se registra detrás de esta verificación.
  *
  * Los módulos de NÚCLEO (CORE_MODULE_KEYS, p. ej. EV_MANAGEMENT) están
- * siempre activos sin importar el entitlement: MoveOS es EV-only y la
+ * siempre activos sin importar el entitlement: daleGo es EV-only y la
  * autonomía/carga no se venden como módulo (restricción dura 1.3).
  *
  * Caché TTL por tenant (mismo patrón que plugins/tenantStatus.ts): sin ella

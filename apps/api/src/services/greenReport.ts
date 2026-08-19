@@ -7,7 +7,7 @@ import {
 import { prisma } from "../lib/prisma.js";
 
 /**
- * Informe verde mensual (CO₂): el argumento ESG de MoveOS.
+ * Informe verde mensual (CO₂): el argumento ESG de daleGo.
  *
  * La distancia viene de las rutas planificadas del mes (Route.totalDistanceKm)
  * y la emisión del perfil del vehículo que las recorrió (tipo + propulsión).

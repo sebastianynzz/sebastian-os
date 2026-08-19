@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
- * Flota eléctrica como NÚCLEO (restricción dura 1.3: MoveOS es EV-only).
+ * Flota eléctrica como NÚCLEO (restricción dura 1.3: daleGo es EV-only).
  *
  * Lo más importante: /ev/* responde aunque el entitlement EV_MANAGEMENT esté
  * desactivado en la base — autonomía y carga jamás se gatean. Además el

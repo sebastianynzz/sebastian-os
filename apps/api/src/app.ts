@@ -136,7 +136,7 @@ export async function buildApp() {
   // excepciones: núcleo operativo, sin módulo de pago.
   await app.register(addressesRoutes, { prefix: "/addresses" });
   await app.register(exceptionsRoutes, { prefix: "/exceptions" });
-  // Flota eléctrica: NÚCLEO (MoveOS es EV-only; restricción dura 1.3).
+  // Flota eléctrica: NÚCLEO (daleGo es EV-only; restricción dura 1.3).
   // Autonomía, SoC y directorio de carga nunca se gatean por entitlement.
   await app.register(evRoutes, { prefix: "/ev" });
   // Web Push (VAPID): avisos instantáneos a conductor y despachador.

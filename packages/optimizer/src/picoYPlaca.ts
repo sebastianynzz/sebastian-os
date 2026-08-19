@@ -6,7 +6,7 @@ import { VEHICLE_TYPE_PROFILES } from "@moveos/shared";
  * Las reglas cambian con frecuencia por decreto municipal: este motor es
  * configurable por ciudad y las reglas por defecto reflejan el esquema vigente
  * al momento de escribir (verificar al desplegar en cada ciudad). Se conserva
- * el motor (CLAUDE.md), pero la flota MoveOS es 100% eléctrica: toda
+ * el motor (CLAUDE.md), pero la flota daleGo es 100% eléctrica: toda
  * configuración del catálogo está exenta a nivel nacional (Ley 1964/2019), así
  * que la exención es la norma. Los tipos van como `string` para desacoplar las
  * reglas (categorías reales de placa, p. ej. ICE) del enum de la flota EV.
@@ -99,7 +99,7 @@ export function checkPicoYPlaca(
   timeMin: number,
   rules: PicoYPlacaRule[] = DEFAULT_RULES,
 ): PicoYPlacaCheck {
-  // Exención nacional para eléctricos (Ley 1964 de 2019). Toda la flota MoveOS
+  // Exención nacional para eléctricos (Ley 1964 de 2019). Toda la flota daleGo
   // es eléctrica: cualquier configuración del catálogo está exenta por defecto.
   const profile =
     VEHICLE_TYPE_PROFILES[vehicle.type as keyof typeof VEHICLE_TYPE_PROFILES];

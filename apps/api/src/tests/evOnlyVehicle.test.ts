@@ -4,7 +4,7 @@ import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 
 /**
- * EV-only (HARD CONSTRAINT 1): la flota MoveOS es 100% eléctrica. El API es la
+ * EV-only (HARD CONSTRAINT 1): la flota daleGo es 100% eléctrica. El API es la
  * fuente de verdad — rechaza crear un vehículo de combustión y, si se omite el
  * campo, el vehículo nace eléctrico.
  */

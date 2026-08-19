@@ -11,7 +11,7 @@ import { addDays, todayBogota } from "../../services/dailyMetrics.js";
 import { AiActionError, applyProposal, runAction } from "../ai/executor.js";
 
 /**
- * Copiloto MoveOS — la cara visible del nivel de IA (módulo AI_ADDONS).
+ * Copiloto daleGo — la cara visible del nivel de IA (módulo AI_ADDONS).
  *
  * Es una capa delgada de LLM sobre sistemas que ya existen: lee la bitácora,
  * el optimizador (que ya emite razones legibles), el cockpit de excepciones y
@@ -205,7 +205,7 @@ const TOOLS: Anthropic.Tool[] = [
 ];
 
 function systemPrompt(tenant: { name: string; city: string }): string {
-  return `Eres el Copiloto de MoveOS, la plataforma de última milla del operador "${tenant.name}" (${tenant.city}, Colombia). Hoy es ${todayBogota()} (hora de Bogotá).
+  return `Eres el Copiloto de daleGo, la plataforma de última milla del operador "${tenant.name}" (${tenant.city}, Colombia). Hoy es ${todayBogota()} (hora de Bogotá).
 
 Tu trabajo: ayudar al despachador a operar el día — planear rutas, vigilar excepciones, explicar por qué pasó algo (bitácora, POD, geofence) y cuidar la calidad de direcciones.
 
@@ -214,7 +214,7 @@ Reglas:
 - Usa las herramientas para leer datos reales antes de afirmar algo. Nunca inventes guías, placas ni cifras.
 - Las herramientas proponer_* NO ejecutan nada: registran una propuesta que el usuario confirma con un botón. Cuando propongas, di claramente qué quedó propuesto y que requiere su confirmación. Nunca digas que algo ya se ejecutó.
 - Al narrar resultados del optimizador o exclusiones (pico y placa, capacidad, autonomía EV), cita las razones tal cual vienen del sistema.
-- MoveOS es B2B: las recuperaciones de entregas fallidas se gestionan a través del comercio, nunca contactando al consumidor final.
+- daleGo es B2B: las recuperaciones de entregas fallidas se gestionan a través del comercio, nunca contactando al consumidor final.
 - Si te piden algo fuera de la operación logística del tenant, declina con cortesía.`;
 }
 

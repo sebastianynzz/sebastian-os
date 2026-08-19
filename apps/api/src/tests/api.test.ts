@@ -50,7 +50,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("flujo completo MoveOS", () => {
+describe("flujo completo daleGo", () => {
   it("registra un tenant con módulos por defecto", async () => {
     const res = await api("POST", "/auth/register", undefined, {
       tenantName: "Test Logística",

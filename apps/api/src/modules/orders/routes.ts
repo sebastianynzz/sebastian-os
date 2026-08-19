@@ -153,7 +153,7 @@ export default async function ordersRoutes(app: FastifyInstance) {
           failureReason: order.failureReason,
           trackingUrl: publicTrackingUrl(order.trackingToken),
           mensaje:
-            "La entrega no pudo completarse. Puede reprogramarla desde su portal MoveOS.",
+            "La entrega no pudo completarse. Puedes reprogramarla desde tu portal daleGo.",
         },
       });
       emitOrderUpdate(order.tenantId, updated);

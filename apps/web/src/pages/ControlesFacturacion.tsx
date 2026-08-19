@@ -24,7 +24,7 @@ import { formatDateTimeBogota } from "../format";
 
 /**
  * Controles › Facturación (Tier 3 §13): datos fiscales de la suscripción SaaS +
- * historial de facturas (las emite la plataforma). MoveOS no procesa pagos en la
+ * historial de facturas (las emite la plataforma). daleGo no procesa pagos en la
  * app (sin COD): es una vista de cuenta. Perfil editable por ADMIN.
  */
 

@@ -186,13 +186,15 @@ const CLIENT_NAV: NavItem[] = [
   { to: "/portal/verde", label: "Informe verde" },
 ];
 
-const NAV_STORAGE_KEY = "moveos.nav.openGroups";
+const NAV_STORAGE_KEY = "dalego.nav.openGroups";
 
 /** Estado inicial de expansión: lo persistido por el usuario o el default del grupo. */
 function loadOpenGroups(): Record<string, boolean> {
   const base = Object.fromEntries(NAV_GROUPS.map((g) => [g.id, g.defaultOpen]));
   try {
-    const raw = localStorage.getItem(NAV_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(NAV_STORAGE_KEY) ??
+      localStorage.getItem("moveos.nav.openGroups");
     if (raw) return { ...base, ...(JSON.parse(raw) as Record<string, boolean>) };
   } catch {
     /* localStorage no disponible: usar defaults */

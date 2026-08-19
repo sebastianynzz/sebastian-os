@@ -5,7 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 
 /**
  * Facturación desde el plano de plataforma (Tier 3 §13): el operador EMITE las
- * facturas de suscripción de un tenant y consulta su historial. MoveOS no
+ * facturas de suscripción de un tenant y consulta su historial. daleGo no
  * procesa pagos en la app — `status` es informativo y la liquidación es externa.
  * Montado bajo /platform/tenants/:id/invoices (exige operador de plataforma).
  */

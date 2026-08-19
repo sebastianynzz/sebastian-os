@@ -211,7 +211,7 @@ export default function ControlesIntegraciones() {
               className={inputClass}
               value={whUrl}
               onChange={(e) => setWhUrl(e.target.value)}
-              placeholder="https://tu-sistema.com/webhooks/moveos"
+              placeholder="https://tu-sistema.com/webhooks/dalego"
             />
           </Field>
           <div>

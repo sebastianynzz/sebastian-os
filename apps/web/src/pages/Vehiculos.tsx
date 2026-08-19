@@ -274,7 +274,7 @@ export default function Vehiculos() {
         capacityKg: Number(capacityKg),
         // Flatbed: sin volumen (se limita por peso/área de plataforma).
         capacityM3: isFlatbed || !capacityM3 ? undefined : Number(capacityM3),
-        // Toda la flota MoveOS es eléctrica (restricción dura 1).
+        // Toda la flota daleGo es eléctrica (restricción dura 1).
         isElectric: true,
         batteryKwh: batteryOption.batteryKwh,
         nominalRangeKm: batteryOption.rangeKm,

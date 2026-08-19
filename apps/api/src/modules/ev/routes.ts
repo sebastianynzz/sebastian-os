@@ -10,7 +10,7 @@ import { prisma } from "../../lib/prisma.js";
  * (~774 puntos oficiales a dic 2025): la planificación de autonomía importa
  * más que en mercados maduros.
  *
- * NÚCLEO, no módulo de pago: MoveOS es EV-only (restricción dura 1.3) —
+ * NÚCLEO, no módulo de pago: daleGo es EV-only (restricción dura 1.3) —
  * autonomía y carga están disponibles para todo tenant, sin requireModule.
  * El conductor (rol DRIVER) también consulta estos endpoints: SoC en vivo y
  * cargador más cercano son parte de su jornada.

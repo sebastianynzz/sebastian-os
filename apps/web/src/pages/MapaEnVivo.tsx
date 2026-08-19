@@ -470,7 +470,7 @@ export default function MapaEnVivo() {
 
               {/* Telemetría EV-only (Constraint 1): SoC, autonomía y energía —
                   nunca RPM / combustible / temp. de refrigerante. La flota
-                  MoveOS es 100 % eléctrica; esos campos CAN ICE no se muestran. */}
+                  daleGo es 100 % eléctrica; esos campos CAN ICE no se muestran. */}
               <div className="grid grid-cols-2 gap-2">
                 <TelemetryTile
                   icon={<Gauge strokeWidth={1.75} />}

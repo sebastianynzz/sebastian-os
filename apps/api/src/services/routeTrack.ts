@@ -24,7 +24,7 @@ export const RETENTION_DAYS = 90;
 /** Tope de puntos por traza: mantiene trackJson por debajo del TOAST (~2 KB). */
 export const MAX_TRACK_POINTS = 300;
 
-/** Punto de la traza. Sin campos ICE: MoveOS es EV-only (restricción dura 1.2). */
+/** Punto de la traza. Sin campos ICE: daleGo es EV-only (restricción dura 1.2). */
 export interface TrackPoint {
   lat: number;
   lng: number;

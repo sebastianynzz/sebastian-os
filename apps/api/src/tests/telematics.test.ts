@@ -93,7 +93,7 @@ describe("plano telemático / IoT", () => {
     expect(entry.vehicle.lastSpeedKmh).toBe(32);
     // El estado en vivo se sirve de las columnas denormalizadas del vehículo,
     // no de un findFirst contra TelemetryPing. Los campos CAN de combustión
-    // (rpm/fuelLevelPct/coolantTempC) viajan siempre en null: MoveOS es EV-only
+    // (rpm/fuelLevelPct/coolantTempC) viajan siempre en null: daleGo es EV-only
     // (restricción dura 1.2).
     expect(entry.ping.lat).toBe(4.65);
     expect(entry.ping.lng).toBe(-74.06);

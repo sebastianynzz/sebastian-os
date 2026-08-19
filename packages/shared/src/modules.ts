@@ -25,7 +25,7 @@ export interface ModuleDescriptor {
   defaultEnabled: boolean;
   /**
    * Parte del núcleo obligatorio: siempre activo para todo tenant y no
-   * desactivable. MoveOS es EV-only — autonomía y carga son núcleo, no un
+   * desactivable. daleGo es EV-only — autonomía y carga son núcleo, no un
    * módulo de pago (restricción dura 1.3 de CLAUDE.md).
    */
   core?: boolean;

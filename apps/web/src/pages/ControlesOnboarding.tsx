@@ -60,7 +60,7 @@ const STEP_COPY: Record<
 
 const DRIVER_APP_URL =
   (import.meta.env.VITE_DRIVER_URL as string | undefined) ??
-  "https://conductor.moveos.app";
+  "https://conductor.dalego.app";
 
 export default function ControlesOnboarding() {
   const toast = useToast();

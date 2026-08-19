@@ -20,7 +20,7 @@ function Var({ children }: { children: string }) {
 
 /**
  * Controles › Notificaciones (Tier 2, B2B): por evento del ciclo de vida, el
- * operador decide si notifica al NEGOCIO cliente y con qué texto. MoveOS nunca
+ * operador decide si notifica al NEGOCIO cliente y con qué texto. daleGo nunca
  * mensajea al consumidor final. El canal lo define cada cliente. Solo ADMIN.
  */
 

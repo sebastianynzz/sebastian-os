@@ -15,7 +15,7 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-// Catálogo MoveOS: 6 configuraciones EV en dos líneas de producto (Rap Move,
+// Catálogo daleGo: 6 configuraciones EV en dos líneas de producto (Rap Move,
 // IONAx). Fuente de verdad de capacidades/autonomía/reefer en
 // `vehicleTypeProfiles.ts`. Toda la flota es eléctrica → pico y placa exenta
 // nacionalmente (Ley 1964/2019). `VehicleType` es alias de `VehicleConfig`.
@@ -219,7 +219,7 @@ export type TenantPlan = (typeof TENANT_PLANS)[number];
 
 /**
  * Estado de una factura de suscripción SaaS (Tier 3 §13). Informativo: lo
- * gestiona el operador de plataforma. MoveOS no procesa pagos en la app (sin
+ * gestiona el operador de plataforma. daleGo no procesa pagos en la app (sin
  * COD); la liquidación ocurre por fuera.
  */
 export const INVOICE_STATUSES = ["DRAFT", "ISSUED", "PAID", "VOID"] as const;
@@ -342,7 +342,7 @@ export type PodRequirement = (typeof POD_REQUIREMENTS)[number];
  * El despachador define, por tipo de entrega/recogida, si la firma y la foto son
  * obligatorias, opcionales o deshabilitadas; el conductor elige el tipo y la app
  * BLOQUEA la finalización si falta una evidencia obligatoria (servidor = fuente
- * de verdad). NOTA: MoveOS no procesa pagos → NO existe pestaña/credenciales COD
+ * de verdad). NOTA: daleGo no procesa pagos → NO existe pestaña/credenciales COD
  * (a diferencia de Spoke); la política cubre solo entrega y recogida.
  */
 export const DELIVERY_TYPES = [
