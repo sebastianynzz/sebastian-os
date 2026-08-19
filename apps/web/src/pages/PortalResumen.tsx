@@ -4,7 +4,7 @@ import { Leaf, PackageSearch, Plus } from "lucide-react";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
 import { TrendChart } from "../components/charts";
-import { Card, KpiCard, Loading, PageHeader, StatusBadge } from "../components/ui";
+import { Banner, Card, KpiCard, Loading, PageHeader, StatusBadge } from "../components/ui";
 
 /**
  * Portal de clientes — "Resumen": el tablero del negocio. KPIs del mes, tasa
@@ -28,9 +28,18 @@ const ghostLinkClass =
 
 export default function PortalResumen() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setSummary(await api<Summary>("GET", "/portal/summary"));
+    // Sin este catch, un rechazo del endpoint (p. ej. 403 "Requiere una cuenta
+    // del portal de clientes" al entrar con una sesión que no es del portal)
+    // dejaba el spinner girando para siempre en vez de decir qué pasó.
+    try {
+      setSummary(await api<Summary>("GET", "/portal/summary"));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cargar el resumen");
+    }
   }
   useEffect(() => {
     void load();
@@ -38,7 +47,8 @@ export default function PortalResumen() {
   // Tiempo real: el tablero se refresca cuando un envío cambia de estado.
   useRealtimeReload(["order"], () => void load());
 
-  if (!summary) return <Loading label="Cargando su resumen…" />;
+  if (error) return <Banner kind="error">{error}</Banner>;
+  if (!summary) return <Loading label="Cargando tu resumen…" />;
 
   return (
     <div className="space-y-4">

@@ -376,7 +376,7 @@ export default function Copilot() {
           <form onSubmit={onSubmit} className="mt-3 flex gap-2 border-t border-border pt-3">
             <input
               className={inputClass}
-              placeholder='Ej: "Planea los pedidos de hoy en las 2 motos" o "¿qué pasó con MV-…?"'
+              placeholder='Ej: "Planea los pedidos de hoy en las 2 motos" o "¿qué pasó con DG-…?"'
               aria-label="Mensaje para el Copiloto"
               value={input}
               onChange={(e) => setInput(e.target.value)}

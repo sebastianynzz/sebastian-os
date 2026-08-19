@@ -121,7 +121,7 @@ export function OfflineQueue() {
                       retryAction(i.id);
                       void flushQueue().then(refresh);
                     }}
-                    className="min-h-11 rounded-lg bg-sidebar px-3 font-semibold text-white dark:bg-gris-senal/15 dark:text-canvas"
+                    className="min-h-11 rounded-lg bg-asfalto px-3 font-semibold text-white dark:bg-gris-senal/15 dark:text-humo"
                   >
                     Reintentar
                   </button>

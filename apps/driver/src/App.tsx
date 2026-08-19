@@ -649,11 +649,11 @@ export default function App() {
     >
       {/* Cabecera fija: marca + placa/vehículo, SOS siempre a mano (52×44),
           toggle claro (sol directo) y salida. */}
-      <header className="sticky top-0 z-10 border-b border-border/70 bg-canvas/95 backdrop-blur dark:border-gris-senal/12 dark:bg-sidebar/95">
+      <header className="sticky top-0 z-10 border-b border-border/70 bg-canvas/95 backdrop-blur dark:border-gris-senal/12 dark:bg-asfalto/95">
         <div className="flex items-center gap-2.5 px-4 py-2.5">
           <Wordmark size={18} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-asfalto dark:text-canvas">
+            <div className="truncate text-sm font-semibold text-asfalto dark:text-humo">
               Conductor
             </div>
             <div className="flex items-center gap-1 text-[11px] text-text-tertiary dark:text-gris-senal/70">
@@ -749,7 +749,7 @@ export default function App() {
         {(pull > 0 || refreshing) && (
           <div
             role="status"
-            className="flex items-center justify-center overflow-hidden text-xs font-medium text-asfalto/60 dark:text-canvas/60"
+            className="flex items-center justify-center overflow-hidden text-xs font-medium text-asfalto/60 dark:text-humo/60"
             style={{
               height: refreshing ? 28 : Math.min(pull, PULL_REFRESH_THRESHOLD),
             }}
@@ -767,10 +767,10 @@ export default function App() {
 
         {loaded && !route && (
           <div className="rounded-xl border border-border bg-white p-6 text-center text-sm text-text-tertiary shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover dark:text-gris-senal/70">
-            No tiene ruta asignada hoy.
+            No tienes ruta asignada hoy.
             <button
               onClick={load}
-              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-canvas text-sm font-semibold text-asfalto dark:bg-sidebar dark:text-canvas"
+              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-canvas text-sm font-semibold text-asfalto dark:bg-asfalto dark:text-humo"
             >
               <RefreshCw size={14} strokeWidth={2} aria-hidden />
               Actualizar
@@ -812,7 +812,7 @@ export default function App() {
           <section className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
             <div className="mb-2.5 flex items-start justify-between gap-2">
               <div>
-                <div className="text-[15px] font-semibold text-asfalto dark:text-canvas">
+                <div className="text-[15px] font-semibold text-asfalto dark:text-humo">
                   Ruta de hoy
                 </div>
                 <div className="text-[11.5px] text-text-tertiary dark:text-gris-senal/70">
@@ -875,12 +875,12 @@ export default function App() {
         {/* Pila de CTAs: un único CTA limón (iniciar ruta) + manifiesto en
             fantasma (Tier 2 §11: verificar la carga antes de salir). */}
         {route && ["DISPATCHED", "IN_PROGRESS"].includes(route.status) && (
-          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-border/60 bg-canvas/95 p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-gris-senal/12 dark:bg-sidebar/95">
+          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex flex-col gap-2 border-t border-border/60 bg-canvas/95 p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-gris-senal/12 dark:bg-asfalto/95">
             {route.status === "DISPATCHED" && (
               <button
                 onClick={startRoute}
                 disabled={starting}
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-sidebar shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-60 disabled:shadow-none"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-asfalto shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-60 disabled:shadow-none"
               >
                 <Play size={16} fill="currentColor" strokeWidth={0} aria-hidden />
                 {starting
@@ -966,7 +966,7 @@ export default function App() {
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-sidebar dark:text-canvas"
+                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-asfalto dark:text-humo"
                   >
                     Cancelar
                   </button>
@@ -991,7 +991,7 @@ export default function App() {
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => setSos("idle")}
-                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-sidebar dark:text-canvas"
+                    className="flex-1 rounded-xl bg-canvas py-4 text-base font-bold text-asfalto dark:bg-asfalto dark:text-humo"
                   >
                     Cerrar
                   </button>
@@ -1055,7 +1055,7 @@ function Login({
         onSubmit={submit}
         className="w-full max-w-sm space-y-4 rounded-2xl border border-border bg-white p-6 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover"
       >
-        <h1 className="flex items-center gap-2 text-xl font-bold text-asfalto dark:text-canvas">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-asfalto dark:text-humo">
           <Wordmark size={24} />
           conductor
         </h1>
@@ -1068,7 +1068,7 @@ function Login({
           </p>
         )}
         <input
-          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
+          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-asfalto dark:text-humo dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
           type="email"
           placeholder="Correo"
           aria-label="Correo electrónico"
@@ -1078,7 +1078,7 @@ function Login({
           onChange={(e) => setEmail(e.target.value)}
         />
         <input
-          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
+          className="w-full rounded-lg border border-gris-senal bg-white px-3 py-3 text-base text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-asfalto dark:text-humo dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
           type="password"
           placeholder="Contraseña"
           aria-label="Contraseña"
@@ -1094,7 +1094,7 @@ function Login({
         )}
         <button
           disabled={busy}
-          className="min-h-[48px] w-full rounded-lg bg-asfalto font-bold text-white disabled:opacity-60 dark:bg-verde dark:text-sidebar dark:shadow-glow"
+          className="min-h-[48px] w-full rounded-lg bg-asfalto font-bold text-white disabled:opacity-60 dark:bg-verde dark:text-asfalto dark:shadow-glow"
         >
           {busy ? "Ingresando…" : "Ingresar"}
         </button>
@@ -1170,7 +1170,7 @@ function LoadManifestSheet({
           className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-gris-senal/35"
         />
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-asfalto dark:text-canvas">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-asfalto dark:text-humo">
             <Package
               size={16}
               strokeWidth={1.75}
@@ -1198,7 +1198,7 @@ function LoadManifestSheet({
           </p>
         ) : (
           <>
-            <p className="mb-1.5 text-sm font-semibold text-asfalto dark:text-canvas">
+            <p className="mb-1.5 text-sm font-semibold text-asfalto dark:text-humo">
               {manifest.loaded} de {manifest.total} bultos cargados
             </p>
             <div
@@ -1219,7 +1219,7 @@ function LoadManifestSheet({
                   className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 dark:border-gris-senal/18"
                 >
                   <div className="min-w-0">
-                    <div className="font-mono text-xs font-bold text-asfalto dark:text-canvas">
+                    <div className="font-mono text-xs font-bold text-asfalto dark:text-humo">
                       {o.trackingNumber ?? "—"}
                     </div>
                     <div className="truncate text-sm text-text-secondary dark:text-gris-senal">
@@ -1230,7 +1230,7 @@ function LoadManifestSheet({
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${
                       o.loaded
                         ? "bg-success-bg text-success dark:bg-verde/18 dark:text-verde"
-                        : "bg-canvas text-asfalto/50 dark:bg-sidebar dark:text-gris-senal/60"
+                        : "bg-canvas text-asfalto/50 dark:bg-asfalto dark:text-gris-senal/60"
                     }`}
                   >
                     {o.loaded && <Check size={11} strokeWidth={2.5} aria-hidden />}
@@ -1241,7 +1241,7 @@ function LoadManifestSheet({
             </ul>
             <button
               onClick={() => setScanOpen(true)}
-              className="mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-asfalto text-sm font-bold text-white dark:border dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-canvas"
+              className="mt-4 flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-asfalto text-sm font-bold text-white dark:border dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-humo"
             >
               <ScanBarcode size={15} strokeWidth={2} aria-hidden />
               Escanear paquete
@@ -1322,7 +1322,7 @@ function StopRow({
       aria-hidden
       className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
         isCurrent
-          ? "bg-verde text-sidebar"
+          ? "bg-verde text-asfalto"
           : "bg-asfalto/10 text-asfalto dark:bg-gris-senal/20 dark:text-gris-senal"
       }`}
     >
@@ -1352,7 +1352,7 @@ function StopRow({
               className={`truncate text-[13px] font-semibold ${
                 done
                   ? "text-text-tertiary dark:text-gris-senal/60"
-                  : "text-asfalto dark:text-canvas"
+                  : "text-asfalto dark:text-humo"
               }`}
             >
               {stop.order.customerName}
@@ -1648,7 +1648,7 @@ function StopActionSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`Gestionar entrega de la parada ${stop.sequence}`}
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-canvas p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-gris-senal/25 dark:bg-sidebar"
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-canvas p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-gris-senal/25 dark:bg-asfalto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Barra superior: volver + "Parada N de M" + SOS (mismo botón fijo). */}
@@ -1661,7 +1661,7 @@ function StopActionSheet({
             <ChevronLeft size={16} strokeWidth={2} aria-hidden />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-asfalto dark:text-canvas">
+            <div className="text-sm font-semibold text-asfalto dark:text-humo">
               Parada {stop.sequence} de {totalStops}
             </div>
             <div className="truncate text-[11px] text-text-tertiary dark:text-gris-senal/70">
@@ -1675,7 +1675,7 @@ function StopActionSheet({
         <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-base font-semibold text-asfalto dark:text-canvas">
+              <div className="truncate text-base font-semibold text-asfalto dark:text-humo">
                 {stop.order.customerName}
               </div>
               <div className="mt-0.5 text-xs text-text-secondary dark:text-gris-senal">
@@ -1703,7 +1703,7 @@ function StopActionSheet({
               {stop.order.customProperties.map((cp) => (
                 <div key={cp.id} className="flex gap-1">
                   <dt className="text-asfalto/50 dark:text-gris-senal/60">{cp.name}:</dt>
-                  <dd className="font-semibold text-asfalto dark:text-canvas">{cp.value}</dd>
+                  <dd className="font-semibold text-asfalto dark:text-humo">{cp.value}</dd>
                 </div>
               ))}
             </dl>
@@ -1819,7 +1819,7 @@ function StopActionSheet({
                 inicio (no como error al final). */}
             <div className="rounded-[14px] border border-border bg-white p-3.5 shadow-soft dark:border-gris-senal/18 dark:bg-asfalto-hover">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-asfalto dark:text-canvas">
+                <span className="text-[13px] font-semibold text-asfalto dark:text-humo">
                   Evidencia de {isPickup ? "recogida" : "entrega"}
                 </span>
                 {requiresPhoto && (
@@ -1837,7 +1837,7 @@ function StopActionSheet({
                 <select
                   value={stopType}
                   onChange={(e) => setStopType(e.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-gris-senal bg-white px-3 text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:focus:border-verde"
+                  className="min-h-11 w-full rounded-lg border border-gris-senal bg-white px-3 text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-asfalto dark:text-humo dark:focus:border-verde"
                 >
                   {typeOptions.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -1939,7 +1939,7 @@ function StopActionSheet({
 
               {!isPickup && (
                 <input
-                  className="mt-2 min-h-11 w-full rounded-[10px] border border-gris-senal bg-white px-3 text-[13px] text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
+                  className="mt-2 min-h-11 w-full rounded-[10px] border border-gris-senal bg-white px-3 text-[13px] text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-asfalto dark:text-humo dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
                   placeholder={
                     requiresReceiver ? "¿Quién recibe? — nombre (obligatorio)" : "¿Quién recibe? — nombre"
                   }
@@ -2006,7 +2006,7 @@ function StopActionSheet({
             <button
               onClick={deliver}
               disabled={busy || (requiresPhoto && !photo)}
-              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-sidebar shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-50 disabled:shadow-none"
+              className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-verde text-[15px] font-bold text-asfalto shadow-glow transition duration-200 ease-brand active:brightness-95 disabled:opacity-50 disabled:shadow-none"
             >
               <Check size={16} strokeWidth={2.5} aria-hidden />
               {busy
@@ -2034,7 +2034,7 @@ function StopActionSheet({
                   className={`min-h-11 rounded-lg border px-2 py-2.5 text-sm font-medium ${
                     failReason === value
                       ? "border-danger/40 bg-danger-bg text-danger dark:border-[#c65454]/60 dark:bg-danger/18 dark:text-[#ff9d9d]"
-                      : "border-border bg-white text-asfalto dark:border-gris-senal/20 dark:bg-asfalto-hover dark:text-canvas"
+                      : "border-border bg-white text-asfalto dark:border-gris-senal/20 dark:bg-asfalto-hover dark:text-humo"
                   }`}
                 >
                   {label}

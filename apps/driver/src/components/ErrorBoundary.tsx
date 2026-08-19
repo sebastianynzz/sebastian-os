@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="mt-4 flex justify-center gap-2">
           <button
             onClick={this.reset}
-            className="rounded-lg bg-sidebar px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-lg bg-asfalto px-4 py-2 text-sm font-semibold text-white"
           >
             Reintentar
           </button>

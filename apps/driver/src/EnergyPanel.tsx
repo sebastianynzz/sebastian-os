@@ -230,7 +230,7 @@ export function EnergyTiles({
         <div className="text-[10.5px] text-text-tertiary dark:text-gris-senal/70">
           Energía en batería
         </div>
-        <div className="text-lg font-semibold text-asfalto dark:text-canvas">
+        <div className="text-lg font-semibold text-asfalto dark:text-humo">
           {kwhLeft !== null ? kwhLeft.toFixed(1) : "—"}{" "}
           <span className="text-[11px] font-normal text-text-tertiary dark:text-gris-senal/70">
             kWh
@@ -241,7 +241,7 @@ export function EnergyTiles({
         <div className="text-[10.5px] text-text-tertiary dark:text-gris-senal/70">
           Paradas restantes
         </div>
-        <div className="text-lg font-semibold text-asfalto dark:text-canvas">
+        <div className="text-lg font-semibold text-asfalto dark:text-humo">
           {pendingStops}{" "}
           <span className="text-[11px] font-normal text-text-tertiary dark:text-gris-senal/70">
             · ~{Math.max(1, Math.round(remainingKm))} km + regreso
@@ -323,7 +323,7 @@ export function ChargerSheet({
           className="mx-auto mb-3 block h-1 w-[38px] rounded-full bg-border-strong dark:bg-gris-senal/35"
         />
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-asfalto dark:text-canvas">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-asfalto dark:text-humo">
             <PlugZap
               size={15}
               strokeWidth={2}
@@ -383,7 +383,7 @@ export function ChargerSheet({
                       className="shrink-0 text-success dark:text-verde"
                     />
                   ) : s.dcFast ? (
-                    <span className="shrink-0 rounded-full bg-verde px-1.5 py-px text-[10px] font-extrabold text-sidebar">
+                    <span className="shrink-0 rounded-full bg-verde px-1.5 py-px text-[10px] font-extrabold text-asfalto">
                       DC
                     </span>
                   ) : (
@@ -394,11 +394,11 @@ export function ChargerSheet({
                       className="shrink-0 text-text-tertiary dark:text-gris-senal"
                     />
                   )}
-                  <span className="min-w-0 truncate text-[13px] font-semibold text-asfalto dark:text-canvas">
+                  <span className="min-w-0 truncate text-[13px] font-semibold text-asfalto dark:text-humo">
                     {s.name}
                   </span>
                   {s.distanceKm !== null && (
-                    <span className="ml-auto shrink-0 font-mono text-xs font-bold text-asfalto dark:text-canvas">
+                    <span className="ml-auto shrink-0 font-mono text-xs font-bold text-asfalto dark:text-humo">
                       {s.distanceKm.toFixed(1)} km
                     </span>
                   )}

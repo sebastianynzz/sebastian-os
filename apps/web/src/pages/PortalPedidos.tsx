@@ -160,7 +160,7 @@ export default function PortalPedidos() {
 
       <Card>
         {loading ? (
-          <Loading label="Cargando sus envíos…" />
+          <Loading label="Cargando tus envíos…" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-asfalto">

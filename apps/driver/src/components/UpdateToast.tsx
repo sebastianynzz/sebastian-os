@@ -21,7 +21,7 @@ export function UpdateToast() {
   return (
     <div
       role="status"
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-gris-senal/18 bg-sidebar px-4 py-2.5 text-sm text-canvas shadow-lg"
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-gris-senal/18 bg-asfalto px-4 py-2.5 text-sm text-humo shadow-lg"
     >
       <span className="flex items-center gap-2">
         <Download size={15} strokeWidth={2} aria-hidden className="shrink-0 text-verde" />
@@ -29,7 +29,7 @@ export function UpdateToast() {
       </span>
       <button
         onClick={() => applyUpdate()}
-        className="min-h-11 shrink-0 rounded-lg bg-verde px-3.5 font-bold text-sidebar"
+        className="min-h-11 shrink-0 rounded-lg bg-verde px-3.5 font-bold text-asfalto"
       >
         Recargar
       </button>

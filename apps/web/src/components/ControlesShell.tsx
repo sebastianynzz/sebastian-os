@@ -164,16 +164,13 @@ function useControlesStatus(): Record<string, ItemStatus> {
   return status;
 }
 
-function StatusIndicator({ status, active }: { status?: ItemStatus; active: boolean }) {
+function StatusIndicator({ status }: { status?: ItemStatus }) {
   if (!status) return null;
-  if (status.kind === "count") {
-    return active ? (
-      <span className="ml-auto text-[10px] font-bold">{status.n}</span>
-    ) : (
-      <span aria-label="Configurado" className="ml-auto h-1.5 w-1.5 rounded-full bg-olive" />
-    );
-  }
-  if (status.kind === "configured") {
+  // El indicador ya no cambia de forma al seleccionar: el ítem activo pasó de
+  // relleno Verde sólido a tinte al 14% (manual), sobre el que el punto Verde
+  // Profundo se sigue viendo. Antes se sustituía por el número justamente
+  // porque sobre verde sólido el punto desaparecía.
+  if (status.kind === "count" || status.kind === "configured") {
     return (
       <span aria-label="Configurado" className="ml-auto h-1.5 w-1.5 rounded-full bg-olive" />
     );
@@ -208,20 +205,15 @@ export default function ControlesShell() {
       className={({ isActive }) =>
         `flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
           isActive
-            ? "bg-verde font-semibold text-asfalto"
+            ? "bg-verde/14 font-bold text-asfalto"
             : "text-text-secondary hover:bg-canvas hover:text-asfalto"
         }`
       }
     >
-      {({ isActive }) => (
-        <>
-          <span className="min-w-0 flex-1 truncate">{it.label}</span>
-          <StatusIndicator
-            status={it.statusKey ? status[it.statusKey] : undefined}
-            active={isActive}
-          />
-        </>
-      )}
+      <>
+        <span className="min-w-0 flex-1 truncate">{it.label}</span>
+        <StatusIndicator status={it.statusKey ? status[it.statusKey] : undefined} />
+      </>
     </NavLink>
   );
 

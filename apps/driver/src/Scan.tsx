@@ -46,7 +46,7 @@ export default function ScanSheet({
 }: {
   /** Endpoint al que se envía el código (escaneo de parada o de carga). */
   endpoint: string;
-  /** Guía esperada (MV-XXXXXXXX) — la trae la ruta, disponible offline. */
+  /** Guía esperada (DG-XXXXXXXX) — la trae la ruta, disponible offline. */
   expected?: string | null;
   /** Conjunto de guías válidas (carga: el bulto pertenece a la ruta). */
   expectedAny?: string[];
@@ -133,7 +133,7 @@ export default function ScanSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-asfalto dark:text-canvas">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-asfalto dark:text-humo">
             <ScanBarcode
               size={16}
               strokeWidth={1.75}
@@ -153,7 +153,7 @@ export default function ScanSheet({
         {expected && (
           <p className="mb-2 text-xs text-text-tertiary dark:text-gris-senal/70">
             Guía esperada:{" "}
-            <span className="font-mono font-bold text-asfalto dark:text-canvas">
+            <span className="font-mono font-bold text-asfalto dark:text-humo">
               {expected}
             </span>
           </p>
@@ -180,15 +180,15 @@ export default function ScanSheet({
           }}
         >
           <input
-            className="min-h-11 flex-1 rounded-lg border border-gris-senal bg-white px-3 font-mono text-sm uppercase text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-sidebar dark:text-canvas dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
-            placeholder="MV-XXXXXXXX"
+            className="min-h-11 flex-1 rounded-lg border border-gris-senal bg-white px-3 font-mono text-sm uppercase text-asfalto focus:border-asfalto focus:outline-none dark:border-gris-senal/25 dark:bg-asfalto dark:text-humo dark:placeholder:text-gris-senal/50 dark:focus:border-verde"
+            placeholder="DG-XXXXXXXX"
             aria-label="Guía del paquete"
             value={manual}
             onChange={(e) => setManual(e.target.value)}
           />
           <button
             type="submit"
-            className="min-h-11 rounded-lg bg-asfalto px-4 text-sm font-bold text-white dark:border dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-canvas"
+            className="min-h-11 rounded-lg bg-asfalto px-4 text-sm font-bold text-white dark:border dark:border-gris-senal/25 dark:bg-gris-senal/12 dark:text-humo"
           >
             Verificar
           </button>
