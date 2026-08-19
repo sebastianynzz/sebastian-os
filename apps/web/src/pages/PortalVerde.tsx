@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Leaf, Printer, TreePine, Zap } from "lucide-react";
 import { api } from "../api";
+import { VEHICLE_TYPE_PROFILES, type VehicleType } from "@moveos/shared";
 import { formatDateBogota } from "../format";
 import {
   Button,
@@ -43,7 +44,12 @@ interface GreenReport {
   orders: GreenOrder[];
 }
 
-const VEHICLE_LABELS: Record<string, string> = {
+/**
+ * Nombres de la taxonomía anterior a las 6 configuraciones EV. Se conservan
+ * SOLO para rutas históricas que aún guardan esos valores; ningún vehículo
+ * nuevo puede tenerlos (el catálogo actual es la fuente de verdad).
+ */
+const LEGACY_VEHICLE_LABELS: Record<string, string> = {
   MOTO: "Moto",
   BICICLETA: "Bicicleta",
   CARRO: "Carro",
@@ -52,7 +58,13 @@ const VEHICLE_LABELS: Record<string, string> = {
 };
 
 export function vehicleLabel(v: { type: string; isElectric: boolean }) {
-  return `${VEHICLE_LABELS[v.type] ?? v.type}${v.isElectric ? " eléctrica" : ""}`;
+  // El catálogo manda: sin esto ninguna configuración actual acertaba en el
+  // mapa heredado y se mostraba el enum crudo ("RAP_MOVE_LIGHT eléctrica").
+  const label =
+    VEHICLE_TYPE_PROFILES[v.type as VehicleType]?.labelEs ??
+    LEGACY_VEHICLE_LABELS[v.type] ??
+    v.type;
+  return `${label}${v.isElectric ? " eléctrica" : ""}`;
 }
 
 /** Etiqueta de vehículo con rayo Lucide (nunca emoji) cuando es eléctrico. */

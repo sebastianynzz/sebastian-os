@@ -17,12 +17,11 @@ import {
 import {
   OPTIMIZATION_OBJECTIVES,
   OPTIMIZATION_OBJECTIVE_LABELS,
-  VEHICLE_TYPE_PROFILES,
   type OptimizationActionId,
   type OptimizationObjective,
-  type VehicleType,
 } from "@moveos/shared";
 import { api } from "../api";
+import { configLabel } from "../format";
 import { useToast } from "../toast";
 import { Button, Card, PageHeader, formatEta } from "../components/ui";
 import {
@@ -49,11 +48,6 @@ const orderIcon = L.divIcon({
   iconSize: [14, 14],
   iconAnchor: [7, 7],
 });
-
-/** Nombre comercial de la configuración (mismo criterio que Vehículos/EV). */
-function configLabel(type: string): string {
-  return VEHICLE_TYPE_PROFILES[type as VehicleType]?.labelEs ?? type;
-}
 
 interface Order {
   id: string;

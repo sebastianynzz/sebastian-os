@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { api, ApiError } from "../api";
+import { configLabel } from "../format";
 import { useToast } from "../toast";
 import {
   Button,
@@ -502,7 +503,7 @@ export default function Rutas() {
                 {r.vehicle.plate}
               </span>
               <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
-                {r.vehicle.type}
+                {configLabel(r.vehicle.type)}
               </span>
               {/* EV sin telemetría aún: nunca perder la marca eléctrica. */}
               {r.vehicle.isElectric &&

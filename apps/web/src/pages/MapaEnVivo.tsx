@@ -7,7 +7,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { BatteryCharging, Gauge, Lock, MapPin, Navigation, Power, Route } from "lucide-react";
 import { api, ApiError } from "../api";
 import { useRealtimeReload } from "../realtime";
-import { formatNumber } from "../format";
+import { configLabel, formatNumber } from "../format";
 import { Badge, Button, EmptyState, LivePill, ModuleDisabled, PageHeader } from "../components/ui";
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 };
@@ -325,7 +325,7 @@ export default function MapaEnVivo() {
                     eventHandlers={{ click: () => selectVehicle(e.vehicle.id) }}
                   >
                     <Popup>
-                      <strong>{e.vehicle.plate}</strong> · {e.vehicle.type}
+                      <strong>{e.vehicle.plate}</strong> · {configLabel(e.vehicle.type)}
                       <br />
                       {e.vehicle.engineOn ? "Encendido" : "Apagado"}
                       <br />
@@ -402,7 +402,7 @@ export default function MapaEnVivo() {
                       {e.vehicle.plate}
                     </span>
                     <span className="truncate text-[11px] text-text-secondary">
-                      {e.vehicle.type} · {(e.vehicle.lastSpeedKmh ?? 0).toFixed(0)} km/h
+                      {configLabel(e.vehicle.type)} · {(e.vehicle.lastSpeedKmh ?? 0).toFixed(0)} km/h
                     </span>
                     <span className="ml-auto flex shrink-0 items-center gap-1.5">
                       {e.vehicle.immobilized ? (
@@ -441,7 +441,7 @@ export default function MapaEnVivo() {
                 <span className="font-mono text-[15px] font-bold text-asfalto">
                   {selectedEntry.vehicle.plate}
                 </span>
-                <Badge tone="info">{selectedEntry.vehicle.type}</Badge>
+                <Badge tone="info">{configLabel(selectedEntry.vehicle.type)}</Badge>
                 {selectedEntry.vehicle.engineOn ? (
                   <Badge tone="success">Encendido</Badge>
                 ) : selectedEntry.vehicle.immobilized ? (
