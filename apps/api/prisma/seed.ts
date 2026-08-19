@@ -23,7 +23,7 @@ async function main() {
   // Operador de plataforma (idempotente).
   await prisma.platformAdmin.upsert({
     where: { email: "ops@dalego.co" },
-    create: { email: "ops@dalego.co", passwordHash, name: "Operador MoveOS" },
+    create: { email: "ops@dalego.co", passwordHash, name: "Operador daleGo" },
     update: {},
   });
 
@@ -214,7 +214,7 @@ async function main() {
   const in11Months = new Date(Date.now() + 330 * 24 * 3600 * 1000);
   const in20Days = new Date(Date.now() + 20 * 24 * 3600 * 1000);
 
-  // Flota 100% eléctrica (MoveOS es EV-only — restricción dura 1): catálogo de
+  // Flota 100% eléctrica (daleGo es EV-only — restricción dura 1): catálogo de
   // 6 configuraciones (Rap Move + IONAx), con dos Cold Box para cadena de frío.
   // Capacidad/batería/autonomía alineadas con VEHICLE_TYPE_PROFILES.
   await prisma.vehicle.createMany({

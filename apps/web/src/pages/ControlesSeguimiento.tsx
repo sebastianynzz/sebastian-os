@@ -72,7 +72,7 @@ export default function ControlesSeguimiento() {
     <div className="space-y-4">
       <PageHeader
         title="Seguimiento público"
-        subtitle="Define cuánta información muestra la página pública de rastreo que el negocio comparte. MoveOS nunca contacta al consumidor final: solo enriquece el enlace que el negocio decide compartir."
+        subtitle="Define cuánta información muestra la página pública de rastreo que el negocio comparte. daleGo nunca contacta al consumidor final: solo enriquece el enlace que el negocio decide compartir."
       />
       {loading ? (
         <Loading label="Cargando configuración…" />

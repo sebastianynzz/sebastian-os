@@ -34,7 +34,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-lg px-3 py-1.5 text-sm transition disabled:opacity-50 ${styles[variant]}`}
+      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition disabled:opacity-50 ${styles[variant]}`}
     >
       {children}
     </button>
@@ -48,7 +48,7 @@ const PLAN_STYLES: Record<string, string> = {
 };
 export function PlanBadge({ plan }: { plan: string }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PLAN_STYLES[plan] ?? "bg-white/10"}`}>
+    <span className={`rounded-none px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.06em] ${PLAN_STYLES[plan] ?? "bg-white/10"}`}>
       {plan}
     </span>
   );
@@ -58,7 +58,7 @@ export function StatusBadge({ status }: { status: string }) {
   const ok = status === "ACTIVE";
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+      className={`rounded-none px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.06em] ${
         ok ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
       }`}
     >

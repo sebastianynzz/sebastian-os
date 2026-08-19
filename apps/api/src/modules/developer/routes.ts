@@ -69,7 +69,7 @@ export default async function developerRoutes(app: FastifyInstance) {
     const result = await deliverWebhook(hook, "DELIVERED", {
       test: true,
       guia: "MV-TEST",
-      message: "Webhook de prueba de MoveOS",
+      message: "Webhook de prueba de daleGo",
     });
     return { ok: result.ok, status: result.status };
   });

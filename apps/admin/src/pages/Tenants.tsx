@@ -532,7 +532,7 @@ export default function Tenants() {
                 <td className="py-2 font-medium">{t.name}</td>
                 <td>
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    className={`rounded-none px-1.5 py-0.5 text-[10px] font-bold ${
                       t.operatorType === "SUB_OPERATOR"
                         ? "bg-verde/30 text-verde"
                         : "bg-gris-senal/20 text-gris-senal"
@@ -542,7 +542,7 @@ export default function Tenants() {
                   </span>
                 </td>
                 <td>
-                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-gris-senal">
+                  <span className="rounded-none bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-gris-senal">
                     {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
                   </span>
                 </td>

@@ -38,12 +38,26 @@ function Shell() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive ? "bg-verde text-asfalto" : "text-gris-senal hover:bg-white/10"
+                // Manual: el ítem activo es TEXTO Verde Eléctrico + punto ●,
+                // nunca un fondo de píldora.
+                `flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                  isActive
+                    ? "font-semibold text-verde"
+                    : "font-medium text-gris-senal hover:text-humo"
                 }`
               }
             >
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-verde"
+                    />
+                  )}
+                  {item.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

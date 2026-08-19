@@ -189,7 +189,7 @@ export default function ControlesIntegraciones() {
     <div className="space-y-4">
       <PageHeader
         title="Integraciones"
-        subtitle="Conecta sistemas externos con MoveOS: webhooks firmados por evento y API keys para crear pedidos por API. La firma del webhook viaja en la cabecera x-moveos-signature (HMAC-SHA256 con el secreto)."
+        subtitle="Conecta sistemas externos con daleGo: webhooks firmados por evento y API keys para crear pedidos por API. La firma del webhook viaja en la cabecera x-moveos-signature (HMAC-SHA256 con el secreto)."
       />
       {error && (
         <Banner kind="error" onDismiss={() => void load()}>
@@ -385,7 +385,7 @@ export default function ControlesIntegraciones() {
       {/* Conectores (Tier 2 §8): order-ingestion desde donde vende el cliente. */}
       <Card title="Conectores de pedidos">
         <p className="text-sm text-text-secondary">
-          Conecta tu tienda o marketplace para que sus pedidos entren a MoveOS.
+          Conecta tu tienda o marketplace para que sus pedidos entren a daleGo.
           Configura el webhook de la plataforma apuntando a la URL del conector y
           autentícalo con una API key con permiso{" "}
           <code className="font-mono text-asfalto">orders:write</code>.

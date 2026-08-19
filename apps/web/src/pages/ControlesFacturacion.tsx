@@ -124,7 +124,7 @@ export default function ControlesFacturacion() {
     <div className="space-y-4">
       <PageHeader
         title="Facturación"
-        subtitle="Tus datos fiscales y el historial de facturas de tu suscripción. MoveOS no cobra pagos en la app: las facturas las emite el operador de plataforma."
+        subtitle="Tus datos fiscales y el historial de facturas de tu suscripción. daleGo no cobra pagos en la app: las facturas las emite el operador de plataforma."
       />
 
       {error && (

@@ -83,7 +83,7 @@ export default function ControlesNotificaciones() {
           <>
             Por cada evento del envío, decide si avisar al negocio cliente y con qué
             texto. Usa <Var>{"{{guia}}"}</Var>, <Var>{"{{destinatario}}"}</Var>,{" "}
-            <Var>{"{{motivo}}"}</Var> y <Var>{"{{rastreo}}"}</Var>. MoveOS notifica al
+            <Var>{"{{motivo}}"}</Var> y <Var>{"{{rastreo}}"}</Var>. daleGo notifica al
             negocio, nunca al consumidor final.
           </>
         }
