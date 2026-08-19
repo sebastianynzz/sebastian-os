@@ -216,7 +216,7 @@ export default function Auditoria() {
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-300">No se pudo cargar la bitácora.</span>
+            <span className="text-danger">No se pudo cargar la bitácora.</span>
             <button
               onClick={() => void load()}
               className="rounded-lg bg-verde px-3 py-1.5 font-semibold text-asfalto"

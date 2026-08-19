@@ -29,9 +29,9 @@ const STATUS_UI: Record<
   IntegrationStatus,
   { dot: string; label: string; text: string }
 > = {
-  OK: { dot: "bg-emerald-400", label: "OK", text: "text-emerald-300" },
-  DEGRADED: { dot: "bg-red-500", label: "Degradado", text: "text-red-400" },
-  CONFIGURED: { dot: "bg-sky-400", label: "Configurado", text: "text-sky-300" },
+  OK: { dot: "bg-verde", label: "OK", text: "text-verde" },
+  DEGRADED: { dot: "bg-danger", label: "Degradado", text: "text-danger" },
+  CONFIGURED: { dot: "bg-gris-senal", label: "Configurado", text: "text-gris-senal" },
   NOT_CONFIGURED: {
     dot: "bg-white/30",
     label: "Sin configurar",
@@ -99,7 +99,7 @@ export default function Integraciones() {
 
       {!results && error && (
         <Card>
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-danger">
             No se pudo consultar la salud de integraciones.{" "}
             <button onClick={() => void load(true)} className="underline">
               Reintentar

@@ -83,7 +83,9 @@ function stopCoords(s: Stop): [number, number] | null {
 }
 
 function seqIcon(n: number, kind: "PICKUP" | "DELIVERY") {
-  const color = kind === "PICKUP" ? "#3a5169" : "#5a6b18";
+  // Manual, sección Mapas: recogida en Verde Profundo, entrega en Verde
+  // Eléctrico. El número va en Asfalto para que se lea sobre ambos.
+  const color = kind === "PICKUP" ? "#0E4D2E" : "#00E571";
   return L.divIcon({
     className: "",
     html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${color};color:#0C0F12;font-size:11px;font-weight:700;border:2px solid #F2F5F3">${n}</div>`,

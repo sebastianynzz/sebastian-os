@@ -326,15 +326,26 @@ function RouteSkeleton() {
 }
 
 /**
- * Botón SOS fijo (52×44): siempre a mano, en la cabecera y en la hoja de
- * entrega. Solo ARMA la confirmación — la ventana de 10 s sigue intacta.
+ * Botón SOS (56×48): siempre a mano, en la cabecera y en la hoja de entrega.
+ * Solo ARMA la confirmación — la ventana de 10 s sigue intacta.
+ *
+ * AUDITORÍA D-04. El handoff lo especificaba en ámbar y como botón fantasma de
+ * 36-40px. Se corrigió por tres motivos:
+ *  - El ámbar ya significa batería baja, fuera de geocerca, foto obligatoria y
+ *    «no se pudo entregar»: cinco sentidos en una sola pantalla. El pánico va
+ *    en el Rojo Alerta, que está reservado a emergencia.
+ *  - Relleno sólido, no fantasma: en tema claro el borde ámbar medía 1.64:1
+ *    contra el fondo, es decir prácticamente invisible.
+ *  - 48px de alto (mínimo táctil) y un solo tamaño en ambas pantallas. Un
+ *    conductor bajo amenaza no debería distinguir el botón de pánico del
+ *    conmutador de tema leyendo una etiqueta de 12,5px.
  */
 function SosButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       aria-label="Abrir confirmación de alerta de pánico"
-      className="flex h-11 min-w-[52px] shrink-0 items-center justify-center rounded-xl border-[1.5px] border-danger bg-danger-bg text-[13px] font-bold tracking-[.04em] text-danger dark:border-[#c65454] dark:bg-danger/18 dark:text-[#ff9d9d]"
+      className="flex h-12 min-w-[56px] shrink-0 items-center justify-center rounded-xl bg-danger text-[13px] font-extrabold tracking-[.06em] text-white"
     >
       SOS
     </button>
@@ -705,6 +716,13 @@ export default function App() {
           >
             <LogOut size={16} strokeWidth={1.75} aria-hidden />
           </button>
+{/* Separación física del pánico respecto de los controles cotidianos
+              (auditoría D-04): no debe confundirse con el conmutador de
+              tema ni con «salir». */}
+          <span
+            aria-hidden="true"
+            className="mx-1 h-7 w-px shrink-0 bg-border dark:bg-gris-senal/25"
+          />
           <SosButton onClick={() => setSos("confirm")} />
         </div>
       </header>

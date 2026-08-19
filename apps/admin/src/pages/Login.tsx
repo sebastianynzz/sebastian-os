@@ -50,7 +50,7 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <Button type="submit" disabled={busy}>
             {busy ? "Ingresando…" : "Ingresar"}
           </Button>

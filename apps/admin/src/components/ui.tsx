@@ -59,7 +59,7 @@ export function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`rounded-none px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.06em] ${
-        ok ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
+        ok ? "bg-verde/20 text-verde" : "bg-danger/20 text-danger"
       }`}
     >
       {ok ? "Activo" : "Suspendido"}

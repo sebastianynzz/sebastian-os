@@ -121,7 +121,7 @@ function countTrend(cur: number, prev: number): Trend {
   const up = cur > prev;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(pct).toFixed(0)}%`,
-    cls: up ? "text-verde" : "text-red-400",
+    cls: up ? "text-verde" : "text-danger",
   };
 }
 /** Variación en puntos porcentuales de la tasa de entrega. */
@@ -132,7 +132,7 @@ function rateTrend(cur: number | null, prev: number | null): Trend {
   const up = diff > 0;
   return {
     text: `${up ? "▲" : "▼"} ${Math.abs(diff).toFixed(1)} pp`,
-    cls: up ? "text-verde" : "text-red-400",
+    cls: up ? "text-verde" : "text-danger",
   };
 }
 
@@ -303,14 +303,14 @@ export default function Metricas() {
 
       {rangeError && (
         <Card>
-          <p className="text-sm text-amber-300">{rangeError}</p>
+          <p className="text-sm text-warning">{rangeError}</p>
         </Card>
       )}
 
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-300">No se pudieron cargar las métricas.</span>
+            <span className="text-danger">No se pudieron cargar las métricas.</span>
             <button
               onClick={() => void loadSeries()}
               className="rounded-lg bg-verde px-3 py-1.5 font-semibold text-asfalto"

@@ -238,7 +238,7 @@ export default function Flota() {
                   <td>{v.operatedBy.name}</td>
                   <td className="text-gris-senal">{v.ownerName ?? "—"}</td>
                   <td>
-                    <span className={v.engineOn ? "text-verde" : "text-red-400"}>
+                    <span className={v.engineOn ? "text-verde" : "text-danger"}>
                       {v.engineOn ? "● encendido" : "○ apagado"}
                     </span>
                   </td>

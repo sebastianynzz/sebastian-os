@@ -8,9 +8,9 @@
  * tarjetas #1A2027, texto Blanco Humo y Gris Señal, que sobre Asfalto sí cumple
  * (6.26:1) — el problema de contraste del manual era solo en tema claro.
  *
- * PENDIENTE de la auditoría: este plano nunca adoptó los tokens semánticos y
- * conserva ~15 clases `red-*` crudas de Tailwind que el re-valor de tokens NO
- * alcanza. Se barren al repintar cada pantalla.
+ * Este plano no había adoptado los tokens semánticos: usaba clases crudas de
+ * Tailwind (red-*, emerald-*, amber-*) que el re-valor de tokens no alcanzaba.
+ * Ya están migradas a danger/verde/warning.
  */
 @theme {
   /* ── Paleta Circuito ── */
@@ -133,7 +133,7 @@
 }
 
 body {
-  @apply bg-navydeep text-niebla font-sans;
+  @apply bg-canvas text-text-primary font-sans;
 }
 
 h1,

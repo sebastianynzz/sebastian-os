@@ -76,15 +76,15 @@ function tenantHealth(
   serie: DayPoint[] | null,
 ): { label: string; cls: string } {
   if (t.status !== "ACTIVE")
-    return { label: "⏸ Suspendido", cls: "bg-red-500/20 text-red-200" };
+    return { label: "⏸ Suspendido", cls: "bg-danger/20 text-danger" };
   if (t.counts.orders === 0)
     return { label: "● Sin pedidos aún", cls: "bg-white/10 text-gris-senal" };
   const recent = (serie ?? [])
     .slice(-7)
     .reduce((s, d) => s + d.ordersCreated + d.ordersDelivered, 0);
   return recent > 0
-    ? { label: "● Saludable", cls: "bg-emerald-500/20 text-emerald-200" }
-    : { label: "● Sin actividad reciente", cls: "bg-amber-500/20 text-amber-200" };
+    ? { label: "● Saludable", cls: "bg-verde/20 text-verde" }
+    : { label: "● Sin actividad reciente", cls: "bg-warning/20 text-warning" };
 }
 
 export default function TenantDetail() {
@@ -457,7 +457,7 @@ export default function TenantDetail() {
                       </button>
                       <button
                         onClick={() => void deleteUser(u)}
-                        className="text-red-400 hover:underline"
+                        className="text-danger hover:underline"
                       >
                         Eliminar
                       </button>
