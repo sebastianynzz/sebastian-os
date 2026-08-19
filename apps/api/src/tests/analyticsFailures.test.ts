@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Análisis de fallos (D6): /analytics/failures agrega los pedidos fallidos del
@@ -51,7 +52,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -60,6 +61,8 @@ beforeAll(async () => {
     create: { tenantId, moduleKey: "ANALYTICS_PRO", enabled: true },
     update: { enabled: true },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 });
 
 afterAll(async () => {

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { BadgeCheck, Snowflake, Sparkles, Warehouse, Zap } from "lucide-react";
 import { VEHICLE_TYPE_PROFILES } from "@moveos/shared";
 import type { ActionCatalogEntry, Proposal } from "@moveos/shared";
@@ -52,10 +51,16 @@ interface RangeEstimate {
 
 const DEPOT = { lat: 4.6486, lng: -74.0628 }; // referencia Bogotá
 
-const stationIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+/**
+ * Estación de carga (Paleta Circuito, sección Mapas): círculo Verde Eléctrico
+ * con borde Asfalto, mismo tratamiento que Mapa en vivo y Planificación. Antes
+ * era el PNG azul por defecto de Leaflet, ajeno a la paleta.
+ */
+const stationIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:14px;height:14px;border-radius:999px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
 });
 
 /** Consumo del reefer (kW): puede venir como rango [min,max] o valor único. */
@@ -83,7 +88,7 @@ function SocRing({ soc, danger }: { soc: number | null; danger: boolean }) {
       aria-label={`Estado de carga ${soc != null ? `${soc}%` : "sin dato"}`}
       className="shrink-0"
     >
-      <circle cx="31" cy="31" r={RING_R} fill="none" strokeWidth="7" className="stroke-niebla" />
+      <circle cx="31" cy="31" r={RING_R} fill="none" strokeWidth="7" className="stroke-canvas" />
       <circle
         cx="31"
         cy="31"
@@ -93,13 +98,13 @@ function SocRing({ soc, danger }: { soc: number | null; danger: boolean }) {
         strokeLinecap="round"
         strokeDasharray={`${dash} ${RING_C}`}
         transform="rotate(-90 31 31)"
-        className={danger ? "stroke-danger" : "stroke-lima"}
+        className={danger ? "stroke-danger" : "stroke-verde"}
       />
       <text
         x="31"
         y="35"
         textAnchor="middle"
-        className={`text-[14px] font-bold ${danger ? "fill-danger" : "fill-navy"}`}
+        className={`text-[14px] font-bold ${danger ? "fill-danger" : "fill-asfalto"}`}
       >
         {soc != null ? `${soc}%` : "—"}
       </text>
@@ -169,15 +174,15 @@ function CopilotoBar() {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
-          <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-lime-ink" strokeWidth={2} />
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-asfalto">
+          <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-asfalto" strokeWidth={2} />
           Copiloto
         </span>
         <button
           type="button"
           onClick={() => void run()}
           disabled={phase !== "idle"}
-          className="whitespace-nowrap rounded-full border border-navy/30 bg-surface px-3 py-1 text-xs font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+          className="whitespace-nowrap rounded-full border border-asfalto/30 bg-surface px-3 py-1 text-xs font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "running" ? "Analizando…" : "Programar carga al menor costo"}
         </button>
@@ -195,7 +200,7 @@ function CopilotoBar() {
       {proposal && (
         <Card title="Programar carga al menor costo">
           <div className="space-y-3">
-            <p className="text-sm text-navy">{proposal.summaryEs}</p>
+            <p className="text-sm text-asfalto">{proposal.summaryEs}</p>
             <ProposalImpactRows proposal={proposal} />
             {error && (
               <Banner kind="error" onDismiss={() => setError(null)}>
@@ -256,13 +261,13 @@ function ProposalImpactRows({ proposal }: { proposal: Proposal }) {
           {rows.map((r) => (
             <span key={r.label}>
               <span className="text-text-secondary">{r.label}: </span>
-              <span className="font-medium text-navy">{r.value}</span>
+              <span className="font-medium text-asfalto">{r.value}</span>
             </span>
           ))}
         </div>
       )}
       {i.notesEs && i.notesEs.length > 0 && (
-        <ul className="list-disc pl-5 text-navy/70">
+        <ul className="list-disc pl-5 text-asfalto/70">
           {i.notesEs.map((n, k) => (
             <li key={k}>{n}</li>
           ))}
@@ -271,7 +276,7 @@ function ProposalImpactRows({ proposal }: { proposal: Proposal }) {
       {i.unassigned && i.unassigned.length > 0 && (
         <div>
           <p className="font-medium text-warning">Sin asignar ({i.unassigned.length})</p>
-          <ul className="list-disc pl-5 text-navy/70">
+          <ul className="list-disc pl-5 text-asfalto/70">
             {i.unassigned.slice(0, 6).map((u) => (
               <li key={u.orderId}>{u.reasonEs}</li>
             ))}
@@ -282,7 +287,7 @@ function ProposalImpactRows({ proposal }: { proposal: Proposal }) {
       {i.excluded && i.excluded.length > 0 && (
         <div>
           <p className="font-medium text-warning">Vehículos excluidos ({i.excluded.length})</p>
-          <ul className="list-disc pl-5 text-navy/70">
+          <ul className="list-disc pl-5 text-asfalto/70">
             {i.excluded.slice(0, 6).map((e) => (
               <li key={e.vehicleId}>{e.reasonEs}</li>
             ))}
@@ -375,7 +380,7 @@ export default function Ev() {
         actions={
           <>
             {/* Exención nacional de pico y placa: beneficio visible, no nota al pie. */}
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-lima/45 px-3 py-1 text-xs font-semibold text-lime-ink">
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-verde/45 px-3 py-1 text-xs font-semibold text-asfalto">
               <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
               EVs exentos de pico y placa (Ley 1964)
             </span>
@@ -407,8 +412,8 @@ export default function Ev() {
               <SocRing soc={v.socPercent} danger={ringDanger} />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-mono text-sm font-bold text-navy">{v.plate}</span>
-                  <span className="whitespace-nowrap rounded-full bg-sky-50 px-2 py-px text-[10.5px] font-semibold text-info">
+                  <span className="font-mono text-sm font-bold text-asfalto">{v.plate}</span>
+                  <span className="whitespace-nowrap rounded-full bg-info-bg px-2 py-px text-[10.5px] font-semibold text-info">
                     {profile?.labelEs ?? v.type}
                   </span>
                   {v.lowBattery && (
@@ -419,7 +424,7 @@ export default function Ev() {
                 </div>
                 <div
                   className={`mt-0.5 text-[20px] font-semibold leading-tight ${
-                    v.lowBattery ? "text-danger" : "text-navy"
+                    v.lowBattery ? "text-danger" : "text-asfalto"
                   }`}
                 >
                   {v.usableRangeKm ?? "—"}{" "}
@@ -434,7 +439,7 @@ export default function Ev() {
                       reefer-ON, así que esto es informativo (energía/costo), no se
                       resta de nuevo. Solo configuraciones refrigeradas lo muestran. */}
                   {reefer && (
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2 py-px text-[10.5px] font-semibold text-info">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-info-bg px-2 py-px text-[10.5px] font-semibold text-info">
                       <Snowflake aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={2} />
                       Cold Box {coolingDrawLabel(reefer.coolingDrawKw)} · {reefer.tempMinC}…
                       {reefer.tempMaxC}°C
@@ -509,7 +514,7 @@ export default function Ev() {
             </Button>
             {calc && (
               <span className="text-[13px] text-text-secondary">
-                <span className="font-mono font-bold text-navy">{calc.plate}</span> · SoC{" "}
+                <span className="font-mono font-bold text-asfalto">{calc.plate}</span> · SoC{" "}
                 {calc.socPercent}% →{" "}
                 <span className="text-[22px] font-bold text-warning">{calc.usableRangeKm} km</span>{" "}
                 útiles
@@ -576,11 +581,11 @@ export default function Ev() {
               {s.isDepot ? (
                 <Warehouse
                   aria-hidden="true"
-                  className="h-3.5 w-3.5 shrink-0 text-navy"
+                  className="h-3.5 w-3.5 shrink-0 text-asfalto"
                   strokeWidth={2}
                 />
               ) : s.dcFast ? (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-lima px-2 py-px text-[10.5px] font-bold text-navy">
+                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-verde px-2 py-px text-[10.5px] font-bold text-asfalto">
                   <Zap
                     aria-hidden="true"
                     className="h-2.5 w-2.5"
@@ -590,11 +595,11 @@ export default function Ev() {
                   DC
                 </span>
               ) : (
-                <span className="shrink-0 rounded-full bg-sky-50 px-2 py-px text-[10.5px] font-semibold text-info">
+                <span className="shrink-0 rounded-full bg-info-bg px-2 py-px text-[10.5px] font-semibold text-info">
                   AC
                 </span>
               )}
-              <span className="truncate text-[12.5px] font-semibold text-navy">{s.name}</span>
+              <span className="truncate text-[12.5px] font-semibold text-asfalto">{s.name}</span>
               <span className="truncate text-[11px] text-text-tertiary">
                 {s.network}
                 {s.powerKw ? ` · ${s.powerKw} kW` : ""}

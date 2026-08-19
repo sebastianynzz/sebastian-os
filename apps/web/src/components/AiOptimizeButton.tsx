@@ -103,14 +103,14 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
         <div className="flex flex-wrap gap-x-6 gap-y-1">
           {rows.map((r) => (
             <span key={r.label}>
-              <span className="text-navy/50">{r.label}: </span>
-              <span className="font-medium text-navy">{r.value}</span>
+              <span className="text-asfalto/50">{r.label}: </span>
+              <span className="font-medium text-asfalto">{r.value}</span>
             </span>
           ))}
         </div>
       )}
       {i.notesEs && i.notesEs.length > 0 && (
-        <ul className="list-disc pl-5 text-navy/70">
+        <ul className="list-disc pl-5 text-asfalto/70">
           {i.notesEs.map((n, k) => (
             <li key={k}>{n}</li>
           ))}
@@ -121,7 +121,7 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
           <p className="font-medium text-warning">
             Sin asignar ({i.unassigned.length})
           </p>
-          <ul className="list-disc pl-5 text-navy/70">
+          <ul className="list-disc pl-5 text-asfalto/70">
             {i.unassigned.slice(0, 6).map((u) => (
               <li key={u.orderId}>{u.reasonEs}</li>
             ))}
@@ -134,7 +134,7 @@ function ImpactMetrics({ proposal }: { proposal: Proposal }) {
           <p className="font-medium text-warning">
             Vehículos excluidos ({i.excluded.length})
           </p>
-          <ul className="list-disc pl-5 text-navy/70">
+          <ul className="list-disc pl-5 text-asfalto/70">
             {i.excluded.slice(0, 6).map((e) => (
               <li key={e.vehicleId}>{e.reasonEs}</li>
             ))}
@@ -218,9 +218,9 @@ export function AiOptimizeButton({
         type="button"
         onClick={run}
         disabled={disabled || phase !== "idle"}
-        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-navy/30 bg-surface px-3 py-1 text-[13px] font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-asfalto/30 bg-surface px-3 py-1 text-[13px] font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Sparkles aria-hidden="true" className="h-3 w-3 text-lime-ink" strokeWidth={2} />
+        <Sparkles aria-hidden="true" className="h-3 w-3 text-asfalto" strokeWidth={2} />
         {phase === "running" ? "Analizando…" : action.labelEs}
       </button>
     ) : (
@@ -244,13 +244,13 @@ export function AiOptimizeButton({
       <div className="mb-3 flex items-center gap-2">
         <Sparkles
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-lime-ink"
+          className="h-4 w-4 shrink-0 text-asfalto"
           strokeWidth={1.75}
         />
-        <h3 className="text-sm font-semibold text-navy">{action.labelEs}</h3>
+        <h3 className="text-sm font-semibold text-asfalto">{action.labelEs}</h3>
       </div>
       <div className="space-y-3">
-        <p className="text-sm text-navy">{proposal.summaryEs}</p>
+        <p className="text-sm text-asfalto">{proposal.summaryEs}</p>
         <ImpactMetrics proposal={proposal} />
         {error && (
           <Banner kind="error" onDismiss={() => setError(null)}>

@@ -114,9 +114,9 @@ function SavingsBar({ value, max }: { value: number; max: number }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-block h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-niebla"
+      className="inline-block h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-canvas"
     >
-      <span className="block h-full bg-lima" style={{ width: `${pct}%` }} />
+      <span className="block h-full bg-verde" style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -226,12 +226,12 @@ export default function Sostenibilidad() {
                 <span className="inline-flex items-center gap-1.5">
                   <Leaf
                     aria-hidden="true"
-                    className="h-3.5 w-3.5 shrink-0 text-lima"
+                    className="h-3.5 w-3.5 shrink-0 text-verde"
                     strokeWidth={2}
                   />
                   <span>
                     equivale a{" "}
-                    <strong className="font-semibold text-lima">
+                    <strong className="font-semibold text-verde">
                       {report.treesEquivalent} árboles
                     </strong>{" "}
                     plantados/año
@@ -273,7 +273,7 @@ export default function Sostenibilidad() {
             {report.byVehicleType.length === 0 ? (
               <EmptyState>Sin rutas en este mes.</EmptyState>
             ) : (
-              <div className="flex flex-col gap-2 text-[12.5px] text-navy">
+              <div className="flex flex-col gap-2 text-[12.5px] text-asfalto">
                 {report.byVehicleType.map((t) => (
                   <div
                     key={`${t.type}-${t.isElectric}`}
@@ -286,15 +286,15 @@ export default function Sostenibilidad() {
                         {t.co2Kg} kg CO₂
                       </span>
                     </span>
-                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-niebla">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-canvas">
                       <span
-                        className="block h-full bg-lima"
+                        className="block h-full bg-verde"
                         style={{
                           width: `${Math.max(0, Math.min(100, maxTypeSaved > 0 ? (t.co2SavedKg / maxTypeSaved) * 100 : 0))}%`,
                         }}
                       />
                     </span>
-                    <span className="w-16 shrink-0 text-right font-mono text-[11px] text-lime-ink">
+                    <span className="w-16 shrink-0 text-right font-mono text-[11px] text-asfalto">
                       {t.co2SavedKg > 0 ? `−${t.co2SavedKg} kg` : "0 kg"}
                     </span>
                   </div>
@@ -327,7 +327,7 @@ export default function Sostenibilidad() {
                       <td className="text-right">
                         <span className="inline-flex items-center justify-end gap-2">
                           <SavingsBar value={c.co2SavedKg} max={maxClientSaved} />
-                          <span className="w-16 text-right font-mono text-xs font-semibold text-lime-ink">
+                          <span className="w-16 text-right font-mono text-xs font-semibold text-asfalto">
                             {c.co2SavedKg > 0 ? `−${c.co2SavedKg} kg` : "0 kg"}
                           </span>
                         </span>

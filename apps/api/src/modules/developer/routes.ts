@@ -68,8 +68,8 @@ export default async function developerRoutes(app: FastifyInstance) {
     if (!hook) return reply.code(404).send({ error: "Webhook no encontrado" });
     const result = await deliverWebhook(hook, "DELIVERED", {
       test: true,
-      guia: "MV-TEST",
-      message: "Webhook de prueba de MoveOS",
+      guia: "DG-TEST",
+      message: "Webhook de prueba de daleGo",
     });
     return { ok: result.ok, status: result.status };
   });

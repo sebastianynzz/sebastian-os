@@ -16,7 +16,7 @@ const W = 600;
 const H = 200;
 const PAD_TOP = 12;
 
-const DEFAULT_COLORS = ["#cfdd80", "#a7b6c4"]; // lima, cielo
+const DEFAULT_COLORS = ["#00E571", "#8C949D"]; // verde protagonista, gris señal
 
 export function TrendChart({
   days,
@@ -47,7 +47,7 @@ export function TrendChart({
       <div className="mb-1 flex items-center justify-between text-xs">
         <div className="flex flex-wrap gap-3">
           {series.map((s, idx) => (
-            <span key={s.label} className="flex items-center gap-1.5 text-cielo">
+            <span key={s.label} className="flex items-center gap-1.5 text-gris-senal">
               <span
                 aria-hidden="true"
                 className="h-2 w-2 rounded-full"
@@ -81,7 +81,7 @@ export function TrendChart({
             {idx === 0 && s.fill !== "none" && n > 1 && (
               <polygon
                 points={`0,${H} ${toPoints(s.values)} ${W},${H}`}
-                fill={s.fill ?? "#cfdd80"}
+                fill={s.fill ?? "#00E571"}
                 fillOpacity={0.2}
               />
             )}

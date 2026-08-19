@@ -10,7 +10,7 @@ import { auditPlatform } from "../../services/platformAudit.js";
 
 /**
  * Gestión del EQUIPO de un tenant desde el panel de plataforma (soporte de
- * MOVE): crear staff ADMIN/DISPATCHER, cambiar rol/nombre, resetear
+ * daleGo): crear staff ADMIN/DISPATCHER, cambiar rol/nombre, resetear
  * contraseña y eliminar. Conductores (DRIVER, vinculados a `driverId`) y
  * usuarios del portal (CLIENT) se gestionan desde el dashboard del tenant; en
  * esta lista aparecen solo lectura.

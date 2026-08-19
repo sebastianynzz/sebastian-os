@@ -25,7 +25,7 @@ interface TenantRow {
 const OPERATOR_LABEL: Record<string, string> = {
   SELF_SERVE: "Autoservicio",
   SUB_OPERATOR: "Cliente FaaS",
-  PLATFORM_FLEET: "Flota MOVE",
+  PLATFORM_FLEET: "Flota daleGo",
 };
 
 const BUSINESS_MODEL_LABEL: Record<string, string> = {
@@ -118,15 +118,15 @@ function OnboardingWizard({
             <span
               className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                 i === step
-                  ? "bg-lima text-navy"
+                  ? "bg-verde text-asfalto"
                   : i < step
-                    ? "bg-lima/40 text-navy"
-                    : "bg-white/10 text-cielo"
+                    ? "bg-verde/40 text-asfalto"
+                    : "bg-white/10 text-gris-senal"
               }`}
             >
               {i < step ? "✓" : i + 1}
             </span>
-            <span className={`text-xs ${i === step ? "text-niebla" : "text-cielo/60"}`}>
+            <span className={`text-xs ${i === step ? "text-canvas" : "text-gris-senal/60"}`}>
               {label}
             </span>
             {i < WIZARD_STEPS.length - 1 && <span className="text-white/20">—</span>}
@@ -137,7 +137,7 @@ function OnboardingWizard({
       {step === 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Empresa</span>
+            <span className="mb-1 block text-gris-senal">Empresa</span>
             <input
               className={inputClass}
               value={data.name}
@@ -146,7 +146,7 @@ function OnboardingWizard({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">NIT (opcional)</span>
+            <span className="mb-1 block text-gris-senal">NIT (opcional)</span>
             <input
               className={inputClass}
               value={data.nit}
@@ -154,7 +154,7 @@ function OnboardingWizard({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Ciudad</span>
+            <span className="mb-1 block text-gris-senal">Ciudad</span>
             <input
               className={inputClass}
               value={data.city}
@@ -162,7 +162,7 @@ function OnboardingWizard({
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Plan</span>
+            <span className="mb-1 block text-gris-senal">Plan</span>
             <select
               className={inputClass}
               value={data.plan}
@@ -174,7 +174,7 @@ function OnboardingWizard({
             </select>
           </label>
           <label className="block text-sm sm:col-span-2">
-            <span className="mb-1 block text-cielo">Modelo de negocio</span>
+            <span className="mb-1 block text-gris-senal">Modelo de negocio</span>
             <select
               className={inputClass}
               value={data.businessModel}
@@ -188,7 +188,7 @@ function OnboardingWizard({
                 }));
               }}
             >
-              <option value="FAAS">FaaS (flota de MOVE en sitio)</option>
+              <option value="FAAS">FaaS (flota de daleGo en sitio)</option>
               <option value="LOGISTICS_3PL">Logística 3PL</option>
               <option value="SAAS">SaaS autoservicio</option>
             </select>
@@ -208,7 +208,7 @@ function OnboardingWizard({
                 key={m.key}
                 className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${
                   m.core
-                    ? "border-lima/40 bg-lima/5"
+                    ? "border-verde/40 bg-verde/5"
                     : "cursor-pointer border-white/10 hover:bg-white/5"
                 }`}
               >
@@ -228,12 +228,12 @@ function OnboardingWizard({
                   <span className="flex items-center gap-2 text-sm font-medium">
                     {m.nombre}
                     {m.core && (
-                      <span className="rounded-full bg-lima/30 px-2 py-0.5 text-[10px] font-bold">
+                      <span className="rounded-full bg-verde/30 px-2 py-0.5 text-[10px] font-bold">
                         Núcleo
                       </span>
                     )}
                   </span>
-                  <span className="mt-0.5 block text-xs text-cielo/70">
+                  <span className="mt-0.5 block text-xs text-gris-senal/70">
                     {m.descripcion}
                   </span>
                 </span>
@@ -247,7 +247,7 @@ function OnboardingWizard({
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Nombre del administrador</span>
+              <span className="mb-1 block text-gris-senal">Nombre del administrador</span>
               <input
                 className={inputClass}
                 value={data.adminName}
@@ -256,7 +256,7 @@ function OnboardingWizard({
               />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Correo</span>
+              <span className="mb-1 block text-gris-senal">Correo</span>
               <input
                 type="email"
                 className={inputClass}
@@ -265,7 +265,7 @@ function OnboardingWizard({
               />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Contraseña inicial</span>
+              <span className="mb-1 block text-gris-senal">Contraseña inicial</span>
               <input
                 type="password"
                 className={inputClass}
@@ -277,11 +277,11 @@ function OnboardingWizard({
           </div>
           <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
             <div className="mb-1 font-semibold">Resumen</div>
-            <div className="text-cielo">
+            <div className="text-gris-senal">
               {data.name} · {data.city} · {BUSINESS_MODEL_LABEL[data.businessModel]} ·{" "}
               plan {data.plan}
             </div>
-            <div className="mt-1 text-xs text-cielo/70">
+            <div className="mt-1 text-xs text-gris-senal/70">
               Módulos:{" "}
               {MODULE_CATALOG.filter(
                 (m) => m.core === true || data.modules.has(m.key),
@@ -293,17 +293,17 @@ function OnboardingWizard({
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <div className="mt-4 flex items-center justify-between">
-        <button onClick={onCancel} className="text-sm text-cielo hover:underline">
+        <button onClick={onCancel} className="text-sm text-gris-senal hover:underline">
           Cancelar
         </button>
         <div className="flex gap-2">
           {step > 0 && (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className="rounded-lg border border-white/20 px-4 py-1.5 text-sm font-semibold text-niebla"
+              className="rounded-lg border border-white/20 px-4 py-1.5 text-sm font-semibold text-canvas"
             >
               ← Atrás
             </button>
@@ -312,7 +312,7 @@ function OnboardingWizard({
             <button
               onClick={() => setStep((s) => s + 1)}
               disabled={step === 0 && !step1Valid}
-              className="rounded-lg bg-lima px-4 py-1.5 text-sm font-semibold text-navy hover:brightness-95 disabled:opacity-50"
+              className="rounded-lg bg-verde px-4 py-1.5 text-sm font-semibold text-asfalto hover:brightness-95 disabled:opacity-50"
             >
               Siguiente →
             </button>
@@ -320,7 +320,7 @@ function OnboardingWizard({
             <button
               onClick={() => void provision()}
               disabled={!step3Valid || busy}
-              className="rounded-lg bg-lima px-4 py-1.5 text-sm font-semibold text-navy hover:brightness-95 disabled:opacity-50"
+              className="rounded-lg bg-verde px-4 py-1.5 text-sm font-semibold text-asfalto hover:brightness-95 disabled:opacity-50"
             >
               {busy ? "Creando…" : "Crear tenant"}
             </button>
@@ -414,7 +414,7 @@ export default function Tenants() {
   const sortArrow = (key: SortKey) =>
     sort.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
   const sortable =
-    "cursor-pointer select-none hover:text-niebla";
+    "cursor-pointer select-none hover:text-canvas";
 
   return (
     <div className="space-y-4">
@@ -422,12 +422,12 @@ export default function Tenants() {
         <h1 className="text-xl font-bold">Tenants</h1>
         <button
           onClick={() => setShowWizard((v) => !v)}
-          className="rounded-lg bg-lima px-3 py-1.5 text-sm font-semibold text-navy hover:brightness-95"
+          className="rounded-lg bg-verde px-3 py-1.5 text-sm font-semibold text-asfalto hover:brightness-95"
         >
           {showWizard ? "Cancelar" : "Nuevo tenant"}
         </button>
       </div>
-      {notice && <p className="text-sm font-medium text-lima">✓ {notice}</p>}
+      {notice && <p className="text-sm font-medium text-verde">✓ {notice}</p>}
 
       {showWizard && (
         <OnboardingWizard
@@ -480,7 +480,7 @@ export default function Tenants() {
             <option value="">Todos los tipos</option>
             <option value="SELF_SERVE">Autoservicio</option>
             <option value="SUB_OPERATOR">Cliente FaaS</option>
-            <option value="PLATFORM_FLEET">Flota MOVE</option>
+            <option value="PLATFORM_FLEET">Flota daleGo</option>
           </select>
           {hasFilters && (
             <button
@@ -490,19 +490,19 @@ export default function Tenants() {
                 setStatusF("");
                 setOpF("");
               }}
-              className="text-xs font-medium text-cielo underline"
+              className="text-xs font-medium text-gris-senal underline"
             >
               Limpiar
             </button>
           )}
-          <span className="ml-auto text-xs text-cielo/60">
+          <span className="ml-auto text-xs text-gris-senal/60">
             {sorted.length} de {tenants.length}
           </span>
         </div>
 
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
+            <tr className="border-b border-white/10 text-left text-xs uppercase text-gris-senal/60">
               <th className={`py-2 ${sortable}`} onClick={() => toggleSort("name")}>
                 Empresa{sortArrow("name")}
               </th>
@@ -532,21 +532,21 @@ export default function Tenants() {
                 <td className="py-2 font-medium">{t.name}</td>
                 <td>
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    className={`rounded-none px-1.5 py-0.5 text-[10px] font-bold ${
                       t.operatorType === "SUB_OPERATOR"
-                        ? "bg-lima/30 text-lima"
-                        : "bg-cielo/20 text-cielo"
+                        ? "bg-verde/30 text-verde"
+                        : "bg-gris-senal/20 text-gris-senal"
                     }`}
                   >
                     {OPERATOR_LABEL[t.operatorType] ?? t.operatorType}
                   </span>
                 </td>
                 <td>
-                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-cielo">
+                  <span className="rounded-none bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-gris-senal">
                     {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
                   </span>
                 </td>
-                <td className="text-cielo">{t.city}</td>
+                <td className="text-gris-senal">{t.city}</td>
                 <td><PlanBadge plan={t.plan} /></td>
                 <td><StatusBadge status={t.status} /></td>
                 <td>{t.counts.users}</td>
@@ -554,7 +554,7 @@ export default function Tenants() {
                 <td>{t.counts.vehicles}</td>
                 <td>{t.ordersLast30d}</td>
                 <td className="text-right">
-                  <Link to={`/tenants/${t.id}`} className="text-lima hover:underline">
+                  <Link to={`/tenants/${t.id}`} className="text-verde hover:underline">
                     Gestionar →
                   </Link>
                 </td>
@@ -571,7 +571,7 @@ export default function Tenants() {
         </table>
 
         {pageCount > 1 && (
-          <div className="mt-3 flex items-center justify-between text-xs text-cielo/70">
+          <div className="mt-3 flex items-center justify-between text-xs text-gris-senal/70">
             <span>
               {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, sorted.length)}{" "}
               de {sorted.length}
@@ -580,7 +580,7 @@ export default function Tenants() {
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={safePage === 0}
-                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-niebla disabled:opacity-40"
+                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-canvas disabled:opacity-40"
               >
                 ← Anterior
               </button>
@@ -590,7 +590,7 @@ export default function Tenants() {
               <button
                 onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                 disabled={safePage >= pageCount - 1}
-                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-niebla disabled:opacity-40"
+                className="rounded-lg border border-white/20 px-3 py-1 font-semibold text-canvas disabled:opacity-40"
               >
                 Siguiente →
               </button>

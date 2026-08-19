@@ -12,7 +12,7 @@ import { Badge, Banner, Button, Card, Loading, PageHeader, PillToggle, inputClas
 /* Chip monoespaciado para las variables de plantilla del subtítulo. */
 function Var({ children }: { children: string }) {
   return (
-    <code className="rounded bg-niebla px-1 py-0.5 font-mono text-[11px] text-navy">
+    <code className="rounded bg-canvas px-1 py-0.5 font-mono text-[11px] text-asfalto">
       {children}
     </code>
   );
@@ -20,7 +20,7 @@ function Var({ children }: { children: string }) {
 
 /**
  * Controles › Notificaciones (Tier 2, B2B): por evento del ciclo de vida, el
- * operador decide si notifica al NEGOCIO cliente y con qué texto. MoveOS nunca
+ * operador decide si notifica al NEGOCIO cliente y con qué texto. daleGo nunca
  * mensajea al consumidor final. El canal lo define cada cliente. Solo ADMIN.
  */
 
@@ -83,7 +83,7 @@ export default function ControlesNotificaciones() {
           <>
             Por cada evento del envío, decide si avisar al negocio cliente y con qué
             texto. Usa <Var>{"{{guia}}"}</Var>, <Var>{"{{destinatario}}"}</Var>,{" "}
-            <Var>{"{{motivo}}"}</Var> y <Var>{"{{rastreo}}"}</Var>. MoveOS notifica al
+            <Var>{"{{motivo}}"}</Var> y <Var>{"{{rastreo}}"}</Var>. daleGo notifica al
             negocio, nunca al consumidor final.
           </>
         }
@@ -100,7 +100,7 @@ export default function ControlesNotificaciones() {
           {rows.map((row) => (
             <Card key={row.event}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2 font-semibold text-navy">
+                <div className="flex flex-wrap items-center gap-2 font-semibold text-asfalto">
                   {NOTIFICATION_EVENT_LABELS[row.event]}
                   {row.isDefault && <Badge tone="neutral">Por defecto</Badge>}
                 </div>

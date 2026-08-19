@@ -4,31 +4,42 @@ import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
 
 /*
- * Sistema de componentes base — Manual de Identidad v2.0 (PASO A2).
- * Reglas de color: navy = caballo de batalla (texto, cabeceras, botón primario);
- * limón = acento EV/sustentabilidad/éxito y CTA puntual, SIEMPRE con texto navy
- * (nunca texto limón sobre blanco); cielo = secundario/bordes/atenuados.
+ * Sistema de componentes base — daleGo, Paleta Circuito.
+ *
+ * Reglas de color que este archivo hace cumplir:
+ *  - El VERDE es firma y acción: CTA primaria, ítem activo y estados
+ *    terminales positivos CONFIRMADOS (entregado, completado, resuelto).
+ *    Nunca contadores, alertas, severidad ni selección de fila.
+ *  - El ROJO es exclusivo de error, emergencia y acciones destructivas.
+ *  - El ÁMBAR es advertencia, y no se mezcla con el rojo.
+ *  - Sin sombras: separación por color de superficie y borde de 1px.
+ *  - Plecas y badges en rectángulo recto (radio 0); solo las barras de
+ *    progreso y el punto ● son completamente redondeados.
  */
 
-// Familia de tono de los badges de estado: fondo suave + texto oscuro de la
-// misma familia (éxito = limón, info = cielo, advertencia, peligro, neutro).
+/** Pleca: 10px, weight 800, padding 2px 8px, radio 0 (manual). */
+const PLECA_BASE =
+  "inline-block whitespace-nowrap rounded-none px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.06em]";
+
+// Estado terminal positivo confirmado = verde sólido con texto Asfalto. El
+// resto usa fondo suave + texto de la misma familia semántica.
 const ORDER_STATUS_STYLES: Record<string, string> = {
-  PENDING: "bg-niebla text-text-secondary",
-  GEOCODED: "bg-sky-50 text-info",
-  ASSIGNED: "bg-sky/40 text-navy",
+  PENDING: "bg-canvas text-text-secondary",
+  GEOCODED: "bg-info-bg text-info",
+  ASSIGNED: "bg-info-bg text-info",
   IN_TRANSIT: "bg-warning-bg text-warning",
-  DELIVERED: "bg-lima/45 text-lime-ink",
+  DELIVERED: "bg-verde text-asfalto",
   FAILED: "bg-danger-bg text-danger",
   REJECTED: "bg-danger-bg text-danger",
-  CANCELLED: "bg-niebla text-text-tertiary",
-  PLANNED: "bg-sky-50 text-info",
-  DISPATCHED: "bg-sky/40 text-navy",
+  CANCELLED: "bg-canvas text-text-tertiary",
+  PLANNED: "bg-info-bg text-info",
+  DISPATCHED: "bg-info-bg text-info",
   IN_PROGRESS: "bg-warning-bg text-warning",
-  COMPLETED: "bg-lima/45 text-lime-ink",
+  COMPLETED: "bg-verde text-asfalto",
   OPEN: "bg-danger-bg text-danger",
   ACKNOWLEDGED: "bg-warning-bg text-warning",
-  RESOLVED: "bg-lima/45 text-lime-ink",
-  FALSE_ALARM: "bg-niebla text-text-secondary",
+  RESOLVED: "bg-verde text-asfalto",
+  FALSE_ALARM: "bg-canvas text-text-secondary",
 };
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
@@ -53,7 +64,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${ORDER_STATUS_STYLES[status] ?? "bg-niebla text-text-secondary"}`}
+      className={`${PLECA_BASE} ${ORDER_STATUS_STYLES[status] ?? "bg-canvas text-text-secondary"}`}
     >
       {ORDER_STATUS_LABELS[status] ?? status}
     </span>
@@ -62,9 +73,9 @@ export function StatusBadge({ status }: { status: string }) {
 
 /** Badge genérico con tono semántico (fondo suave + texto de la misma familia). */
 const BADGE_TONES: Record<string, string> = {
-  neutral: "bg-niebla text-text-secondary",
-  success: "bg-lima/45 text-lime-ink",
-  info: "bg-sky-50 text-info",
+  neutral: "bg-canvas text-text-secondary",
+  success: "bg-verde text-asfalto",
+  info: "bg-info-bg text-info",
   warning: "bg-warning-bg text-warning",
   danger: "bg-danger-bg text-danger",
 };
@@ -78,7 +89,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${BADGE_TONES[tone]}`}
+      className={`${PLECA_BASE} ${BADGE_TONES[tone]}`}
     >
       {children}
     </span>
@@ -95,10 +106,10 @@ export function Card({
   actions?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 shadow-soft transition duration-200 ease-brand hover:-translate-y-[2px] hover:shadow-soft-lg">
+    <div className="rounded-xl border border-border bg-surface p-4 transition-colors duration-200 ease-brand hover:border-border-strong">
       {(title || actions) && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-sm font-semibold text-navy">{title}</h2>}
+          {title && <h2 className="text-sm font-semibold text-text-primary">{title}</h2>}
           {actions}
         </div>
       )}
@@ -108,9 +119,9 @@ export function Card({
 }
 
 /**
- * Tarjeta KPI. `tone="hero"` = relleno navy con cifra en limón (la métrica
- * estrella / EV). `accent` en tarjeta clara usa verde oscuro (familia limón,
- * legible) — nunca texto limón sobre blanco.
+ * Tarjeta KPI. `tone="hero"` = relleno Asfalto con la cifra en Gabarito y el
+ * punto verde ● de cierre (manual). En tarjeta clara la cifra va en Asfalto, y
+ * `accent` la pasa a Verde Profundo — nunca Verde Eléctrico sobre claro (1.54:1).
  */
 export function KpiCard({
   label,
@@ -135,25 +146,32 @@ export function KpiCard({
   const hero = tone === "hero" || active;
   const body = (
     <>
-      <div className={`text-xs font-medium ${hero ? "text-cielo" : "text-text-secondary"}`}>
+      <div
+        className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${
+          hero ? "text-gris-senal" : "text-text-secondary"
+        }`}
+      >
         {label}
       </div>
       <div
-        className={`mt-1 text-[23px] font-semibold leading-tight ${
-          hero ? "text-lima" : accent ? "text-success" : "text-navy"
+        className={`mt-1.5 flex items-baseline gap-1.5 font-display text-[26px] font-extrabold leading-none tracking-[-0.01em] ${
+          hero ? "text-humo" : accent ? "text-success" : "text-text-primary"
         }`}
       >
         {value}
+        {hero && (
+          <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-verde" />
+        )}
       </div>
       {hint && (
-        <div className={`mt-1 text-xs ${hero ? "text-cielo/80" : "text-text-tertiary"}`}>
+        <div className={`mt-1.5 text-xs ${hero ? "text-gris-senal" : "text-text-tertiary"}`}>
           {hint}
         </div>
       )}
     </>
   );
-  const surface = `rounded-xl border p-4 shadow-soft transition duration-200 ease-brand ${
-    hero ? "border-navy bg-navy" : "border-border bg-surface"
+  const surface = `rounded-xl border p-4 transition-colors duration-200 ease-brand ${
+    hero ? "border-asfalto bg-asfalto" : "border-border bg-surface"
   } ${className}`;
   if (onClick) {
     return (
@@ -161,13 +179,13 @@ export function KpiCard({
         type="button"
         onClick={onClick}
         aria-pressed={active}
-        className={`${surface} text-left hover:-translate-y-[2px] hover:shadow-soft-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy`}
+        className={`${surface} text-left hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
       >
         {body}
       </button>
     );
   }
-  return <div className={`${surface} hover:-translate-y-[2px] hover:shadow-soft-lg`}>{body}</div>;
+  return <div className={surface}>{body}</div>;
 }
 
 /** Encabezado estándar de página: título, subtítulo y acciones alineadas. */
@@ -183,7 +201,9 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-navy">{title}</h1>
+        <h1 className="font-display text-[24px] font-extrabold tracking-[-0.02em] text-text-primary">
+          {title}
+        </h1>
         {subtitle && (
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">{subtitle}</p>
         )}
@@ -203,16 +223,17 @@ export function Banner({
   children: ReactNode;
   onDismiss?: () => void;
 }) {
+  // Manual: planos, borde izquierdo 3px del color semántico, sin sombra.
   const styles = {
-    info: "border-sky bg-sky-50 text-navy",
-    success: "border-lima bg-lima/25 text-lime-ink",
-    error: "border-danger/30 bg-danger-bg text-danger",
-    warning: "border-warning/30 bg-warning-bg text-warning",
+    info: "border-l-info bg-info-bg text-info",
+    success: "border-l-verde-profundo bg-success-bg text-success",
+    error: "border-l-danger bg-danger-bg text-danger",
+    warning: "border-l-warning bg-warning-bg text-warning",
   };
   return (
     <div
       role={kind === "error" ? "alert" : "status"}
-      className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${styles[kind]}`}
+      className={`flex items-start justify-between gap-3 rounded-none border-l-[3px] px-3 py-2 text-sm ${styles[kind]}`}
     >
       <span>
         {kind === "success" && <span aria-hidden="true">✓ </span>}
@@ -240,7 +261,7 @@ export function Loading({ label = "Cargando…" }: { label?: string }) {
     >
       <span
         aria-hidden="true"
-        className="h-4 w-4 animate-spin rounded-full border-2 border-sky border-t-navy"
+        className="h-4 w-4 animate-spin rounded-full border-2 border-border-strong border-t-verde"
       />
       {label}
     </div>
@@ -267,11 +288,11 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center gap-1 py-10 text-center">
       {icon && (
-        <div aria-hidden="true" className="mb-1 text-3xl text-sky">
+        <div aria-hidden="true" className="mb-1 text-3xl text-text-tertiary">
           {icon}
         </div>
       )}
-      {title && <p className="text-sm font-semibold text-navy">{title}</p>}
+      {title && <p className="text-sm font-semibold text-text-primary">{title}</p>}
       <p className="max-w-md text-sm text-text-secondary">{children}</p>
       {action && <div className="mt-3 flex justify-center">{action}</div>}
       {phrase && <p className="mt-3 text-xs italic text-text-tertiary">{phrase}</p>}
@@ -292,11 +313,11 @@ export function ModuleDisabled({
       <EmptyState
         icon={<Lock aria-hidden="true" className="h-8 w-8" strokeWidth={1.75} />}
         title="Módulo no activo"
-        phrase="Potencia tu flota, reduce tus costos."
+        phrase="El kilómetro final, resuelto ●"
         action={
           <Link
             to="/modulos"
-            className="rounded-md bg-lima px-4 py-2 text-sm font-semibold text-navy transition hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+            className="rounded-md bg-verde px-4 py-2 text-sm font-bold text-asfalto transition hover:bg-verde-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             Ir a Módulos
           </Link>
@@ -321,19 +342,23 @@ export function Button({
   children: ReactNode;
   onClick?: () => void;
   type?: "button" | "submit";
-  variant?: "primary" | "cta" | "secondary" | "danger";
+  variant?: "primary" | "cta" | "secondary" | "tertiary" | "danger";
   disabled?: boolean;
   className?: string;
   /** Ícono Lucide inicial (14px) — patrón del botón fantasma del revamp. */
   icon?: ReactNode;
 }) {
-  // Jerarquía del revamp: CTA = limón + navy + glow (máx. uno por página);
-  // primario = navy/blanco; secundario = fantasma (blanco, borde navy 25%,
-  // hover tinte limón); peligro = rojo accesible.
+  // Jerarquía Circuito: CTA = Verde Eléctrico + texto Asfalto, weight 700-800,
+  // máximo una por página; primario = Asfalto (el caballo de batalla);
+  // secundario = borde 1px; terciario = texto subrayado; peligro = Rojo Alerta,
+  // reservado a acciones destructivas.
   const styles = {
-    primary: "bg-navy text-white hover:bg-navy-700",
-    cta: "bg-lima font-semibold text-navy shadow-glow hover:bg-lima-deep",
-    secondary: "bg-surface text-navy border border-navy/25 hover:bg-lima/10",
+    primary: "bg-asfalto text-humo hover:bg-asfalto-hover",
+    cta: "bg-verde font-bold text-asfalto hover:bg-verde-hover",
+    secondary:
+      "bg-surface text-text-primary border border-border-strong hover:border-asfalto",
+    tertiary:
+      "bg-transparent text-text-primary underline underline-offset-[3px] hover:text-verde-profundo",
     danger: "bg-danger text-white hover:brightness-110",
   };
   return (
@@ -341,7 +366,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
     >
       {icon && (
         <span aria-hidden="true" className="shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5">
@@ -373,15 +398,15 @@ export function FilterPill({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
         active
-          ? "bg-navy text-white"
-          : "border border-border bg-surface text-navy/70 hover:border-border-strong hover:text-navy"
+          ? "bg-asfalto text-humo"
+          : "border border-border bg-surface text-text-secondary hover:border-border-strong hover:text-text-primary"
       }`}
     >
       {children}
       {count != null && (
-        <span className={`text-[11px] font-semibold ${active ? "text-lima" : "text-text-tertiary"}`}>
+        <span className={`text-[11px] font-bold tabular-nums ${active ? "text-humo" : "text-text-tertiary"}`}>
           {count}
         </span>
       )}
@@ -393,7 +418,7 @@ export function FilterPill({
 export function LivePill({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-      <span aria-hidden="true" className="h-2 w-2 animate-livepulse rounded-full bg-lima" />
+      <span aria-hidden="true" className="h-2 w-2 animate-livepulse rounded-full bg-verde" />
       {children}
     </span>
   );
@@ -419,13 +444,13 @@ export function PillToggle({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50 ${
-        checked ? "bg-navy" : "bg-sky/60"
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? "bg-verde" : "bg-border-strong"
       }`}
     >
       <span
         aria-hidden="true"
-        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+        className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
           checked ? "translate-x-5" : "translate-x-0.5"
         }`}
       />
@@ -449,12 +474,16 @@ export function Field({
 }
 
 export const inputClass =
-  "w-full rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-navy placeholder:text-text-tertiary focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25";
+  "w-full rounded-md border border-border-strong bg-surface px-3 py-1.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-verde-profundo/30";
 
 /* Estilos compartidos de tablas: mismo encabezado y filas en toda la app. */
+/* Cabecera: 10px MAYÚSCULAS, tracking .12em, Gris Señal (manual, Tablas). */
 export const theadRowClass =
-  "border-b border-border text-left text-xs uppercase tracking-wide text-text-secondary";
-export const tableRowClass = "border-b border-border/60 hover:bg-niebla/60";
+  "border-b border-border text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-text-secondary";
+/* Fila activa: fondo suave + pleca izquierda Asfalto como SEGUNDO canal — la
+   selección nunca se marca solo con color (auditoría D-07/D-08). */
+export const tableRowClass =
+  "border-b border-border/60 text-[13px] hover:bg-row-active";
 /** Cabecera pegajosa para tablas con scroll (combinar con theadRowClass). */
 export const stickyTheadClass = "sticky top-0 z-10 bg-surface";
 
@@ -486,7 +515,7 @@ function Overlay({
   }, [onClose]);
   return (
     <div
-      className={`fixed inset-0 z-50 flex bg-navy-900/40 ${
+      className={`fixed inset-0 z-50 flex bg-asfalto/60 ${
         align === "center" ? "items-center justify-center p-4" : "justify-end"
       }`}
       onClick={onClose}
@@ -517,19 +546,19 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex max-h-[85vh] w-[min(32rem,92vw)] flex-col rounded-xl bg-surface shadow-soft"
+        className="flex max-h-[85vh] w-[min(32rem,92vw)] flex-col rounded-xl border border-border bg-surface"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="text-base font-semibold text-navy">{title}</h2>
+          <h2 className="font-display text-base font-extrabold text-text-primary">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="text-text-tertiary transition hover:text-navy"
+            className="text-text-tertiary transition hover:text-text-primary"
           >
             ×
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-navy">
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-text-primary">
           {children}
         </div>
         {footer && (
@@ -563,19 +592,19 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex h-full w-[min(28rem,92vw)] flex-col bg-surface shadow-soft"
+        className="flex h-full w-[min(28rem,92vw)] flex-col border-l border-border bg-surface"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h2 className="text-base font-semibold text-navy">{title}</h2>
+          <h2 className="font-display text-base font-extrabold text-text-primary">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="text-text-tertiary transition hover:text-navy"
+            className="text-text-tertiary transition hover:text-text-primary"
           >
             ×
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-navy">
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-text-primary">
           {children}
         </div>
         {footer && (

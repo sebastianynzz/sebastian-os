@@ -48,7 +48,7 @@ const SOURCE_LABELS: Record<string, string> = {
 function pinIcon(color: string) {
   return L.divIcon({
     className: "",
-    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.35)"></div>`,
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #F2F5F3"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
   });
@@ -70,7 +70,7 @@ function ConfidenceBar({ value }: { value: number | null }) {
     <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden="true"
-        className="h-[5px] w-11 overflow-hidden rounded-full bg-niebla"
+        className="h-[5px] w-11 overflow-hidden rounded-full bg-canvas"
       >
         <span
           className={`block h-full ${low ? "bg-danger" : "bg-warning"}`}
@@ -87,7 +87,7 @@ function ConfidenceBar({ value }: { value: number | null }) {
 /** Chip de fila que exige fijar el pin a mano (no confirmable en lote). */
 function ManualPinChip() {
   return (
-    <span className="inline-block whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10.5px] font-semibold text-info">
+    <span className="inline-block whitespace-nowrap rounded-full bg-info-bg px-2 py-0.5 text-[10.5px] font-semibold text-info">
       Pin manual
     </span>
   );
@@ -217,8 +217,8 @@ export default function Direcciones() {
           cascada de proveedores; al aplicar fija y aprende los pines de alta
           confianza, dejando para revisión manual los dudosos. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-surface px-3 py-2">
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-navy">
-          <Sparkle aria-hidden="true" className="h-3.5 w-3.5 text-lime-ink" strokeWidth={2} />
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-asfalto">
+          <Sparkle aria-hidden="true" className="h-3.5 w-3.5 text-asfalto" strokeWidth={2} />
           Copiloto
         </span>
         <AiOptimizeButton
@@ -283,7 +283,7 @@ export default function Direcciones() {
                     <th className="py-2 pr-2">
                       <input
                         type="checkbox"
-                        className="accent-navy"
+                        className="accent-asfalto"
                         aria-label="Seleccionar todas las confirmables"
                         checked={allConfirmableSelected}
                         onChange={toggleAllConfirmable}
@@ -304,14 +304,14 @@ export default function Direcciones() {
                       <tr
                         key={o.id}
                         className={`${tableRowClass} ${
-                          isSel ? "border-l-[3px] border-l-navy bg-sky-50/50" : ""
+                          isSel ? "border-l-[3px] border-l-asfalto bg-info-bg/50" : ""
                         }`}
                       >
                         <td className={`py-2 pr-2 ${isSel ? "pl-1" : ""}`}>
                           {confirmable(o) ? (
                             <input
                               type="checkbox"
-                              className="accent-navy"
+                              className="accent-asfalto"
                               aria-label={`Seleccionar ${o.trackingNumber ?? o.customerName}`}
                               checked={checked.has(o.id)}
                               onChange={() => toggleCheck(o.id)}
@@ -320,12 +320,12 @@ export default function Direcciones() {
                             <span
                               title="Requiere pin manual en el mapa"
                               className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${
-                                isSel ? "bg-navy" : "bg-sky-50"
+                                isSel ? "bg-asfalto" : "bg-info-bg"
                               }`}
                             >
                               <MapPin
                                 aria-hidden="true"
-                                className={`h-2.5 w-2.5 ${isSel ? "text-lima" : "text-info"}`}
+                                className={`h-2.5 w-2.5 ${isSel ? "text-verde" : "text-info"}`}
                                 strokeWidth={2.5}
                               />
                             </span>
@@ -356,7 +356,7 @@ export default function Direcciones() {
                         </td>
                         <td className="py-2 text-right">
                           {isSel ? (
-                            <span className="inline-block whitespace-nowrap rounded-full bg-lima px-2.5 py-1 text-xs font-semibold text-navy">
+                            <span className="inline-block whitespace-nowrap rounded-full bg-verde px-2.5 py-1 text-xs font-semibold text-asfalto">
                               Revisando
                             </span>
                           ) : (
@@ -397,7 +397,7 @@ export default function Direcciones() {
               <div className="space-y-3">
                 <p className="text-[12.5px] text-text-secondary">
                   Arrastra el pin al punto real de{" "}
-                  <strong className="font-semibold text-navy">"{selected.addressRaw}"</strong>
+                  <strong className="font-semibold text-asfalto">"{selected.addressRaw}"</strong>
                   {selected.addressNotes ? ` (${selected.addressNotes})` : ""} y confirma.
                 </p>
                 <div className="h-80 overflow-hidden rounded-md">
@@ -414,7 +414,7 @@ export default function Direcciones() {
                     <Marker
                       position={[draft.lat, draft.lng]}
                       draggable
-                      icon={pinIcon("#a32d2d")}
+                      icon={pinIcon("#CE2C32")}
                       eventHandlers={{
                         dragend: (e) => {
                           const m = e.target as L.Marker;

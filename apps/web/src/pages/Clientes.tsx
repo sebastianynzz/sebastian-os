@@ -414,12 +414,12 @@ export default function Clientes() {
                 <div className="flex items-center gap-2.5">
                   <span
                     aria-hidden="true"
-                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-navy text-[13px] font-bold text-lima"
+                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-asfalto text-[13px] font-bold text-verde"
                   >
                     {initials(c.name)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-navy">
+                    <span className="block truncate text-sm font-semibold text-asfalto">
                       {c.name}
                     </span>
                     <span className="block truncate text-[11.5px] text-text-tertiary">
@@ -427,7 +427,7 @@ export default function Clientes() {
                     </span>
                   </div>
                   <span className="shrink-0 text-xs text-text-secondary">
-                    <strong className="text-[15px] font-semibold text-navy">
+                    <strong className="text-[15px] font-semibold text-asfalto">
                       {c._count.orders}
                     </strong>{" "}
                     envíos
@@ -435,15 +435,15 @@ export default function Clientes() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-info">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-info-bg px-2.5 py-0.5 text-[11.5px] font-semibold text-info">
                     <ChannelIcon channel={c.notifyChannel} />
                     {CHANNEL_LABELS[c.notifyChannel] ?? c.notifyChannel}
                   </span>
                   <span
                     className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
                       pod.length > 0
-                        ? "bg-sky-50 text-info"
-                        : "bg-niebla text-text-secondary"
+                        ? "bg-info-bg text-info"
+                        : "bg-canvas text-text-secondary"
                     }`}
                   >
                     POD:{" "}
@@ -452,7 +452,7 @@ export default function Clientes() {
                       : "no exigida"}
                   </span>
                   {c._count.portalUsers > 0 ? (
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-lima/45 px-2.5 py-0.5 text-[11.5px] font-semibold text-lime-ink">
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-verde/45 px-2.5 py-0.5 text-[11.5px] font-semibold text-asfalto">
                       <Check aria-hidden="true" className="h-3 w-3" strokeWidth={2.5} />
                       Portal · {c._count.portalUsers} usuario
                       {c._count.portalUsers > 1 ? "s" : ""}
@@ -464,7 +464,7 @@ export default function Clientes() {
                         setPortalFor(portalFor === c.id ? null : c.id);
                       }}
                       aria-expanded={portalFor === c.id}
-                      className="inline-flex items-center whitespace-nowrap rounded-full border border-dashed border-border-strong bg-surface px-2.5 py-0.5 text-[11.5px] font-medium text-text-tertiary transition duration-200 ease-brand hover:border-navy/40 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="inline-flex items-center whitespace-nowrap rounded-full border border-dashed border-border-strong bg-surface px-2.5 py-0.5 text-[11.5px] font-medium text-text-tertiary transition duration-200 ease-brand hover:border-asfalto/40 hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       Sin portal — dar acceso
                     </button>
@@ -474,7 +474,7 @@ export default function Clientes() {
                       <span
                         role="status"
                         className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                          test.ok ? "text-lime-ink" : "text-danger"
+                          test.ok ? "text-asfalto" : "text-danger"
                         }`}
                       >
                         {test.ok ? (
@@ -501,7 +501,7 @@ export default function Clientes() {
                     <button
                       onClick={() => void toggleFeed(c.id)}
                       aria-expanded={openClient === c.id}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-sm font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-asfalto/25 bg-surface px-3 py-1.5 text-sm font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       {openClient === c.id ? "Ocultar avisos" : "Ver avisos"}
                     </button>
@@ -548,7 +548,7 @@ export default function Clientes() {
                         Aún no se ha enviado ningún aviso.
                       </p>
                     ) : (
-                      <ul className="flex flex-col gap-1 text-xs text-navy">
+                      <ul className="flex flex-col gap-1 text-xs text-asfalto">
                         {feed[c.id]!.map((n) => (
                           <li key={n.id} className="flex items-baseline gap-2">
                             <span className="font-mono text-[11px] text-text-tertiary">
@@ -563,7 +563,7 @@ export default function Clientes() {
                             <span
                               aria-hidden="true"
                               className={`h-[7px] w-[7px] shrink-0 self-center rounded-full ${
-                                n.template === "envio_fallido" ? "bg-danger" : "bg-lima"
+                                n.template === "envio_fallido" ? "bg-danger" : "bg-verde"
                               }`}
                             />
                             <span className="font-medium">
@@ -579,7 +579,7 @@ export default function Clientes() {
                     {(feed[c.id]?.length ?? 0) > 0 && !feedExhausted.has(c.id) && (
                       <button
                         onClick={() => void loadMoreFeed(c.id)}
-                        className="mt-2 text-xs font-semibold text-navy underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                        className="mt-2 text-xs font-semibold text-asfalto underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                       >
                         Ver más avisos
                       </button>

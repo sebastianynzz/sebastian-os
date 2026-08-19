@@ -21,6 +21,7 @@ import {
   type OptimizationObjective,
 } from "@moveos/shared";
 import { api } from "../api";
+import { configLabel } from "../format";
 import { useToast } from "../toast";
 import { Button, Card, PageHeader, formatEta } from "../components/ui";
 import {
@@ -28,13 +29,24 @@ import {
   useAiActionsAvailable,
 } from "../components/AiOptimizeButton";
 
-// Iconos de Leaflet empaquetados localmente (sin dependencia de CDN).
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
+/**
+ * Marcadores del mapa de operación (Paleta Circuito, sección Mapas). Antes se
+ * usaba el PNG azul por defecto de Leaflet, que además contradecía la leyenda
+ * de esta misma pantalla ("Depósito" cuadrado, "Pedido" redondo). Mismo
+ * tratamiento que Mapa en vivo: divIcon con tokens CSS, sin assets de imagen.
+ */
+const depotIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:16px;height:16px;background:var(--asfalto);border:3px solid #F2F5F3"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
-const markerIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+const orderIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:14px;height:14px;border-radius:999px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
 });
 
 interface Order {
@@ -89,7 +101,7 @@ const AI_ACTION_IDS: readonly OptimizationActionId[] = [
 
 /** Selects/inputs fantasma de la barra de herramientas del encabezado. */
 const ghostSelect =
-  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-navy focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25";
+  "rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-asfalto focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25";
 
 /**
  * Autonomía útil estimada al despachar, SOLO informativa: SoC actual ×
@@ -349,7 +361,7 @@ export default function Planificacion() {
                     onClick={() => void pickNearestDepot()}
                     disabled={selectedOrders.size === 0}
                     title="Elegir el depósito más cercano a los pedidos seleccionados"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-navy transition duration-200 ease-brand hover:bg-niebla focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-[13px] text-asfalto transition duration-200 ease-brand hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Locate aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
                     Más cercano
@@ -402,10 +414,10 @@ export default function Planificacion() {
           optimize_load y pick_vehicle son asesores (solo recomiendan). */}
       {aiAvailable && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 shadow-soft">
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-navy">
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-asfalto">
             <Sparkles
               aria-hidden="true"
-              className="h-[15px] w-[15px] text-lime-ink"
+              className="h-[15px] w-[15px] text-asfalto"
               strokeWidth={2}
             />
             Copiloto
@@ -465,7 +477,7 @@ export default function Planificacion() {
           <Card
             title="Paso 1 · Pedidos"
             actions={
-              <span className="rounded-full bg-lima/45 px-2.5 py-0.5 text-xs font-semibold text-lime-ink">
+              <span className="rounded-full bg-verde/45 px-2.5 py-0.5 text-xs font-semibold text-asfalto">
                 {selectedOrders.size} de {orders.length}
               </span>
             }
@@ -482,7 +494,7 @@ export default function Planificacion() {
                 onChange={(e) => setOrderFilter(e.target.value)}
                 placeholder="Filtrar por destinatario o dirección…"
                 aria-label="Filtrar pedidos"
-                className="w-full rounded-md border border-border-strong bg-surface py-1.5 pl-8 pr-3 text-[13px] text-navy placeholder:text-text-tertiary focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/25"
+                className="w-full rounded-md border border-border-strong bg-surface py-1.5 pl-8 pr-3 text-[13px] text-asfalto placeholder:text-text-tertiary focus:border-asfalto focus:outline-none focus:ring-2 focus:ring-asfalto/25"
               />
             </div>
             <div className="mb-1 flex items-center justify-between text-xs text-text-tertiary">
@@ -491,14 +503,14 @@ export default function Planificacion() {
                 <button
                   type="button"
                   onClick={selectAllFiltered}
-                  className="rounded px-1.5 py-0.5 font-semibold text-navy transition duration-200 ease-brand hover:bg-niebla"
+                  className="rounded px-1.5 py-0.5 font-semibold text-asfalto transition duration-200 ease-brand hover:bg-canvas"
                 >
                   Todos
                 </button>
                 <button
                   type="button"
                   onClick={clearFiltered}
-                  className="rounded px-1.5 py-0.5 font-semibold text-navy transition duration-200 ease-brand hover:bg-niebla"
+                  className="rounded px-1.5 py-0.5 font-semibold text-asfalto transition duration-200 ease-brand hover:bg-canvas"
                 >
                   Ninguno
                 </button>
@@ -508,19 +520,19 @@ export default function Planificacion() {
               {filteredOrders.map((o) => (
                 <label
                   key={o.id}
-                  className="flex cursor-pointer items-center gap-2 border-b border-border/70 py-[5px] text-[13px] text-navy last:border-b-0"
+                  className="flex cursor-pointer items-center gap-2 border-b border-border/70 py-[5px] text-[13px] text-asfalto last:border-b-0"
                 >
                   <input
                     type="checkbox"
                     checked={selectedOrders.has(o.id)}
                     onChange={() => setSelectedOrders((s) => toggle(s, o.id))}
-                    className="h-3.5 w-3.5 shrink-0 accent-navy"
+                    className="h-3.5 w-3.5 shrink-0 accent-asfalto"
                   />
                   <span className="min-w-0 flex-1 truncate">
                     <span className="font-medium">{o.customerName}</span>{" "}
                     <span className="text-text-tertiary">· {o.addressRaw}</span>
                   </span>
-                  <span className="shrink-0 rounded-full bg-niebla px-2 py-px text-[11px] text-text-secondary">
+                  <span className="shrink-0 rounded-full bg-canvas px-2 py-px text-[11px] text-text-secondary">
                     {o.weightKg} kg
                   </span>
                 </label>
@@ -541,7 +553,7 @@ export default function Planificacion() {
           <Card
             title="Paso 2 · Vehículos"
             actions={
-              <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-info">
+              <span className="rounded-full bg-info-bg px-2.5 py-0.5 text-xs font-semibold text-info">
                 {selectedVehicles.size} de {vehicles.length}
               </span>
             }
@@ -561,13 +573,13 @@ export default function Planificacion() {
                         type="checkbox"
                         checked={selectedVehicles.has(v.id)}
                         onChange={() => setSelectedVehicles((s) => toggle(s, v.id))}
-                        className="h-3.5 w-3.5 shrink-0 accent-navy"
+                        className="h-3.5 w-3.5 shrink-0 accent-asfalto"
                       />
-                      <span className="text-[13px] font-semibold text-navy">
+                      <span className="text-[13px] font-semibold text-asfalto">
                         {v.plate}
                       </span>
-                      <span className="rounded-full bg-sky-50 px-2 py-px text-[11px] font-semibold text-info">
-                        {v.type}
+                      <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
+                        {configLabel(v.type)}
                       </span>
                       <span className="text-xs text-text-secondary">
                         {v.capacityKg} kg
@@ -576,27 +588,27 @@ export default function Planificacion() {
                         <span className="ml-auto flex shrink-0 items-center gap-1.5">
                           <Zap
                             aria-hidden="true"
-                            className={`h-3 w-3 ${lowSoc ? "fill-warning text-warning" : "fill-lime-ink text-lime-ink"}`}
+                            className={`h-3 w-3 ${lowSoc ? "fill-warning text-warning" : "fill-asfalto text-asfalto"}`}
                             strokeWidth={2}
                           />
                           {v.socPercent != null ? (
                             <>
-                              <span className="h-1.5 w-[110px] overflow-hidden rounded-full bg-niebla">
+                              <span className="h-1.5 w-[110px] overflow-hidden rounded-full bg-canvas">
                                 <span
-                                  className={`block h-full ${lowSoc ? "bg-warning" : "bg-lima"}`}
+                                  className={`block h-full ${lowSoc ? "bg-warning" : "bg-verde"}`}
                                   style={{
                                     width: `${Math.max(0, Math.min(100, v.socPercent))}%`,
                                   }}
                                 />
                               </span>
                               <span
-                                className={`w-8 text-right text-xs font-semibold ${lowSoc ? "text-warning" : "text-navy"}`}
+                                className={`w-8 text-right text-xs font-semibold ${lowSoc ? "text-warning" : "text-asfalto"}`}
                               >
                                 {Math.round(v.socPercent)}%
                               </span>
                             </>
                           ) : (
-                            <span className="text-xs font-semibold text-lime-ink">
+                            <span className="text-xs font-semibold text-asfalto">
                               EV
                             </span>
                           )}
@@ -622,21 +634,21 @@ export default function Planificacion() {
 
         <div className="flex min-h-[560px] flex-col rounded-xl border border-border bg-surface p-4 shadow-soft">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-navy">
+            <h2 className="text-sm font-semibold text-asfalto">
               Paso 3 · Mapa de la operación
             </h2>
             <span className="flex items-center gap-3.5 text-xs text-text-secondary">
               <span className="inline-flex items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="h-2.5 w-2.5 border-2 border-white bg-navy ring-1 ring-navy/25"
+                  className="h-2.5 w-2.5 border-2 border-white bg-asfalto ring-1 ring-asfalto/25"
                 />
                 Depósito
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="h-2.5 w-2.5 rounded-full bg-navy"
+                  className="h-2.5 w-2.5 rounded-full bg-asfalto"
                 />
                 Pedido
               </span>
@@ -650,7 +662,7 @@ export default function Planificacion() {
               style={{ height: "100%", minHeight: 520 }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[activeDepot.lat, activeDepot.lng]} icon={markerIcon}>
+              <Marker position={[activeDepot.lat, activeDepot.lng]} icon={depotIcon}>
                 <Popup>
                   {depots.find((d) => d.id === selectedDepotId)?.name ?? "Depósito"}
                 </Popup>
@@ -658,7 +670,7 @@ export default function Planificacion() {
               {orders
                 .filter((o) => o.lat !== null && o.lng !== null)
                 .map((o) => (
-                  <Marker key={o.id} position={[o.lat!, o.lng!]} icon={markerIcon}>
+                  <Marker key={o.id} position={[o.lat!, o.lng!]} icon={orderIcon}>
                     <Popup>
                       {o.customerName}
                       <br />
@@ -673,16 +685,16 @@ export default function Planificacion() {
 
       {plan && planStats && (
         <div className="space-y-3">
-          <h2 className="mt-2 text-base font-semibold tracking-[-0.01em] text-navy">
+          <h2 className="mt-2 text-base font-semibold tracking-[-0.01em] text-asfalto">
             Paso 4 · Revisa y despacha
           </h2>
 
           {/* Franja de resumen: rutas / asignados / km+tiempo / excluidos. Las
               exclusiones (p. ej. pico y placa de un no-EV) van como chip de
-              advertencia — los EV de MoveOS están exentos por Ley 1964/2019. */}
+              advertencia — los EV de daleGo están exentos por Ley 1964/2019. */}
           <div className="flex flex-wrap items-center gap-y-3 rounded-xl border border-border bg-surface px-5 py-3.5 shadow-soft">
             <div className="border-r border-border pr-6">
-              <div className="text-[23px] font-semibold leading-tight text-navy">
+              <div className="text-[23px] font-semibold leading-tight text-asfalto">
                 {planStats.routes}
               </div>
               <div className="text-xs text-text-secondary">
@@ -690,7 +702,7 @@ export default function Planificacion() {
               </div>
             </div>
             <div className="border-r border-border px-6">
-              <div className="text-[23px] font-semibold leading-tight text-lime-ink">
+              <div className="text-[23px] font-semibold leading-tight text-asfalto">
                 {planStats.assigned}/{planStats.total}
               </div>
               <div className="text-xs text-text-secondary">pedidos asignados</div>
@@ -698,7 +710,7 @@ export default function Planificacion() {
             <div
               className={`px-6 ${plan.excludedVehicles.length > 0 ? "border-r border-border" : ""}`}
             >
-              <div className="text-[23px] font-semibold leading-tight text-navy">
+              <div className="text-[23px] font-semibold leading-tight text-asfalto">
                 {planStats.km.toFixed(1)} km
               </div>
               <div className="text-xs text-text-secondary">
@@ -777,18 +789,18 @@ export default function Planificacion() {
               return (
                 <Card key={r.id}>
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="text-[15px] font-semibold text-navy">
+                    <span className="text-[15px] font-semibold text-asfalto">
                       {v?.plate ?? r.vehicleId}
                     </span>
                     {v && (
-                      <span className="rounded-full bg-sky-50 px-2 py-px text-[11px] font-semibold text-info">
-                        {v.type}
+                      <span className="rounded-full bg-info-bg px-2 py-px text-[11px] font-semibold text-info">
+                        {configLabel(v.type)}
                       </span>
                     )}
                     {v?.isElectric && v.socPercent != null && (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-px text-[11px] font-semibold ${
-                          lowSoc ? "bg-warning-bg text-warning" : "bg-lima/45 text-lime-ink"
+                          lowSoc ? "bg-warning-bg text-warning" : "bg-verde/45 text-asfalto"
                         }`}
                       >
                         <Zap
@@ -843,7 +855,7 @@ export default function Planificacion() {
                           <div className="flex flex-col items-center">
                             <span
                               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
-                                withPickup.has(orderId) ? "bg-info" : "bg-navy"
+                                withPickup.has(orderId) ? "bg-info" : "bg-asfalto"
                               }`}
                             >
                               {idx + 1}
@@ -859,10 +871,10 @@ export default function Planificacion() {
                             className={`flex min-w-0 flex-1 items-start gap-2 ${isLast ? "" : "pb-3"}`}
                           >
                             <span className="min-w-0 flex-1">
-                              <span className="block text-[13px] font-medium text-navy">
+                              <span className="block text-[13px] font-medium text-asfalto">
                                 {order?.customerName ?? orderId}
                                 {withPickup.has(orderId) && (
-                                  <span className="ml-1.5 rounded bg-sky-50 px-1 py-px align-middle text-[10px] font-bold text-info">
+                                  <span className="ml-1.5 rounded bg-info-bg px-1 py-px align-middle text-[10px] font-bold text-info">
                                     REC+ENT
                                   </span>
                                 )}
@@ -915,7 +927,7 @@ export default function Planificacion() {
                                     moveOrder(r.id, current, idx, 1);
                                   }
                                 }}
-                                className="mt-0.5 hidden shrink-0 cursor-grab text-border-strong transition duration-200 ease-brand hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy disabled:cursor-not-allowed disabled:opacity-40 pointer-fine:block"
+                                className="mt-0.5 hidden shrink-0 cursor-grab text-border-strong transition duration-200 ease-brand hover:text-text-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto disabled:cursor-not-allowed disabled:opacity-40 pointer-fine:block"
                               >
                                 <GripVertical
                                   aria-hidden="true"
@@ -956,7 +968,7 @@ export default function Planificacion() {
                     </span>
                     <Link
                       to="/rutas"
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-navy/25 bg-surface px-2.5 py-1 text-xs font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-asfalto/25 bg-surface px-2.5 py-1 text-xs font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       Despachar en Rutas
                       <ArrowRight aria-hidden="true" className="h-3 w-3" strokeWidth={2} />

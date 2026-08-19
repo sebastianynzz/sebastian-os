@@ -24,7 +24,7 @@ import { formatDateTimeBogota } from "../format";
 
 /**
  * Controles › Facturación (Tier 3 §13): datos fiscales de la suscripción SaaS +
- * historial de facturas (las emite la plataforma). MoveOS no procesa pagos en la
+ * historial de facturas (las emite la plataforma). daleGo no procesa pagos en la
  * app (sin COD): es una vista de cuenta. Perfil editable por ADMIN.
  */
 
@@ -124,7 +124,7 @@ export default function ControlesFacturacion() {
     <div className="space-y-4">
       <PageHeader
         title="Facturación"
-        subtitle="Tus datos fiscales y el historial de facturas de tu suscripción. MoveOS no cobra pagos en la app: las facturas las emite el operador de plataforma."
+        subtitle="Tus datos fiscales y el historial de facturas de tu suscripción. daleGo no cobra pagos en la app: las facturas las emite el operador de plataforma."
       />
 
       {error && (
@@ -212,13 +212,13 @@ export default function ControlesFacturacion() {
                   <tbody>
                     {data.invoices.map((inv) => (
                       <tr key={inv.id} className={tableRowClass}>
-                        <td className="py-2 pr-4 font-mono text-xs font-semibold text-navy">
+                        <td className="py-2 pr-4 font-mono text-xs font-semibold text-asfalto">
                           {inv.number}
                         </td>
                         <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {inv.periodMonth}
                         </td>
-                        <td className="py-2 pr-4 text-navy">{COP.format(inv.amountCop)}</td>
+                        <td className="py-2 pr-4 text-asfalto">{COP.format(inv.amountCop)}</td>
                         <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                           {formatDateTimeBogota(inv.issuedAt)}
                         </td>

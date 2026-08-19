@@ -4,7 +4,7 @@ import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 
 /**
- * EV-only (HARD CONSTRAINT 1): la flota MoveOS es 100% eléctrica. El API es la
+ * EV-only (HARD CONSTRAINT 1): la flota daleGo es 100% eléctrica. El API es la
  * fuente de verdad — rechaza crear un vehículo de combustión y, si se omite el
  * campo, el vehículo nace eléctrico.
  */
@@ -34,7 +34,7 @@ beforeAll(async () => {
     adminName: "Admin EV",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;

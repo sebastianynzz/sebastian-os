@@ -2,9 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
- * Flota eléctrica como NÚCLEO (restricción dura 1.3: MoveOS es EV-only).
+ * Flota eléctrica como NÚCLEO (restricción dura 1.3: daleGo es EV-only).
  *
  * Lo más importante: /ev/* responde aunque el entitlement EV_MANAGEMENT esté
  * desactivado en la base — autonomía y carga jamás se gatean. Además el
@@ -47,7 +48,7 @@ beforeAll(async () => {
     adminName: "Admin EV",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -60,6 +61,8 @@ beforeAll(async () => {
     create: { tenantId, moduleKey: "EV_MANAGEMENT", enabled: false },
     update: { enabled: false },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 
   // Segundo tenant: su cargador de depósito NO debe filtrarse al primero.
   const other = await prisma.tenant.create({
@@ -219,13 +222,13 @@ describe("flota eléctrica como núcleo", () => {
       phone: "+573000000099",
       documentId: "900800700",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(driver.status).toBe(201);
 
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     driverToken = login.body.token;
 

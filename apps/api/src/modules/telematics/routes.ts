@@ -6,6 +6,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { requireModule, isModuleEnabled } from "../../plugins/entitlements.js";
+import { findVehicleByPlate } from "../../plugins/vehicleIdentity.js";
 import { requireRole } from "../../plugins/auth.js";
 import { checkRouteDeviation } from "../../services/safety.js";
 import { emitPlatform, emitTenant } from "../../services/realtime.js";
@@ -34,9 +35,7 @@ export default async function telematicsRoutes(app: FastifyInstance) {
     const tenantId = request.user.tenantId;
 
     const plate = input.plate.toUpperCase().replace(/\s/g, "");
-    const vehicle = await prisma.vehicle.findFirst({
-      where: { tenantId, plate },
-    });
+    const vehicle = await findVehicleByPlate(tenantId, plate);
     if (!vehicle) {
       return reply.code(404).send({ error: `Vehículo no encontrado: ${plate}` });
     }
@@ -66,13 +65,19 @@ export default async function telematicsRoutes(app: FastifyInstance) {
     await prisma.vehicle.update({
       where: { id: vehicle.id },
       data: {
-        lastSpeedKmh: input.speedKmh ?? vehicle.lastSpeedKmh,
+        // Spread condicional y NO `?? vehicle.lastSpeedKmh`: la fila cacheada
+        // solo trae la identidad del vehículo, y releer de ella una velocidad
+        // potencialmente vieja para reescribirla corrompería la única entrada
+        // del interlock de apagado de motor (más abajo), que exige velocidad 0.
+        // Equivalente en comportamiento: speedKmh es opcional y no anulable.
+        ...(input.speedKmh !== undefined ? { lastSpeedKmh: input.speedKmh } : {}),
         // Posición denormalizada (lat/lng son obligatorios en el ping) para el
         // mapa de flota de plataforma sin recorrer TelemetryPing.
         lastLat: input.lat,
         lastLng: input.lng,
         lastSeenAt: ping.recordedAt,
         ...(input.batterySoc !== undefined ? { socPercent: input.batterySoc } : {}),
+        ...(input.odometerKm !== undefined ? { lastOdometerKm: input.odometerKm } : {}),
         ...(input.engineOn !== undefined ? { engineOn: input.engineOn } : {}),
       },
     });
@@ -114,28 +119,45 @@ export default async function telematicsRoutes(app: FastifyInstance) {
       orderBy: { plate: "asc" },
     });
 
-    const result = [];
-    for (const v of vehicles) {
-      const last = await prisma.telemetryPing.findFirst({
-        where: { tenantId, vehicleId: v.id },
-        orderBy: { recordedAt: "desc" },
-      });
-      result.push({
-        vehicle: {
-          id: v.id,
-          plate: v.plate,
-          type: v.type,
-          isElectric: v.isElectric,
-          engineOn: v.engineOn,
-          immobilized: v.immobilized,
-          lastSpeedKmh: v.lastSpeedKmh,
-          socPercent: v.socPercent,
-          lastSeenAt: v.lastSeenAt,
-        },
-        ping: last,
-      });
-    }
-    return result;
+    // El último estado se sirve de las columnas denormalizadas del vehículo,
+    // NO de un findFirst por vehículo contra TelemetryPing (era un N+1 contra
+    // la tabla más grande del sistema, que además ahora se poda a los 90 días).
+    //
+    // `lastLat != null` equivale exactamente a "ya reportó": el único escritor
+    // de pings con vehicleId es POST /ingest de aquí arriba, que escribe
+    // lastLat/lastLng en el mismo handler; POST /tracking/pings nunca asigna
+    // vehicleId.
+    return vehicles.map((v) => ({
+      vehicle: {
+        id: v.id,
+        plate: v.plate,
+        type: v.type,
+        isElectric: v.isElectric,
+        engineOn: v.engineOn,
+        immobilized: v.immobilized,
+        lastSpeedKmh: v.lastSpeedKmh,
+        socPercent: v.socPercent,
+        lastSeenAt: v.lastSeenAt,
+      },
+      ping:
+        v.lastLat !== null && v.lastLng !== null
+          ? {
+              lat: v.lastLat,
+              lng: v.lastLng,
+              speedKmh: v.lastSpeedKmh,
+              batterySoc: v.socPercent,
+              odometerKm: v.lastOdometerKm,
+              engineOn: v.engineOn,
+              // Campos CAN de combustión: daleGo es EV-only, así que son
+              // no-ops permanentes (restricción dura 1.2). Se mantienen en el
+              // contrato para no romper al dispatcher, siempre en null.
+              rpm: null,
+              fuelLevelPct: null,
+              coolantTempC: null,
+              recordedAt: v.lastSeenAt ?? v.createdAt,
+            }
+          : null,
+    }));
   });
 
   // --- Comandos de inmovilización (gated por SAFETY, rol ADMIN/DISPATCHER) ---

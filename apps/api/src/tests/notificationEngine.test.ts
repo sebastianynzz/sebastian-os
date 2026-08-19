@@ -45,7 +45,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -56,10 +56,10 @@ beforeAll(async () => {
   });
   await api("POST", `/clients/${c.body.id}/portal-access`, adminToken, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   portalToken = (
-    await api("POST", "/auth/login", undefined, { email: portalEmail, password: "moveos123" })
+    await api("POST", "/auth/login", undefined, { email: portalEmail, password: "dalego123" })
   ).body.token;
   client = (await prisma.client.findUniqueOrThrow({
     where: { id: c.body.id },

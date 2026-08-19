@@ -118,10 +118,10 @@ export default function ControlesPermisos() {
               <div className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
                 Qué puede hacer el conductor con las rutas
               </div>
-              <label className="flex items-start gap-2 text-sm text-navy/80">
+              <label className="flex items-start gap-2 text-sm text-asfalto/80">
                 <input
                   type="checkbox"
-                  className="mt-0.5 accent-navy"
+                  className="mt-0.5 accent-asfalto"
                   checked={form.allowEditDispatcherRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowEditDispatcherRoutes: e.target.checked })
@@ -134,10 +134,10 @@ export default function ControlesPermisos() {
                   </span>
                 </span>
               </label>
-              <label className="flex items-start gap-2 text-sm text-navy/80">
+              <label className="flex items-start gap-2 text-sm text-asfalto/80">
                 <input
                   type="checkbox"
-                  className="mt-0.5 accent-navy"
+                  className="mt-0.5 accent-asfalto"
                   checked={form.allowCreateRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowCreateRoutes: e.target.checked })
@@ -150,10 +150,10 @@ export default function ControlesPermisos() {
                   </span>
                 </span>
               </label>
-              <label className="flex items-start gap-2 text-sm text-navy/80">
+              <label className="flex items-start gap-2 text-sm text-asfalto/80">
                 <input
                   type="checkbox"
-                  className="mt-0.5 accent-navy"
+                  className="mt-0.5 accent-asfalto"
                   checked={form.allowEditStartedRoutes}
                   onChange={(e) =>
                     setForm((f) => f && { ...f, allowEditStartedRoutes: e.target.checked })

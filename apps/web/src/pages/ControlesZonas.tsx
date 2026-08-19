@@ -3,7 +3,6 @@ import { MapContainer, Marker, Polygon, TileLayer, Tooltip, useMapEvents } from 
 import L from "leaflet";
 import { Plus, X } from "lucide-react";
 import { zoneSchema, type ZoneInput } from "@moveos/shared";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import { api, ApiError } from "../api";
 import { useToast } from "../toast";
 import {
@@ -46,14 +45,20 @@ interface DriverOption {
 
 // Colores de zona (DATO de la zona, no token de estilo de UI). Paleta distinguible
 // en el mapa; el primero es el navy de marca.
-const ZONE_PALETTE = ["#233955", "#CFDD80", "#A7B6C4", "#E07A5F", "#3D9970", "#B5179E"];
+const ZONE_PALETTE = ["#00E571", "#0E4D2E", "#8C949D", "#0C0F12", "#5D6660", "#008F4C"];
 
 const BOGOTA: [number, number] = [4.6486, -74.0628];
 
-const markerIcon = new L.Icon({
-  iconUrl: markerIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
+/**
+ * Vértice del polígono en dibujo: manija pequeña Verde Eléctrico centrada en el
+ * punto. El PNG azul por defecto de Leaflet, además de ser ajeno a la paleta,
+ * anclaba la punta abajo y tapaba el trazo al colocar vértices seguidos.
+ */
+const markerIcon = L.divIcon({
+  className: "",
+  html: `<div style="width:10px;height:10px;background:var(--verde);border:2px solid var(--asfalto)"></div>`,
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
 });
 
 /** Captura clics del mapa para agregar vértices mientras se dibuja. */
@@ -78,7 +83,7 @@ function DriverDot({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-navy text-[8px] font-bold text-white"
+      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-asfalto text-[8px] font-bold text-white"
     >
       {initials(name)}
     </span>
@@ -218,13 +223,13 @@ export default function ControlesZonas() {
   const contextLabelClass =
     "!rounded-md !border-0 !bg-white/85 !px-2 !py-0.5 !text-[11px] !text-text-secondary !shadow-none";
   const editingLabelClass =
-    "!rounded-md !border-0 !bg-navy !px-2 !py-0.5 !text-[11px] !font-semibold !text-white !shadow-none";
+    "!rounded-md !border-0 !bg-asfalto !px-2 !py-0.5 !text-[11px] !font-semibold !text-white !shadow-none";
 
   return (
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-navy">
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-asfalto">
             Zonas de entrega
           </h1>
           <p className="mt-0.5 max-w-2xl text-[12.5px] text-text-secondary">
@@ -247,7 +252,7 @@ export default function ControlesZonas() {
         <div className="grid grid-cols-1 items-stretch gap-3.5 lg:grid-cols-[400px_1fr]">
           {/* Tarjeta de formulario (400px) */}
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-            <div className="text-[13.5px] font-semibold text-navy">
+            <div className="text-[13.5px] font-semibold text-asfalto">
               {editingId ? `Editar zona — ${form.name || "sin nombre"}` : "Nueva zona"}
             </div>
 
@@ -274,9 +279,9 @@ export default function ControlesZonas() {
                     aria-pressed={form.color === c}
                     onClick={() => setForm((f) => ({ ...f, color: c }))}
                     style={{ backgroundColor: c }}
-                    className={`h-[26px] w-[26px] rounded-full border-2 transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
+                    className={`h-[26px] w-[26px] rounded-full border-2 transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
                       form.color === c
-                        ? "border-navy shadow-[inset_0_0_0_2px_var(--surface)]"
+                        ? "border-asfalto shadow-[inset_0_0_0_2px_var(--surface)]"
                         : "border-transparent hover:border-border-strong"
                     }`}
                   />
@@ -296,7 +301,7 @@ export default function ControlesZonas() {
                       return (
                         <span
                           key={id}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 py-[3px] pl-1.5 pr-2 text-[11.5px] font-medium text-navy"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-info-bg py-[3px] pl-1.5 pr-2 text-[11.5px] font-medium text-asfalto"
                         >
                           <DriverDot name={name} />
                           {name}
@@ -304,7 +309,7 @@ export default function ControlesZonas() {
                             type="button"
                             aria-label={`Quitar a ${name}`}
                             onClick={() => toggleDriver(id)}
-                            className="rounded-full text-text-tertiary transition duration-200 ease-brand hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                            className="rounded-full text-text-tertiary transition duration-200 ease-brand hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                           >
                             <X aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
                           </button>
@@ -315,7 +320,7 @@ export default function ControlesZonas() {
                       type="button"
                       aria-expanded={pickerOpen}
                       onClick={() => setPickerOpen((v) => !v)}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong px-2.5 py-[3px] text-[11.5px] text-text-tertiary transition duration-200 ease-brand hover:border-navy hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong px-2.5 py-[3px] text-[11.5px] text-text-tertiary transition duration-200 ease-brand hover:border-asfalto hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       <Plus aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
                       Agregar
@@ -333,7 +338,7 @@ export default function ControlesZonas() {
                             key={d.id}
                             type="button"
                             onClick={() => toggleDriver(d.id)}
-                            className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-navy transition duration-200 ease-brand hover:bg-niebla focus-visible:outline-2 focus-visible:outline-navy"
+                            className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-asfalto transition duration-200 ease-brand hover:bg-canvas focus-visible:outline-2 focus-visible:outline-asfalto"
                           >
                             <DriverDot name={d.name} />
                             {d.name}
@@ -348,10 +353,10 @@ export default function ControlesZonas() {
 
             {/* Banner de modo dibujo con contador de vértices en vivo. */}
             {drawing ? (
-              <div className="flex items-center gap-2 rounded-md border border-lima bg-lima/25 px-2.5 py-2 text-[11.5px] text-lime-ink">
+              <div className="flex items-center gap-2 rounded-md border border-verde bg-verde/25 px-2.5 py-2 text-[11.5px] text-asfalto">
                 <span
                   aria-hidden="true"
-                  className="h-[7px] w-[7px] shrink-0 animate-livepulse rounded-full bg-lime-ink"
+                  className="h-[7px] w-[7px] shrink-0 animate-livepulse rounded-full bg-asfalto"
                 />
                 <span>
                   <strong className="font-bold">Modo dibujo:</strong> clic en el mapa agrega
@@ -362,7 +367,7 @@ export default function ControlesZonas() {
                     type="button"
                     onClick={() => setPoints((p) => p.slice(0, -1))}
                     disabled={points.length === 0}
-                    className="rounded text-lime-ink transition hover:underline disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy"
+                    className="rounded text-asfalto transition hover:underline disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-asfalto"
                   >
                     Deshacer
                   </button>
@@ -370,21 +375,21 @@ export default function ControlesZonas() {
                     type="button"
                     onClick={() => setPoints([])}
                     disabled={points.length === 0}
-                    className="rounded text-lime-ink transition hover:underline disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy"
+                    className="rounded text-asfalto transition hover:underline disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-asfalto"
                   >
                     Limpiar
                   </button>
                   <button
                     type="button"
                     onClick={() => setDrawing(false)}
-                    className="rounded text-lime-ink transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy"
+                    className="rounded text-asfalto transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-asfalto"
                   >
                     Terminar
                   </button>
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-md border border-border bg-niebla px-2.5 py-2 text-[11.5px] text-text-secondary">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-canvas px-2.5 py-2 text-[11.5px] text-text-secondary">
                 <span
                   aria-hidden="true"
                   className="h-[7px] w-[7px] shrink-0 rounded-full bg-text-tertiary"
@@ -396,7 +401,7 @@ export default function ControlesZonas() {
                 <button
                   type="button"
                   onClick={() => setDrawing(true)}
-                  className="ml-auto shrink-0 rounded font-semibold text-navy transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-navy"
+                  className="ml-auto shrink-0 rounded font-semibold text-asfalto transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-asfalto"
                 >
                   Dibujar
                 </button>
@@ -469,7 +474,7 @@ export default function ControlesZonas() {
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-navy">
+            <table className="w-full text-sm text-asfalto">
               <thead>
                 <tr className={theadRowClass}>
                   <th className="py-2 pr-4 font-semibold">Zona</th>
@@ -504,7 +509,7 @@ export default function ControlesZonas() {
                             return (
                               <span
                                 key={id}
-                                className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 py-[3px] pl-1.5 pr-2 text-[11.5px] font-medium text-navy"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-info-bg py-[3px] pl-1.5 pr-2 text-[11.5px] font-medium text-asfalto"
                               >
                                 <DriverDot name={name} />
                                 {name}

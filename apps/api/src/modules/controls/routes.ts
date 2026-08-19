@@ -199,7 +199,7 @@ export default async function controlsRoutes(app: FastifyInstance) {
 
   /**
    * Facturación de la suscripción SaaS (Tier 3 §13): datos fiscales del tenant +
-   * historial de facturas (las emite la plataforma). MoveOS NO procesa pagos en
+   * historial de facturas (las emite la plataforma). daleGo NO procesa pagos en
    * la app (sin COD): es una vista de cuenta. Lectura para cualquier usuario del
    * tenant; el perfil lo edita ADMIN. Tenant-scoped.
    */

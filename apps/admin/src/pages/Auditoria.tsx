@@ -206,7 +206,7 @@ export default function Auditoria() {
             aria-label="Hasta"
           />
           {hasFilters && (
-            <button onClick={clearFilters} className="text-xs font-medium text-cielo underline">
+            <button onClick={clearFilters} className="text-xs font-medium text-gris-senal underline">
               Limpiar filtros
             </button>
           )}
@@ -216,10 +216,10 @@ export default function Auditoria() {
       {error && (
         <Card>
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-red-300">No se pudo cargar la bitácora.</span>
+            <span className="text-danger">No se pudo cargar la bitácora.</span>
             <button
               onClick={() => void load()}
-              className="rounded-lg bg-lima px-3 py-1.5 font-semibold text-navy"
+              className="rounded-lg bg-verde px-3 py-1.5 font-semibold text-asfalto"
             >
               Reintentar
             </button>
@@ -230,7 +230,7 @@ export default function Auditoria() {
       <Card>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
+            <tr className="border-b border-white/10 text-left text-xs uppercase text-gris-senal/60">
               <th className="py-2">Fecha</th>
               <th>Acción</th>
               <th>Operador</th>
@@ -245,8 +245,8 @@ export default function Auditoria() {
                   {formatStampBogota(a.createdAt)}
                 </td>
                 <td className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</td>
-                <td className="text-cielo">{a.adminEmail}</td>
-                <td className="text-cielo">
+                <td className="text-gris-senal">{a.adminEmail}</td>
+                <td className="text-gris-senal">
                   {a.targetTenantId
                     ? (tenantName.get(a.targetTenantId) ?? a.targetTenantId)
                     : "—"}
@@ -267,7 +267,7 @@ export default function Auditoria() {
             )}
             {loading && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-cielo">
+                <td colSpan={5} className="py-8 text-center text-gris-senal">
                   Cargando…
                 </td>
               </tr>

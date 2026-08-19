@@ -54,7 +54,7 @@ interface DayPoint {
 
 const BUSINESS_MODEL_LABEL: Record<string, string> = {
   SAAS: "SaaS autoservicio",
-  FAAS: "FaaS (flota de MOVE)",
+  FAAS: "FaaS (flota de daleGo)",
   LOGISTICS_3PL: "Logística 3PL",
 };
 
@@ -76,15 +76,15 @@ function tenantHealth(
   serie: DayPoint[] | null,
 ): { label: string; cls: string } {
   if (t.status !== "ACTIVE")
-    return { label: "⏸ Suspendido", cls: "bg-red-500/20 text-red-200" };
+    return { label: "⏸ Suspendido", cls: "bg-danger/20 text-danger" };
   if (t.counts.orders === 0)
-    return { label: "● Sin pedidos aún", cls: "bg-white/10 text-cielo" };
+    return { label: "● Sin pedidos aún", cls: "bg-white/10 text-gris-senal" };
   const recent = (serie ?? [])
     .slice(-7)
     .reduce((s, d) => s + d.ordersCreated + d.ordersDelivered, 0);
   return recent > 0
-    ? { label: "● Saludable", cls: "bg-emerald-500/20 text-emerald-200" }
-    : { label: "● Sin actividad reciente", cls: "bg-amber-500/20 text-amber-200" };
+    ? { label: "● Saludable", cls: "bg-verde/20 text-verde" }
+    : { label: "● Sin actividad reciente", cls: "bg-warning/20 text-warning" };
 }
 
 export default function TenantDetail() {
@@ -250,7 +250,7 @@ export default function TenantDetail() {
 
   const [vehicleNotice, setVehicleNotice] = useState<string | null>(null);
   // Asignación FaaS dirigida por el catálogo de 6 configuraciones EV: la
-  // configuración define payload, batería y autonomía; toda la flota MOVE es
+  // configuración define payload, batería y autonomía; toda la flota daleGo es
   // eléctrica (restricción dura 1), así que no hay opción de no-eléctrico.
   const [vType, setVType] = useState<VehicleType>(VEHICLE_TYPES[0]);
   const [vBatteryKwh, setVBatteryKwh] = useState<number>(
@@ -265,7 +265,7 @@ export default function TenantDetail() {
     setVBatteryKwh(VEHICLE_TYPE_PROFILES[next].batteryOptions[0]!.batteryKwh);
   }
 
-  /** Asignar un vehículo de MOVE al tenant (fleet-as-a-service). */
+  /** Asignar un vehículo de daleGo al tenant (fleet-as-a-service). */
   async function assignVehicle(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setVehicleNotice(null);
@@ -289,17 +289,17 @@ export default function TenantDetail() {
     }
   }
 
-  if (!t) return <p className="text-cielo">Cargando…</p>;
+  if (!t) return <p className="text-gris-senal">Cargando…</p>;
 
   return (
     <div className="space-y-4">
-      <Link to="/tenants" className="text-sm text-cielo hover:underline">
+      <Link to="/tenants" className="text-sm text-gris-senal hover:underline">
         ← Tenants
       </Link>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{t.name}</h1>
-          <p className="text-sm text-cielo">
+          <p className="text-sm text-gris-senal">
             {t.city} {t.nit && `· NIT ${t.nit}`} ·{" "}
             {BUSINESS_MODEL_LABEL[t.businessModel] ?? t.businessModel}
           </p>
@@ -333,36 +333,36 @@ export default function TenantDetail() {
         </div>
       </div>
 
-      {notice && <p className="text-sm font-medium text-lima">{notice}</p>}
+      {notice && <p className="text-sm font-medium text-verde">{notice}</p>}
 
       <div className="grid grid-cols-3 gap-4">
         <Card title="Editar empresa">
           <form onSubmit={saveCompany} className="space-y-2">
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Nombre</span>
+              <span className="mb-1 block text-gris-senal">Nombre</span>
               <input name="name" className={inputClass} defaultValue={t.name} required minLength={2} />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">NIT</span>
+              <span className="mb-1 block text-gris-senal">NIT</span>
               <input name="nit" className={inputClass} defaultValue={t.nit ?? ""} />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Ciudad</span>
+              <span className="mb-1 block text-gris-senal">Ciudad</span>
               <input name="city" className={inputClass} defaultValue={t.city} required minLength={2} />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Tipo de operador</span>
+              <span className="mb-1 block text-gris-senal">Tipo de operador</span>
               <select name="operatorType" className={inputClass} defaultValue={t.operatorType}>
                 <option value="SELF_SERVE">Autoservicio</option>
                 <option value="SUB_OPERATOR">Sub-operador (FaaS)</option>
-                <option value="PLATFORM_FLEET">Flota MOVE</option>
+                <option value="PLATFORM_FLEET">Flota daleGo</option>
               </select>
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Modelo de negocio</span>
+              <span className="mb-1 block text-gris-senal">Modelo de negocio</span>
               <select name="businessModel" className={inputClass} defaultValue={t.businessModel}>
                 <option value="SAAS">SaaS autoservicio</option>
-                <option value="FAAS">FaaS (flota de MOVE)</option>
+                <option value="FAAS">FaaS (flota de daleGo)</option>
                 <option value="LOGISTICS_3PL">Logística 3PL</option>
               </select>
             </label>
@@ -386,7 +386,7 @@ export default function TenantDetail() {
             <PlanBadge plan={t.plan} />
           </div>
           <div className="mt-3">
-            <label className="mb-1 block text-xs text-cielo">Cambiar plan</label>
+            <label className="mb-1 block text-xs text-gris-senal">Cambiar plan</label>
             <select
               className={inputClass}
               value={t.plan}
@@ -420,7 +420,7 @@ export default function TenantDetail() {
       <Card title="Usuarios del equipo">
         <table className="mb-4 w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-xs uppercase text-cielo/60">
+            <tr className="border-b border-white/10 text-left text-xs uppercase text-gris-senal/60">
               <th className="py-2">Nombre</th>
               <th>Correo</th>
               <th>Rol</th>
@@ -431,7 +431,7 @@ export default function TenantDetail() {
             {users.map((u) => (
               <tr key={u.id} className="border-b border-white/5">
                 <td className="py-2">{u.name}</td>
-                <td className="text-cielo">{u.email}</td>
+                <td className="text-gris-senal">{u.email}</td>
                 <td>
                   {u.manageable ? (
                     <select
@@ -451,13 +451,13 @@ export default function TenantDetail() {
                     <>
                       <button
                         onClick={() => void resetPassword(u)}
-                        className="text-cielo hover:underline"
+                        className="text-gris-senal hover:underline"
                       >
                         Resetear clave
                       </button>
                       <button
                         onClick={() => void deleteUser(u)}
-                        className="text-red-400 hover:underline"
+                        className="text-danger hover:underline"
                       >
                         Eliminar
                       </button>
@@ -508,13 +508,13 @@ export default function TenantDetail() {
               <div className="min-w-0">
                 <span className="text-sm">{m.nombre}</span>
                 {m.requires && m.requires.length > 0 && (
-                  <span className="block text-xs text-cielo">
+                  <span className="block text-xs text-gris-senal">
                     Requiere: {m.requires.map(moduleName).join(", ")}
                   </span>
                 )}
               </div>
               {m.core ? (
-                <span className="rounded-full bg-lima/30 px-2 py-0.5 text-xs font-bold">
+                <span className="rounded-full bg-verde/30 px-2 py-0.5 text-xs font-bold">
                   Núcleo
                 </span>
               ) : (
@@ -525,19 +525,19 @@ export default function TenantDetail() {
         </div>
       </Card>
 
-      <Card title="Asignar vehículo de MOVE (fleet-as-a-service)">
-        <p className="mb-3 text-xs text-cielo">
+      <Card title="Asignar vehículo de daleGo (fleet-as-a-service)">
+        <p className="mb-3 text-xs text-gris-senal">
           El vehículo queda operado por esta empresa; la propiedad del activo
           (ownerTenantId) se conserva para la vista de Flota en sitio.
         </p>
-        {vehicleNotice && <p className="mb-2 text-sm text-lima">{vehicleNotice}</p>}
+        {vehicleNotice && <p className="mb-2 text-sm text-verde">{vehicleNotice}</p>}
         <form onSubmit={assignVehicle} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Placa</span>
+            <span className="mb-1 block text-gris-senal">Placa</span>
             <input name="plate" className={inputClass} required placeholder="ABC12D" />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Configuración</span>
+            <span className="mb-1 block text-gris-senal">Configuración</span>
             <select
               className={inputClass}
               value={vType}
@@ -552,7 +552,7 @@ export default function TenantDetail() {
           </label>
           {vProfile.batteryOptions.length > 1 ? (
             <label className="block text-sm">
-              <span className="mb-1 block text-cielo">Batería</span>
+              <span className="mb-1 block text-gris-senal">Batería</span>
               <select
                 className={inputClass}
                 value={vBatteryKwh}
@@ -567,16 +567,16 @@ export default function TenantDetail() {
             </label>
           ) : (
             <div className="block text-sm">
-              <span className="mb-1 block text-cielo">Batería</span>
+              <span className="mb-1 block text-gris-senal">Batería</span>
               <p className="py-2 text-white">{vBattery.batteryKwh} kWh</p>
             </div>
           )}
           <label className="block text-sm">
-            <span className="mb-1 block text-cielo">Dueño (tenant id, opc.)</span>
-            <input name="ownerTenantId" className={inputClass} placeholder="id del tenant MOVE" />
+            <span className="mb-1 block text-gris-senal">Dueño (tenant id, opc.)</span>
+            <input name="ownerTenantId" className={inputClass} placeholder="id del tenant daleGo" />
           </label>
           {/* Specs derivadas del catálogo (no editables): el perfil es la verdad. */}
-          <p className="col-span-2 self-end text-xs text-cielo sm:col-span-3">
+          <p className="col-span-2 self-end text-xs text-gris-senal sm:col-span-3">
             ⚡ Eléctrico · {vProfile.payloadKg} kg de carga · {vBattery.batteryKwh} kWh ·
             autonomía {vBattery.rangeKm} km
           </p>
@@ -597,12 +597,12 @@ export default function TenantDetail() {
                   {formatShortBogota(a.createdAt)}
                 </span>
                 <span className="font-medium">{ACTION_LABEL[a.action] ?? a.action}</span>
-                <span className="text-cielo">{a.adminEmail}</span>
+                <span className="text-gris-senal">{a.adminEmail}</span>
               </li>
             ))}
           </ol>
         )}
-        <Link to="/auditoria" className="mt-2 inline-block text-xs text-lima hover:underline">
+        <Link to="/auditoria" className="mt-2 inline-block text-xs text-verde hover:underline">
           Ver toda la auditoría →
         </Link>
       </Card>
@@ -613,7 +613,7 @@ export default function TenantDetail() {
 function Row({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-cielo/70">{label}</dt>
+      <dt className="text-gris-senal/70">{label}</dt>
       <dd className="font-medium">{value}</dd>
     </div>
   );

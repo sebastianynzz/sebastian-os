@@ -18,7 +18,7 @@ export function publicTrackingUrl(token: string | null): string | null {
 /**
  * Servicio de notificaciones B2B.
  *
- * MoveOS es software B2B: cuando un envío cambia de estado (despachado, en
+ * daleGo OS es software B2B: cuando un envío cambia de estado (despachado, en
  * camino, entregado, fallido), se notifica al NEGOCIO CLIENTE que originó el
  * envío — no al consumidor final que recibe el paquete.
  *
@@ -136,8 +136,8 @@ async function dispatchToChannel(
           },
           body: JSON.stringify({
             personalizations: [{ to: [{ email: client.email }] }],
-            from: { email: from, name: "MoveOS" },
-            subject: `MoveOS — ${message.template.replace(/_/g, " ")}`,
+            from: { email: from, name: "daleGo" },
+            subject: `daleGo — ${message.template.replace(/_/g, " ")}`,
             content: [
               {
                 type: "text/plain",
@@ -184,7 +184,7 @@ export async function sendTestNotification(
   client: ClientTarget,
 ): Promise<SendResult> {
   const renderedBody =
-    "Notificación de prueba de MoveOS — tu canal de avisos está bien configurado.";
+    "Notificación de prueba de daleGo — tu canal de avisos está bien configurado.";
   return dispatchToChannel(client, {
     tenantId: "",
     orderId: "test",

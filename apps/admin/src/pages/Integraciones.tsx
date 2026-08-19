@@ -29,9 +29,9 @@ const STATUS_UI: Record<
   IntegrationStatus,
   { dot: string; label: string; text: string }
 > = {
-  OK: { dot: "bg-emerald-400", label: "OK", text: "text-emerald-300" },
-  DEGRADED: { dot: "bg-red-500", label: "Degradado", text: "text-red-400" },
-  CONFIGURED: { dot: "bg-sky-400", label: "Configurado", text: "text-sky-300" },
+  OK: { dot: "bg-verde", label: "OK", text: "text-verde" },
+  DEGRADED: { dot: "bg-danger", label: "Degradado", text: "text-danger" },
+  CONFIGURED: { dot: "bg-gris-senal", label: "Configurado", text: "text-gris-senal" },
   NOT_CONFIGURED: {
     dot: "bg-white/30",
     label: "Sin configurar",
@@ -79,7 +79,7 @@ export default function Integraciones() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">Salud de integraciones</h1>
-          <p className="text-sm text-cielo">
+          <p className="text-sm text-gris-senal">
             {degraded > 0
               ? `⚠️ ${degraded} integración(es) degradada(s)`
               : "Todo lo configurado responde"}
@@ -91,7 +91,7 @@ export default function Integraciones() {
         <button
           onClick={() => void load(true)}
           disabled={busy}
-          className="rounded-lg bg-lima px-3 py-1.5 text-sm font-semibold text-navy hover:brightness-95 disabled:opacity-50"
+          className="rounded-lg bg-verde px-3 py-1.5 text-sm font-semibold text-asfalto hover:brightness-95 disabled:opacity-50"
         >
           {busy ? "Verificando…" : "Verificar ahora"}
         </button>
@@ -99,7 +99,7 @@ export default function Integraciones() {
 
       {!results && error && (
         <Card>
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-danger">
             No se pudo consultar la salud de integraciones.{" "}
             <button onClick={() => void load(true)} className="underline">
               Reintentar
@@ -107,7 +107,7 @@ export default function Integraciones() {
           </p>
         </Card>
       )}
-      {!results && !error && <p className="text-cielo">Cargando…</p>}
+      {!results && !error && <p className="text-gris-senal">Cargando…</p>}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {sorted?.map((r) => {
@@ -120,7 +120,7 @@ export default function Integraciones() {
                     <span className={`h-2.5 w-2.5 rounded-full ${ui.dot}`} />
                     <span className="font-semibold">{r.label}</span>
                   </div>
-                  <p className="mt-1 text-xs text-cielo">{r.detail}</p>
+                  <p className="mt-1 text-xs text-gris-senal">{r.detail}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <div className={`text-xs font-bold ${ui.text}`}>{ui.label}</div>

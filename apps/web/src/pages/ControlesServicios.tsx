@@ -76,7 +76,7 @@ function formatSlaHours(min: number): string {
 function StopTypePill({ type }: { type: string }) {
   const label =
     type === "DELIVERY" ? "ENT" : type === "PICKUP" ? "REC" : type === "BOTH" ? "REC+ENT" : type;
-  const cls = type === "DELIVERY" ? "bg-lima/50 text-navy" : "bg-sky/40 text-navy";
+  const cls = type === "DELIVERY" ? "bg-verde/50 text-asfalto" : "bg-gris-senal/40 text-asfalto";
   return (
     <span
       title={SERVICE_STOP_TYPE_LABELS[type as ServiceStopType] ?? type}
@@ -101,7 +101,7 @@ function DayPills({ days }: { days: string[] }) {
             key={d}
             title={WEEKDAY_LABELS[d]}
             className={`inline-flex h-5 w-[22px] items-center justify-center rounded-[5px] text-[10px] font-semibold ${
-              on ? "bg-navy text-white" : "bg-niebla text-sky"
+              on ? "bg-asfalto text-white" : "bg-canvas text-gris-senal"
             }`}
           >
             {WEEKDAY_LETTERS[d]}
@@ -243,7 +243,7 @@ export default function ControlesServicios() {
     <div className="space-y-3.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-navy">Servicios</h1>
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-asfalto">Servicios</h1>
           <p className="mt-0.5 max-w-2xl text-[12.5px] text-text-secondary">
             Promesas de entrega: precio por parada + plazo SLA · alimentan el cockpit y el
             informe por cliente
@@ -339,8 +339,8 @@ export default function ControlesServicios() {
                       aria-label={WEEKDAY_LABELS[d]}
                       title={WEEKDAY_LABELS[d]}
                       onClick={() => toggleDay(d)}
-                      className={`inline-flex h-7 w-8 items-center justify-center rounded-[5px] text-[11px] font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy ${
-                        on ? "bg-navy text-white" : "bg-niebla text-text-tertiary hover:bg-cielo/40"
+                      className={`inline-flex h-7 w-8 items-center justify-center rounded-[5px] text-[11px] font-semibold transition duration-200 ease-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto ${
+                        on ? "bg-asfalto text-white" : "bg-canvas text-text-tertiary hover:bg-gris-senal/40"
                       }`}
                     >
                       {WEEKDAY_LETTERS[d]}
@@ -349,7 +349,7 @@ export default function ControlesServicios() {
                 })}
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-navy">
+            <div className="flex items-center gap-2 text-sm text-asfalto">
               <PillToggle
                 checked={form.active}
                 onChange={(next) => setForm((f) => ({ ...f, active: next }))}
@@ -387,7 +387,7 @@ export default function ControlesServicios() {
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-[13px] text-navy">
+            <table className="w-full min-w-[860px] text-[13px] text-asfalto">
               <thead>
                 <tr className={theadRowClass}>
                   <th className="py-1.5 font-semibold">Servicio</th>
@@ -432,7 +432,7 @@ export default function ControlesServicios() {
                     <td className="py-2.5">
                       <span
                         className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-[11px] font-semibold ${
-                          s.active ? "bg-lima/45 text-lime-ink" : "bg-niebla text-text-tertiary"
+                          s.active ? "bg-verde/45 text-asfalto" : "bg-canvas text-text-tertiary"
                         }`}
                       >
                         {s.active ? "Activo" : "Inactivo"}

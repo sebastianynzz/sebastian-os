@@ -62,7 +62,7 @@ function AddressHint({
   children: ReactNode;
 }) {
   const tones = {
-    lima: "bg-lima/30 text-lime-ink",
+    lima: "bg-verde/30 text-asfalto",
     warning: "bg-warning-bg text-warning",
   };
   return (
@@ -314,13 +314,13 @@ export default function PortalNuevoEnvio() {
             {me?.pickupAddressRaw && (
               <label
                 className={`flex items-start gap-2 text-sm ${
-                  pickupMode === "REGISTERED" ? "text-navy" : "text-text-secondary"
+                  pickupMode === "REGISTERED" ? "text-asfalto" : "text-text-secondary"
                 }`}
               >
                 <input
                   type="radio"
                   name="pickupMode"
-                  className="mt-1 accent-navy"
+                  className="mt-1 accent-asfalto"
                   checked={pickupMode === "REGISTERED"}
                   onChange={() => setPickupMode("REGISTERED")}
                 />
@@ -334,13 +334,13 @@ export default function PortalNuevoEnvio() {
             )}
             <label
               className={`flex items-start gap-2 text-sm ${
-                pickupMode === "CUSTOM" ? "text-navy" : "text-text-secondary"
+                pickupMode === "CUSTOM" ? "text-asfalto" : "text-text-secondary"
               }`}
             >
               <input
                 type="radio"
                 name="pickupMode"
-                className="mt-1 accent-navy"
+                className="mt-1 accent-asfalto"
                 checked={pickupMode === "CUSTOM"}
                 onChange={() => setPickupMode("CUSTOM")}
               />
@@ -358,13 +358,13 @@ export default function PortalNuevoEnvio() {
             )}
             <label
               className={`flex items-start gap-2 text-sm ${
-                pickupMode === "NONE" ? "text-navy" : "text-text-secondary"
+                pickupMode === "NONE" ? "text-asfalto" : "text-text-secondary"
               }`}
             >
               <input
                 type="radio"
                 name="pickupMode"
-                className="mt-1 accent-navy"
+                className="mt-1 accent-asfalto"
                 checked={pickupMode === "NONE"}
                 onChange={() => setPickupMode("NONE")}
               />

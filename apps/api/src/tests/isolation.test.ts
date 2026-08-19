@@ -48,7 +48,7 @@ beforeAll(async () => {
     adminName: "Admin A",
     city: "Bogotá",
     email: aEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tokenA = a.body.token;
   tenantAId = a.body.tenant.id;
@@ -58,7 +58,7 @@ beforeAll(async () => {
     adminName: "Admin B",
     city: "Bogotá",
     email: bEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tokenB = b.body.token;
   tenantBId = b.body.tenant.id;
@@ -67,12 +67,12 @@ beforeAll(async () => {
     data: {
       email: pEmail,
       name: "Operador Iso",
-      passwordHash: await bcrypt.hash("moveos123", 10),
+      passwordHash: await bcrypt.hash("dalego123", 10),
     },
   });
   const plogin = await api("POST", "/platform/auth/login", undefined, {
     email: pEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   platformToken = plogin.body.token;
 

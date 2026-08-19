@@ -90,32 +90,29 @@ export default function RouteMap({
     if (pending.length > 1) {
       L.polyline(
         pending.map((s) => [s.lat, s.lng] as [number, number]),
-        { color: "#233955", weight: 3, opacity: 0.7, dashArray: "6 6" },
+        // Trazo de ruta: punteado 6 6 en Gris Señal (manual, sección Mapas).
+        { color: "#8C949D", weight: 3, opacity: 0.7, dashArray: "6 6" },
       ).addTo(overlay);
     }
     for (const stop of stops) {
-      // Claro: relleno claro + número navy. Oscuro: relleno navy + número
-      // casi blanco (.dark .moveos-stop-label) con anillo limón/cielo.
+      // Paleta Circuito, sección Mapas del manual: la parada pendiente es
+      // círculo Blanco Humo con borde Verde Eléctrico; la completada, Gris
+      // Señal. La recogida se distingue por Verde Profundo (no por otro tono
+      // de gris) para que siga siendo legible en ambos temas.
       const color = stop.done
-        ? "#8a99a8"
+        ? "#8C949D"
         : stop.isPickup
-          ? dark
-            ? "#a7b6c4"
-            : "#3a5169"
-          : dark
-            ? "#cfdd80"
-            : "#233955";
+          ? "#0E4D2E"
+          : "#00E571";
       const fillColor = dark
         ? stop.done
-          ? "#1b2c43"
+          ? "#1A2027"
           : stop.isPickup
-            ? "#1b2c43"
-            : "#233955"
+            ? "#1A2027"
+            : "#0C0F12"
         : stop.done
-          ? "#d6dade"
-          : stop.isPickup
-            ? "#eef2f5"
-            : "#cfdd80";
+          ? "#E9EFEB"
+          : "#F2F5F3";
       const marker = L.circleMarker([stop.lat, stop.lng], {
         radius: 11,
         color,
@@ -126,7 +123,7 @@ export default function RouteMap({
       marker.bindTooltip(String(stop.sequence), {
         permanent: true,
         direction: "center",
-        className: "moveos-stop-label",
+        className: "dalego-stop-label",
       });
     }
     overlay.addTo(map);
@@ -144,10 +141,12 @@ export default function RouteMap({
       const pos = geo.current;
       if (!map || !pos) return;
       if (!driverMarkerRef.current) {
+        // Manual, sección Mapas: el conductor es un punto Verde Eléctrico
+        // con anillo.
         driverMarkerRef.current = L.circleMarker([pos.lat, pos.lng], {
           radius: 7,
-          color: "#ffffff",
-          fillColor: "#5a6b18",
+          color: "#F2F5F3",
+          fillColor: "#00E571",
           fillOpacity: 1,
           weight: 2,
         }).addTo(map);
@@ -163,7 +162,7 @@ export default function RouteMap({
       ref={containerRef}
       role="img"
       aria-label="Mapa de la ruta del día"
-      className="h-52 w-full overflow-hidden rounded-xl border border-border shadow-soft dark:border-sky/18"
+      className="h-52 w-full overflow-hidden rounded-xl border border-border shadow-soft dark:border-gris-senal/18"
     />
   );
 }

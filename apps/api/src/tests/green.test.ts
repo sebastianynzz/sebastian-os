@@ -48,7 +48,7 @@ beforeAll(async () => {
     adminName: "Admin Verde",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -77,7 +77,7 @@ describe("informe verde mensual (CO₂)", () => {
       phone: "+573000000088",
       documentId: "900900902",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     await api("POST", "/vehicles", adminToken, {
       plate: "EVG10A",
@@ -119,7 +119,7 @@ describe("informe verde mensual (CO₂)", () => {
     });
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     const driverToken = login.body.token;
     await api("POST", `/routes/${routeId}/start`, driverToken);
@@ -175,11 +175,11 @@ describe("informe verde mensual (CO₂)", () => {
   it("el negocio ve SU informe verde en el portal", async () => {
     await api("POST", `/clients/${clientId}/portal-access`, adminToken, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     const login = await api("POST", "/auth/login", undefined, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
 
     const res = await api(
@@ -193,6 +193,6 @@ describe("informe verde mensual (CO₂)", () => {
     expect(r.orders.length).toBe(2);
     expect(r.co2SavedKg).toBeGreaterThan(0);
     expect(r.orders[0].vehicle.isElectric).toBe(true);
-    expect(r.orders[0].trackingNumber).toMatch(/^MV-/);
+    expect(r.orders[0].trackingNumber).toMatch(/^DG-/);
   });
 });

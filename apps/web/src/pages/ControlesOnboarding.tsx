@@ -60,7 +60,7 @@ const STEP_COPY: Record<
 
 const DRIVER_APP_URL =
   (import.meta.env.VITE_DRIVER_URL as string | undefined) ??
-  "https://conductor.moveos.app";
+  "https://conductor.dalego.app";
 
 export default function ControlesOnboarding() {
   const toast = useToast();
@@ -109,9 +109,9 @@ export default function ControlesOnboarding() {
         </Card>
       ) : (
         <Card title={`Progreso · ${data.completed} de ${data.total}`}>
-          <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-niebla">
+          <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-canvas">
             <div
-              className="h-full rounded-full bg-lima"
+              className="h-full rounded-full bg-verde"
               style={{ width: `${Math.max(pct, 4)}%` }}
             />
           </div>
@@ -129,7 +129,7 @@ export default function ControlesOnboarding() {
                       className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                         s.done
                           ? "bg-success-bg text-success"
-                          : "bg-niebla text-text-tertiary"
+                          : "bg-canvas text-text-tertiary"
                       }`}
                       aria-hidden="true"
                     >
@@ -137,7 +137,7 @@ export default function ControlesOnboarding() {
                     </span>
                     <div className="min-w-0">
                       <div
-                        className={`font-medium ${s.done ? "text-text-tertiary line-through" : "text-navy"}`}
+                        className={`font-medium ${s.done ? "text-text-tertiary line-through" : "text-asfalto"}`}
                       >
                         {copy.label}
                       </div>
@@ -147,7 +147,7 @@ export default function ControlesOnboarding() {
                   {!s.done && (
                     <Link
                       to={copy.to}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-sm font-medium text-white transition duration-200 ease-brand hover:bg-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-asfalto px-3 py-1.5 text-sm font-medium text-white transition duration-200 ease-brand hover:bg-asfalto-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       {copy.cta}
                       <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
@@ -166,7 +166,7 @@ export default function ControlesOnboarding() {
           la pantalla de inicio. Comparte este enlace o pídeles escanearlo:
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <code className="break-all rounded-lg bg-niebla px-3 py-2 font-mono text-sm text-navy">
+          <code className="break-all rounded-lg bg-canvas px-3 py-2 font-mono text-sm text-asfalto">
             {DRIVER_APP_URL}
           </code>
           <Button variant="secondary" icon={<Copy strokeWidth={2} />} onClick={copyUrl}>
@@ -176,7 +176,7 @@ export default function ControlesOnboarding() {
             href={DRIVER_APP_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-sm font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+            className="inline-flex items-center gap-1.5 rounded-md border border-asfalto/25 bg-surface px-3 py-1.5 text-sm font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
           >
             <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
             Abrir

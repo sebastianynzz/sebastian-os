@@ -355,13 +355,13 @@ export default function Conductores() {
                           <span
                             aria-hidden="true"
                             className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
-                              expired ? "bg-danger" : active ? "bg-navy" : "bg-cielo"
+                              expired ? "bg-danger" : active ? "bg-asfalto" : "bg-gris-senal"
                             }`}
                           >
                             {initials(d.name)}
                           </span>
                           <span className="min-w-0">
-                            <span className="block font-semibold text-navy">{d.name}</span>
+                            <span className="block font-semibold text-asfalto">{d.name}</span>
                             <span className="block text-[11px] text-text-tertiary">
                               CC <span className="font-mono">{d.documentId}</span>
                             </span>
@@ -377,7 +377,7 @@ export default function Conductores() {
                             className={`rounded-md border bg-surface px-2 py-0.5 font-mono text-[11.5px] disabled:opacity-50 ${
                               expired
                                 ? "border-danger/50 text-danger"
-                                : "border-border-strong text-navy"
+                                : "border-border-strong text-asfalto"
                             }`}
                             value={d.licenseExpiresAt ? d.licenseExpiresAt.slice(0, 10) : ""}
                             disabled={busyId === d.id}
@@ -414,7 +414,7 @@ export default function Conductores() {
                       </td>
                       <td>
                         {active ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-lime-ink">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-asfalto">
                             <span
                               aria-hidden="true"
                               className="h-2 w-2 rounded-full bg-olive"
@@ -445,7 +445,7 @@ export default function Conductores() {
                           />
                           <span
                             className={`text-xs font-medium ${
-                              active ? "text-lime-ink" : "text-text-tertiary"
+                              active ? "text-asfalto" : "text-text-tertiary"
                             }`}
                           >
                             {active ? "Activo" : "Inactivo"}

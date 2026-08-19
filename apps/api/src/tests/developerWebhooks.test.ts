@@ -19,7 +19,13 @@ let adminToken: string;
 
 let hookServer: Server;
 let hookUrl: string;
-const received: { event: string; signature: string; raw: string }[] = [];
+const received: {
+  event: string;
+  signature: string;
+  legacyEvent: string;
+  legacySignature: string;
+  raw: string;
+}[] = [];
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function api(
@@ -43,8 +49,12 @@ beforeAll(async () => {
     req.on("data", (c) => (data += c));
     req.on("end", () => {
       received.push({
-        event: String(req.headers["x-moveos-event"] ?? ""),
-        signature: String(req.headers["x-moveos-signature"] ?? ""),
+        event: String(req.headers["x-dalego-event"] ?? ""),
+        signature: String(req.headers["x-dalego-signature"] ?? ""),
+        // Cabeceras heredadas: se siguen enviando con el mismo valor para no
+        // romper integraciones anteriores al renombre de marca.
+        legacyEvent: String(req.headers["x-moveos-event"] ?? ""),
+        legacySignature: String(req.headers["x-moveos-signature"] ?? ""),
         raw: data,
       });
       res.writeHead(200).end("ok");
@@ -60,7 +70,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -107,6 +117,10 @@ describe("Webhooks de desarrollador (Tier 2 §8)", () => {
     expect(last.event).toBe("DELIVERED");
     // La firma debe corresponder al HMAC-SHA256 del cuerpo con el secreto.
     expect(last.signature).toBe(signWebhook(secret, last.raw));
+    // Compatibilidad: las cabeceras heredadas viajan con el mismo valor, así
+    // que un integrador anterior al renombre sigue validando la firma.
+    expect(last.legacyEvent).toBe(last.event);
+    expect(last.legacySignature).toBe(last.signature);
     expect(JSON.parse(last.raw).data.test).toBe(true);
   });
 

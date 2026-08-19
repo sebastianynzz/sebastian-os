@@ -1,16 +1,34 @@
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-const QUEUE_KEY = "moveos_driver_queue";
+const QUEUE_KEY = "dalego_driver_queue";
+const TOKEN_KEY = "dalego_driver_token";
+
+/**
+ * Renombre de marca MoveOS → daleGo. Migra el valor de la clave anterior en la
+ * primera lectura en vez de descartarlo. Aquí NO es cosmético: la cola offline
+ * puede llevar entregas sin sincronizar en el teléfono de un conductor, y
+ * estrenar clave sin migrar las dejaría huérfanas (pérdida de datos).
+ */
+export function readMigrated(key: string, legacyKey: string): string | null {
+  const current = localStorage.getItem(key);
+  if (current !== null) return current;
+  const legacy = localStorage.getItem(legacyKey);
+  if (legacy === null) return null;
+  localStorage.setItem(key, legacy);
+  localStorage.removeItem(legacyKey);
+  return legacy;
+}
 
 export function getToken(): string | null {
-  return localStorage.getItem("moveos_driver_token");
+  return readMigrated(TOKEN_KEY, "moveos_driver_token");
 }
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem("moveos_driver_token", token);
-  else localStorage.removeItem("moveos_driver_token");
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("moveos_driver_token");
 }
 
 /** Evento de sesión expirada: la App lo escucha para forzar re-login limpio. */
-export const SESSION_EXPIRED_EVENT = "moveos:session-expired";
+export const SESSION_EXPIRED_EVENT = "dalego:session-expired";
 
 export async function api<T = unknown>(
   method: "GET" | "POST",
@@ -71,7 +89,9 @@ function newId(): string {
 /** Lee y NORMALIZA la cola (tolera entradas viejas tras un deploy). */
 function readQueue(): QueuedAction[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]") as Partial<QueuedAction>[];
+    const raw = JSON.parse(
+      readMigrated(QUEUE_KEY, "moveos_driver_queue") ?? "[]",
+    ) as Partial<QueuedAction>[];
     if (!Array.isArray(raw)) return [];
     return raw
       .filter((a) => a && typeof a.path === "string")

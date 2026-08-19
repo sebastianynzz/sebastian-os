@@ -14,7 +14,7 @@ import { prisma } from "../lib/prisma.js";
  * Las suscripciones muertas (404/410 del push service) se podan solas.
  */
 
-const VAPID_SUBJECT_DEFAULT = "mailto:ops@moveos.co";
+const VAPID_SUBJECT_DEFAULT = "mailto:ops@dalego.co";
 
 // Configuración perezosa: se evalúa en el primer envío, no al importar el
 // módulo — así un entrypoint sin dotenv no congela un estado equivocado y

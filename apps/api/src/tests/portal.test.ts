@@ -52,7 +52,7 @@ beforeAll(async () => {
     adminName: "Admin Portal",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -91,7 +91,7 @@ describe("portal de clientes (rol CLIENT)", () => {
   it("el ADMIN entrega acceso al portal (y solo el ADMIN)", async () => {
     const res = await api("POST", `/clients/${clientAId}/portal-access`, adminToken, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(res.status).toBe(201);
     expect(res.body.role).toBe("CLIENT");
@@ -100,7 +100,7 @@ describe("portal de clientes (rol CLIENT)", () => {
     // Correo duplicado → 409.
     const dup = await api("POST", `/clients/${clientAId}/portal-access`, adminToken, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(dup.status).toBe(409);
 
@@ -110,17 +110,17 @@ describe("portal de clientes (rol CLIENT)", () => {
       phone: "+573000000077",
       documentId: "900900901",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     const driverLogin = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     const denied = await api(
       "POST",
       `/clients/${clientBId}/portal-access`,
       driverLogin.body.token,
-      { email: `otro+${runId}@test.moveos.co`, password: "moveos123" },
+      { email: `otro+${runId}@test.moveos.co`, password: "dalego123" },
     );
     expect(denied.status).toBe(403);
   });
@@ -128,7 +128,7 @@ describe("portal de clientes (rol CLIENT)", () => {
   it("el usuario del portal inicia sesión y /auth/me responde", async () => {
     const login = await api("POST", "/auth/login", undefined, {
       email: portalEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(login.status).toBe(200);
     expect(login.body.user.role).toBe("CLIENT");
@@ -172,12 +172,12 @@ describe("portal de clientes (rol CLIENT)", () => {
     // Acceso del negocio B (sin dirección de recogida registrada).
     const accessB = await api("POST", `/clients/${clientBId}/portal-access`, adminToken, {
       email: `portal-b+${runId}@test.moveos.co`,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(accessB.status).toBe(201);
     const loginB = await api("POST", "/auth/login", undefined, {
       email: `portal-b+${runId}@test.moveos.co`,
-      password: "moveos123",
+      password: "dalego123",
     });
     const res = await api("POST", "/portal/orders", loginB.body.token, {
       customerName: "Consumidor B",

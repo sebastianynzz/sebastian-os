@@ -160,10 +160,10 @@ export default function PortalPedidos() {
 
       <Card>
         {loading ? (
-          <Loading label="Cargando sus envíos…" />
+          <Loading label="Cargando tus envíos…" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-navy">
+            <table className="w-full text-sm text-asfalto">
               <thead>
                 <tr className={theadRowClass}>
                   <th className="w-[140px] py-2 font-semibold">Guía</th>
@@ -259,7 +259,7 @@ export default function PortalPedidos() {
                             <button
                               onClick={() => void toggleTimeline(o.id)}
                               aria-expanded={expanded === o.id}
-                              className="text-xs text-text-tertiary transition duration-200 ease-brand hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                              className="text-xs text-text-tertiary transition duration-200 ease-brand hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                             >
                               {expanded === o.id ? "Ocultar" : "Historial"}
                             </button>
@@ -267,7 +267,7 @@ export default function PortalPedidos() {
                         </td>
                       </tr>
                       {expanded === o.id && (
-                        <tr className={`bg-niebla/40 ${tableRowClass}`}>
+                        <tr className={`bg-canvas/40 ${tableRowClass}`}>
                           <td colSpan={5} className="px-4 py-3">
                             <ol className="space-y-1 text-xs">
                               {(events[o.id] ?? []).map((e, i) => (
@@ -277,7 +277,7 @@ export default function PortalPedidos() {
                                   </span>
                                   <span
                                     aria-hidden="true"
-                                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-lima"
+                                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-verde"
                                   />
                                   <span className="font-medium">
                                     {EVENT_LABELS[e.type] ?? e.type}

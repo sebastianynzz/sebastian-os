@@ -72,7 +72,7 @@ export default function ControlesSeguimiento() {
     <div className="space-y-4">
       <PageHeader
         title="Seguimiento público"
-        subtitle="Define cuánta información muestra la página pública de rastreo que el negocio comparte. MoveOS nunca contacta al consumidor final: solo enriquece el enlace que el negocio decide compartir."
+        subtitle="Define cuánta información muestra la página pública de rastreo que el negocio comparte. daleGo nunca contacta al consumidor final: solo enriquece el enlace que el negocio decide compartir."
       />
       {loading ? (
         <Loading label="Cargando configuración…" />
@@ -91,14 +91,14 @@ export default function ControlesSeguimiento() {
                   key={t}
                   className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition duration-200 ease-brand ${
                     activeTier
-                      ? "border-navy bg-sky-50"
-                      : "border-border hover:border-border-strong hover:bg-niebla/50"
+                      ? "border-asfalto bg-info-bg"
+                      : "border-border hover:border-border-strong hover:bg-canvas/50"
                   }`}
                 >
                   <input
                     type="radio"
                     name="trackingTier"
-                    className="mt-1 accent-navy"
+                    className="mt-1 accent-asfalto"
                     checked={activeTier}
                     disabled={saving}
                     onChange={() => void choose(t)}
@@ -106,13 +106,13 @@ export default function ControlesSeguimiento() {
                   <span
                     aria-hidden="true"
                     className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                      activeTier ? "bg-navy text-lima" : "bg-niebla text-navy"
+                      activeTier ? "bg-asfalto text-verde" : "bg-canvas text-asfalto"
                     }`}
                   >
                     <Icon className="h-4 w-4" strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0">
-                    <span className="flex flex-wrap items-center gap-2 font-medium text-navy">
+                    <span className="flex flex-wrap items-center gap-2 font-medium text-asfalto">
                       {TRACKING_TIER_LABELS[t]}
                       {activeTier && <Badge tone="success">Activo</Badge>}
                     </span>

@@ -246,8 +246,8 @@ export default function Copilot() {
         title="Copiloto IA"
         subtitle="Planifica, explica fallos y vigila la operación en lenguaje natural"
         actions={
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-navy px-3 py-1.5 text-[11.5px] text-cielo">
-            <Lock aria-hidden="true" className="h-3 w-3 shrink-0 text-lima" strokeWidth={2} />
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-asfalto px-3 py-1.5 text-[11.5px] text-gris-senal">
+            <Lock aria-hidden="true" className="h-3 w-3 shrink-0 text-verde" strokeWidth={2} />
             El modelo nunca ejecuta solo: propone y tú confirmas
           </span>
         }
@@ -269,7 +269,7 @@ export default function Copilot() {
                     <button
                       key={s}
                       onClick={() => void send(s)}
-                      className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs text-text-secondary transition duration-200 ease-brand hover:border-navy/25 hover:bg-lima/10 hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+                      className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs text-text-secondary transition duration-200 ease-brand hover:border-asfalto/25 hover:bg-verde/10 hover:text-asfalto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
                     >
                       {s}
                     </button>
@@ -285,15 +285,15 @@ export default function Copilot() {
                   <div
                     className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm leading-relaxed ${
                       entry.role === "user"
-                        ? "ml-auto rounded-br-[4px] bg-navy text-white"
-                        : "rounded-bl-[4px] bg-niebla text-navy"
+                        ? "ml-auto rounded-br-[4px] bg-asfalto text-white"
+                        : "rounded-bl-[4px] bg-canvas text-asfalto"
                     }`}
                   >
                     {entry.content}
                     {streaming && (
                       <span
                         aria-hidden="true"
-                        className="ml-0.5 inline-block h-3.5 w-[7px] animate-livepulse bg-navy align-text-bottom"
+                        className="ml-0.5 inline-block h-3.5 w-[7px] animate-livepulse bg-asfalto align-text-bottom"
                       />
                     )}
                   </div>
@@ -311,7 +311,7 @@ export default function Copilot() {
                             className="h-4 w-4 flex-none text-success"
                             strokeWidth={2}
                           />
-                          <span className="font-medium text-navy">{action.summary}</span>
+                          <span className="font-medium text-asfalto">{action.summary}</span>
                           <span className="ml-auto">
                             <Badge tone="success">Aplicada</Badge>
                           </span>
@@ -321,15 +321,15 @@ export default function Copilot() {
                     return (
                       <div
                         key={key}
-                        className="mt-2 max-w-[85%] space-y-2 rounded-xl border border-lima bg-lima/20 px-3.5 py-3"
+                        className="mt-2 max-w-[85%] space-y-2 rounded-xl border border-verde bg-verde/20 px-3.5 py-3"
                       >
                         <div className="flex items-center gap-2">
                           <Zap
                             aria-hidden="true"
-                            className="h-[15px] w-[15px] flex-none text-lime-ink"
+                            className="h-[15px] w-[15px] flex-none text-asfalto"
                             strokeWidth={2}
                           />
-                          <span className="min-w-0 text-[13px] font-semibold text-navy">
+                          <span className="min-w-0 text-[13px] font-semibold text-asfalto">
                             {action.summary}
                           </span>
                           <span className="ml-auto shrink-0 font-mono text-[11px] text-text-tertiary">
@@ -341,7 +341,7 @@ export default function Copilot() {
                             {paramChips(action.params).map((c) => (
                               <span
                                 key={c}
-                                className="rounded-full border border-lima/70 bg-surface px-2.5 py-0.5 font-mono text-[11px] text-lime-ink"
+                                className="rounded-full border border-verde/70 bg-surface px-2.5 py-0.5 font-mono text-[11px] text-asfalto"
                               >
                                 {c}
                               </span>
@@ -376,7 +376,7 @@ export default function Copilot() {
           <form onSubmit={onSubmit} className="mt-3 flex gap-2 border-t border-border pt-3">
             <input
               className={inputClass}
-              placeholder='Ej: "Planea los pedidos de hoy en las 2 motos" o "¿qué pasó con MV-…?"'
+              placeholder='Ej: "Planea los pedidos de hoy en las 2 motos" o "¿qué pasó con DG-…?"'
               aria-label="Mensaje para el Copiloto"
               value={input}
               onChange={(e) => setInput(e.target.value)}

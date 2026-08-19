@@ -25,7 +25,7 @@ export interface VehicleEmissionProfile {
  * Línea base de combustión (kg CO₂e/km) que cada configuración EV DESPLAZA.
  * Existe SOLO como contrafactual de "emisiones evitadas" (CLAUDE.md 1.6): es
  * el vehículo a gasolina/diésel que el mercado usaría para el mismo trabajo,
- * nunca un vehículo real de MoveOS. Las Rap Move desplazan motos/moto-carga a
+ * nunca un vehículo real de daleGo. Las Rap Move desplazan motos/moto-carga a
  * gasolina; las IONAx, vans/pickups utilitarias a combustión (la Cold Box
  * carga un extra por la refrigeración a combustible).
  */
@@ -81,7 +81,7 @@ export function co2BaselineKgForKm(type: VehicleType, km: number): number {
 
 /**
  * Energía eléctrica (kWh) consumida por un EV del tipo dado en `km`. Base del
- * costo energético por entrega (D6): la unidad de costo de MoveOS es la energía,
+ * costo energético por entrega (D6): la unidad de costo de daleGo es la energía,
  * no el combustible (restricción dura 1.7).
  */
 export function evKwhForKm(type: VehicleType, km: number): number {

@@ -61,7 +61,7 @@ beforeAll(async () => {
     adminName: "Admin A",
     city: "Bogotá",
     email: aEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tokenA = a.body.token;
   tenantAId = a.body.tenant.id;
@@ -71,7 +71,7 @@ beforeAll(async () => {
     adminName: "Admin B",
     city: "Bogotá",
     email: bEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tokenB = b.body.token;
   tenantBId = b.body.tenant.id;

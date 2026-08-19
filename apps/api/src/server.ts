@@ -36,7 +36,7 @@ process.on("uncaughtException", (err) => {
 // streams SSE y conexiones antes de salir para no dejar peticiones colgadas.
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.on(signal, () => {
-    app.log.info(`${signal} recibido: apagando MoveOS API`);
+    app.log.info(`${signal} recibido: apagando daleGo API`);
     app
       .close()
       .catch(() => {})
@@ -47,7 +47,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 app
   .listen({ port: config.port, host: "0.0.0.0" })
   .then(() => {
-    console.log(`MoveOS API escuchando en :${config.port}`);
+    console.log(`daleGo API escuchando en :${config.port}`);
   })
   .catch((err) => {
     app.log.error(err);

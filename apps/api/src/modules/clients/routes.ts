@@ -140,7 +140,7 @@ export default async function clientsRoutes(app: FastifyInstance) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             event: "test",
-            message: "Webhook de prueba de MoveOS",
+            message: "Webhook de prueba de daleGo",
             sentAt: new Date().toISOString(),
           }),
           signal: controller.signal,

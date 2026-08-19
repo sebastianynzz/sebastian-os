@@ -186,10 +186,10 @@ export default function ControlesDepots() {
                 placeholder="-74.0628"
               />
             </Field>
-            <label className="flex items-center gap-2 text-sm text-navy/80">
+            <label className="flex items-center gap-2 text-sm text-asfalto/80">
               <input
                 type="checkbox"
-                className="accent-navy"
+                className="accent-asfalto"
                 checked={form.isMain}
                 onChange={(e) => setForm((f) => ({ ...f, isMain: e.target.checked }))}
               />
@@ -243,7 +243,7 @@ export default function ControlesDepots() {
               <tbody>
                 {depots.map((d) => (
                   <tr key={d.id} className={tableRowClass}>
-                    <td className="py-2 pr-4 font-medium text-navy">{d.name}</td>
+                    <td className="py-2 pr-4 font-medium text-asfalto">{d.name}</td>
                     <td className="py-2 pr-4 text-text-secondary">{d.address ?? "—"}</td>
                     <td className="py-2 pr-4 font-mono text-xs text-text-secondary">
                       {d.lat.toFixed(5)}, {d.lng.toFixed(5)}

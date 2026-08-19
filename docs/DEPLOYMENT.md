@@ -61,7 +61,7 @@ starts the API. Health check: `/health`.
 ```bash
 DATABASE_URL="<supabase-uri>" pnpm --filter @moveos/api db:seed
 ```
-Creates the demo Bogotá tenant + users (`admin@demo.moveos.co / moveos123`).
+Creates the demo Bogotá tenant + users (`admin@demo.dalego.co / dalego123`).
 
 ### 4. Frontends → Vercel
 For each of `apps/web`, `apps/driver` and `apps/admin`:
@@ -75,7 +75,7 @@ Vercel project.
 
 ### 5. Try it from your phone
 Open the deployed driver app URL on your phone, log in as
-`carlos@demo.moveos.co / moveos123`, and the dashboard on your laptop — both
+`carlos@demo.dalego.co / dalego123`, and the dashboard on your laptop — both
 hit the same live API.
 
 ## Env matrix

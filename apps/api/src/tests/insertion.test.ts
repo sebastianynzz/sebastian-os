@@ -56,7 +56,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -71,7 +71,7 @@ beforeAll(async () => {
     phone: "+573000000777",
     documentId: "777888999",
     email: driverEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   driverId = driver.body.id;
 });
@@ -187,7 +187,7 @@ describe("inserción express en ruta existente", () => {
     await api("POST", `/routes/${routeId}/dispatch`, adminToken, { driverId });
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     const driverToken = login.body.token;
     await api("POST", `/routes/${routeId}/start`, driverToken);

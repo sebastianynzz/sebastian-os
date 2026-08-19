@@ -6,7 +6,7 @@ import { prisma } from "../lib/prisma.js";
 
 /**
  * Facturación de la suscripción SaaS (Tier 3 §13): el tenant mantiene sus datos
- * fiscales y ve su historial de facturas; la plataforma las emite. MoveOS no
+ * fiscales y ve su historial de facturas; la plataforma las emite. daleGo no
  * procesa pagos en la app (sin COD). Tenant-scoped; perfil editable por ADMIN.
  */
 const runId = Date.now();
@@ -48,7 +48,7 @@ beforeAll(async () => {
     data: {
       email: opsEmail,
       name: "Ops Bill",
-      passwordHash: await bcrypt.hash("moveos123", 10),
+      passwordHash: await bcrypt.hash("dalego123", 10),
     },
   });
 
@@ -57,7 +57,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -65,7 +65,7 @@ beforeAll(async () => {
   platformToken = (
     await api("POST", "/platform/auth/login", undefined, {
       email: opsEmail,
-      password: "moveos123",
+      password: "dalego123",
     })
   ).body.token;
 });

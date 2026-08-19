@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
         className="mx-auto mt-10 max-w-lg rounded-xl border border-danger/30 bg-danger-bg p-6 text-center"
       >
         <h2 className="text-lg font-bold text-danger">Algo salió mal</h2>
-        <p className="mt-2 text-sm text-navy/70">
+        <p className="mt-2 text-sm text-asfalto/70">
           Ocurrió un error inesperado en el panel. Puedes reintentar o recargar
           la página.
         </p>
@@ -58,13 +58,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="mt-4 flex justify-center gap-2">
           <button
             onClick={this.reset}
-            className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
+            className="rounded-lg bg-asfalto px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
           >
             Reintentar
           </button>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg border border-cielo px-4 py-2 text-sm font-semibold text-navy hover:bg-niebla"
+            className="rounded-lg border border-gris-senal px-4 py-2 text-sm font-semibold text-asfalto hover:bg-canvas"
           >
             Recargar la página
           </button>

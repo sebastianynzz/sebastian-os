@@ -25,7 +25,7 @@ export interface ModuleDescriptor {
   defaultEnabled: boolean;
   /**
    * Parte del núcleo obligatorio: siempre activo para todo tenant y no
-   * desactivable. MoveOS es EV-only — autonomía y carga son núcleo, no un
+   * desactivable. daleGo es EV-only — autonomía y carga son núcleo, no un
    * módulo de pago (restricción dura 1.3 de CLAUDE.md).
    */
   core?: boolean;
@@ -42,7 +42,7 @@ import type { TenantBusinessModel } from "./enums.js";
 /**
  * Preset de módulos por modelo de negocio: valores INICIALES al aprovisionar
  * un tenant desde la plataforma. Cada módulo sigue siendo togglable por
- * tenant después. FAAS incluye lo que MOVE necesita para operar su flota en
+ * tenant después. FAAS incluye lo que daleGo necesita para operar su flota en
  * sitio; LOGISTICS_3PL lo que un contrato de operación logística espera.
  */
 export const MODULE_PRESETS_BY_BUSINESS_MODEL: Record<

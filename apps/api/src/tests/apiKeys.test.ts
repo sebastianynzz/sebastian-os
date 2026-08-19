@@ -46,7 +46,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body.tenant.id;
   adminToken = reg.body.token;
@@ -83,7 +83,7 @@ describe("API keys + ingesta (Tier 2 §8)", () => {
   it("crea un pedido por ingesta con la API key", async () => {
     const res = await api("POST", "/ingest/orders", writeKey, orderBody);
     expect(res.status).toBe(201);
-    expect(res.body.trackingNumber).toMatch(/^MV-/);
+    expect(res.body.trackingNumber).toMatch(/^DG-/);
     const order = await prisma.order.findUniqueOrThrow({
       where: { id: res.body.id },
       select: { tenantId: true },

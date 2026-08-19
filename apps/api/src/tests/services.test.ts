@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { resetModuleEntitlementCache } from "../plugins/entitlements.js";
 
 /**
  * Servicios / SLA (D3): catálogo de promesas de entrega (precio por parada +
@@ -52,7 +53,7 @@ beforeAll(async () => {
     adminName: "Admin",
     city: "Bogotá",
     email: adminEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   tenantId = reg.body!.tenant.id;
   adminToken = reg.body!.token;
@@ -63,6 +64,8 @@ beforeAll(async () => {
     create: { tenantId, moduleKey: "ANALYTICS_PRO", enabled: true },
     update: { enabled: true },
   });
+  // Escritura directa con Prisma: el caché TTL de entitlements no se entera.
+  resetModuleEntitlementCache();
 
   // Negocio cliente + acceso al portal (para probar el alta con serviceId).
   const client = await api("POST", "/clients", adminToken, {
@@ -75,11 +78,11 @@ beforeAll(async () => {
   clientId = client.body!.id;
   await api("POST", `/clients/${clientId}/portal-access`, adminToken, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   const login = await api("POST", "/auth/login", undefined, {
     email: portalEmail,
-    password: "moveos123",
+    password: "dalego123",
   });
   portalToken = login.body!.token;
 });

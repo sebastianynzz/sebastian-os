@@ -4,7 +4,7 @@ import { Leaf, PackageSearch, Plus } from "lucide-react";
 import { api } from "../api";
 import { useRealtimeReload } from "../realtime";
 import { TrendChart } from "../components/charts";
-import { Card, KpiCard, Loading, PageHeader, StatusBadge } from "../components/ui";
+import { Banner, Card, KpiCard, Loading, PageHeader, StatusBadge } from "../components/ui";
 
 /**
  * Portal de clientes — "Resumen": el tablero del negocio. KPIs del mes, tasa
@@ -24,13 +24,22 @@ interface Summary {
 
 /** Enlace fantasma del revamp: blanco, borde navy 25 %, ícono inicial. */
 const ghostLinkClass =
-  "inline-flex items-center gap-1.5 rounded-md border border-navy/25 bg-surface px-3 py-1.5 text-sm font-medium text-navy transition duration-200 ease-brand hover:bg-lima/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy";
+  "inline-flex items-center gap-1.5 rounded-md border border-asfalto/25 bg-surface px-3 py-1.5 text-sm font-medium text-asfalto transition duration-200 ease-brand hover:bg-verde/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto";
 
 export default function PortalResumen() {
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setSummary(await api<Summary>("GET", "/portal/summary"));
+    // Sin este catch, un rechazo del endpoint (p. ej. 403 "Requiere una cuenta
+    // del portal de clientes" al entrar con una sesión que no es del portal)
+    // dejaba el spinner girando para siempre en vez de decir qué pasó.
+    try {
+      setSummary(await api<Summary>("GET", "/portal/summary"));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cargar el resumen");
+    }
   }
   useEffect(() => {
     void load();
@@ -38,7 +47,8 @@ export default function PortalResumen() {
   // Tiempo real: el tablero se refresca cuando un envío cambia de estado.
   useRealtimeReload(["order"], () => void load());
 
-  if (!summary) return <Loading label="Cargando su resumen…" />;
+  if (error) return <Banner kind="error">{error}</Banner>;
+  if (!summary) return <Loading label="Cargando tu resumen…" />;
 
   return (
     <div className="space-y-4">
@@ -48,7 +58,7 @@ export default function PortalResumen() {
         actions={
           <Link
             to="/portal/nuevo"
-            className="inline-flex items-center gap-1.5 rounded-md bg-lima px-3 py-1.5 text-sm font-semibold text-navy shadow-glow transition duration-200 ease-brand hover:bg-lima-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+            className="inline-flex items-center gap-1.5 rounded-md bg-verde px-3 py-1.5 text-sm font-semibold text-asfalto shadow-glow transition duration-200 ease-brand hover:bg-verde-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-asfalto"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
             Nuevo envío
@@ -97,7 +107,7 @@ export default function PortalResumen() {
                   className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
                 >
                   <StatusBadge status={s.status} />
-                  <span className="text-lg font-semibold text-navy">{s.count}</span>
+                  <span className="text-lg font-semibold text-asfalto">{s.count}</span>
                 </div>
               ))}
             </div>

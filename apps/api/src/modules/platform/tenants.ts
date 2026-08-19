@@ -18,6 +18,7 @@ import {
 } from "@moveos/shared";
 import { prisma } from "../../lib/prisma.js";
 import { invalidateTenantStatus } from "../../plugins/tenantStatus.js";
+import { invalidateModuleEntitlements } from "../../plugins/entitlements.js";
 import { auditPlatform, shallowDiff } from "../../services/platformAudit.js";
 
 /**
@@ -60,9 +61,9 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Aprovisionar un tenant desde la plataforma (fleet-as-a-service): MOVE crea
+   * Aprovisionar un tenant desde la plataforma (fleet-as-a-service): daleGo crea
    * la cuenta de un cliente con vehículos en sitio (SUB_OPERATOR) junto con su
-   * usuario administrador. El cliente opera solo; MOVE conserva la vista de
+   * usuario administrador. El cliente opera solo; daleGo conserva la vista de
    * plataforma y la propiedad de los activos.
    */
   app.post("/", async (request, reply) => {
@@ -149,7 +150,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
   });
 
   /**
-   * Asignar un vehículo (propiedad de MOVE) a un tenant sub-operador: el
+   * Asignar un vehículo (propiedad de daleGo) a un tenant sub-operador: el
    * vehículo queda en el tenant OPERADOR para todas las consultas operativas,
    * con ownerTenantId registrando la propiedad del activo.
    */
@@ -196,7 +197,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
 
   /**
    * Flota cruzada (solo plano de plataforma): los vehículos cuyo dueño es un
-   * tenant (MOVE) operando en OTROS tenants — utilización del activo, estado
+   * tenant (daleGo) operando en OTROS tenants — utilización del activo, estado
    * de telemetría y SoC, agrupados sin cruzar el plano de datos de cada uno.
    */
   app.get("/fleet/owned", async () => {
@@ -358,6 +359,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
           }),
         ),
       );
+      invalidateModuleEntitlements(params.id);
       await auditPlatform(request, "MODULE_TOGGLE", {
         targetTenantId: params.id,
         details: { moduleKey: key, enabled: true, cascade: toEnable },
@@ -389,6 +391,7 @@ export default async function platformTenantsRoutes(app: FastifyInstance) {
       create: { tenantId: params.id, moduleKey: key, enabled: false },
       update: { enabled: false },
     });
+    invalidateModuleEntitlements(params.id);
     await auditPlatform(request, "MODULE_TOGGLE", {
       targetTenantId: params.id,
       details: { moduleKey: key, enabled: false },

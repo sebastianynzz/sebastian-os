@@ -50,14 +50,14 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("flujo completo MoveOS", () => {
+describe("flujo completo daleGo", () => {
   it("registra un tenant con módulos por defecto", async () => {
     const res = await api("POST", "/auth/register", undefined, {
       tenantName: "Test Logística",
       adminName: "Admin Test",
       city: "Bogotá",
       email: adminEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(res.status).toBe(201);
     tenantId = res.body.tenant.id;
@@ -114,7 +114,7 @@ describe("flujo completo MoveOS", () => {
       phone: "+573000000001",
       documentId: "100200300",
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(driver.status).toBe(201);
     driverId = driver.body.id;
@@ -128,7 +128,7 @@ describe("flujo completo MoveOS", () => {
     });
     expect(withCoords.status).toBe(201);
     expect(withCoords.body.status).toBe("GEOCODED");
-    expect(withCoords.body.trackingNumber).toMatch(/^MV-[A-Z2-9]{8}$/);
+    expect(withCoords.body.trackingNumber).toMatch(/^DG-[A-Z2-9]{8}$/);
 
     // Dirección informal sin coordenadas: debe geocodificar (mock en dev).
     const informal = await api("POST", "/orders", adminToken, {
@@ -179,7 +179,7 @@ describe("flujo completo MoveOS", () => {
 
     const login = await api("POST", "/auth/login", undefined, {
       email: driverEmail,
-      password: "moveos123",
+      password: "dalego123",
     });
     expect(login.status).toBe(200);
     driverToken = login.body.token;

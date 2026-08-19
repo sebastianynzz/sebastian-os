@@ -1,5 +1,5 @@
 /*
- * MoveOS Dashboard — service worker mínimo para Web Push (P0.6).
+ * daleGo OS Dashboard — service worker mínimo para Web Push (P0.6).
  * Sin caché: el dashboard siempre va a red. Solo recibe avisos (pánico,
  * operación) con la pestaña cerrada y los abre al hacer clic.
  */
@@ -16,7 +16,7 @@ self.addEventListener("push", (event) => {
     // payload no-JSON: se muestra genérico
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "MoveOS", {
+    self.registration.showNotification(data.title || "daleGo", {
       body: data.body || "",
       icon: "/favicon.svg",
       badge: "/favicon.svg",

@@ -46,7 +46,7 @@ beforeAll(async () => {
       adminName: "Admin",
       city: "Bogotá",
       email: adminEmail,
-      password: "moveos123",
+      password: "dalego123",
     },
   });
   const body = reg.json();

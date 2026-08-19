@@ -1,5 +1,5 @@
 // packages/shared/src/vehicleTypeProfiles.ts
-// MoveOS EV fleet — 6 configurations across two product lines (Rap Move, IONAx).
+// daleGo EV fleet — 6 configurations across two product lines (Rap Move, IONAx).
 // Single source of truth read by the optimizer, the Vehiculos UI, the EV range model, and cold chain.
 // All vehicles are electric → pico y placa exempt nationally (Ley 1964/2019).
 //

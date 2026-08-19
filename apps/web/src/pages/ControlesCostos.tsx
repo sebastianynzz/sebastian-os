@@ -55,7 +55,7 @@ function UnitInput({
       <label htmlFor={id} className="mb-1 block text-[11px] font-semibold text-text-secondary">
         {label}
       </label>
-      <div className="flex items-stretch overflow-hidden rounded-md border border-border-strong bg-surface transition duration-200 ease-brand focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/25">
+      <div className="flex items-stretch overflow-hidden rounded-md border border-border-strong bg-surface transition duration-200 ease-brand focus-within:border-asfalto focus-within:ring-2 focus-within:ring-asfalto/25">
         <input
           id={id}
           type="number"
@@ -63,9 +63,9 @@ function UnitInput({
           step={step}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-sm text-navy placeholder:text-text-tertiary focus:outline-none"
+          className="w-full min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-sm text-asfalto placeholder:text-text-tertiary focus:outline-none"
         />
-        <span className="flex shrink-0 items-center border-l border-border bg-niebla px-2.5 text-[11px] text-text-tertiary">
+        <span className="flex shrink-0 items-center border-l border-border bg-canvas px-2.5 text-[11px] text-text-tertiary">
           {unit}
         </span>
       </div>
@@ -124,7 +124,7 @@ export default function ControlesCostos() {
   return (
     <div className="space-y-3.5">
       <div className="min-w-0">
-        <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-navy">Costos</h1>
+        <h1 className="text-[20px] font-semibold tracking-[-0.02em] text-asfalto">Costos</h1>
         <p className="mt-0.5 max-w-2xl text-[12.5px] text-text-secondary">
           Con estos parámetros la analítica calcula el costo por entrega: horas de ruta ×
           costo/hora del conductor + kWh × tarifa de energía.
@@ -140,7 +140,7 @@ export default function ControlesCostos() {
       ) : (
         <div className="flex max-w-2xl flex-col gap-2.5 rounded-lg border border-border bg-surface p-4 shadow-soft">
           <div>
-            <span className="text-sm font-semibold text-navy">Costos (energía-nativo)</span>
+            <span className="text-sm font-semibold text-asfalto">Costos (energía-nativo)</span>
             <span className="mt-0.5 block text-[11.5px] text-text-tertiary">
               Parámetros del costo por entrega en Analítica
             </span>
@@ -166,11 +166,11 @@ export default function ControlesCostos() {
           </div>
 
           {/* Vista previa en vivo de la fórmula con los parámetros actuales. */}
-          <div className="rounded-md bg-sky-50 px-3 py-2 text-[11.5px] leading-relaxed text-info">
+          <div className="rounded-md bg-info-bg px-3 py-2 text-[11.5px] leading-relaxed text-info">
             <strong className="font-semibold">Vista previa</strong> con la operación de{" "}
             {CURRENT_MONTH}: horas de ruta × <strong>{COP.format(driverCop)}</strong>/h + kWh
             consumidos × <strong>{COP.format(energyCop)}</strong>/kWh ÷ entregas del mes →{" "}
-            <strong className="font-semibold text-navy">costo por entrega</strong> en Analítica.
+            <strong className="font-semibold text-asfalto">costo por entrega</strong> en Analítica.
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 
 /**
- * Bitácora del plano de plataforma: toda mutación del operador MOVE queda
+ * Bitácora del plano de plataforma: toda mutación del operador daleGo queda
  * registrada (quién, qué, sobre qué tenant/usuario, con detalle JSON).
  *
  * Checklist para PRs: cualquier endpoint nuevo de /platform que mute estado
